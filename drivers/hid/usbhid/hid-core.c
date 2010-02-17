@@ -983,9 +983,6 @@ static int usbhid_start(struct hid_device *hid)
 
 	spin_lock_init(&usbhid->lock);
 
-	usbhid->intf = intf;
-	usbhid->ifnum = interface->desc.bInterfaceNumber;
-
 	usbhid->urbctrl = usb_alloc_urb(0, GFP_KERNEL);
 	if (!usbhid->urbctrl) {
 		ret = -ENOMEM;
@@ -1156,6 +1153,8 @@ static int usbhid_probe(struct usb_interface *intf, const struct usb_device_id *
 
 	hid->driver_data = usbhid;
 	usbhid->hid = hid;
+	usbhid->intf = intf;
+	usbhid->ifnum = interface->desc.bInterfaceNumber;
 
 	ret = hid_add_device(hid);
 	if (ret) {
