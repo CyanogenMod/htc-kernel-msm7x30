@@ -143,8 +143,6 @@ void end_cpu_work(void)
 
 		cancel_delayed_work(&b->work);
 	}
-
-	flush_scheduled_work();
 }
 
 /*
