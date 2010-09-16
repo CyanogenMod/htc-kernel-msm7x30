@@ -99,7 +99,7 @@ void mdp4_overlay_update_lcd(struct mdp_info *mdp, uint32_t addr, uint32_t strid
 	if (mddi_pipe == NULL) {
 
 		ptype = mdp4_overlay_format2type(MDP_RGB_565);
-		pipe = mdp4_overlay_pipe_alloc(ptype);
+		pipe = mdp4_overlay_pipe_alloc(ptype, 0);
 
 		pipe->pipe_type = ptype;
 		pipe->mdp = mdp;
