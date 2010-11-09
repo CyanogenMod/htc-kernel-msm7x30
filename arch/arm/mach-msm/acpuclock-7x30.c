@@ -53,6 +53,8 @@
 
 #define MAX_AXI_KHZ 192000
 
+#define PLL2_L_VAL_ADDR  (MSM_CLK_CTL_BASE + 0x33c)
+
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
 	struct mutex			lock;
@@ -81,7 +83,18 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 1, 368640 },
 	{ 2, 768000 },
 	{ 3, 806400 },
-	{ 4, CPUFREQ_TABLE_END },
+	{ 4, 1017600 },
+	{ 5, 1113600 },
+	{ 6, 1209600 },
+	{ 7, 1305600 },
+	{ 8, 1401600 },
+	{ 9, 1497600 },
+	{ 10, CPUFREQ_TABLE_END },
+	/* Just an example of some of the insanity I was able to pull off on my
+	   device */
+	//{ 8, 1612800 },
+	//{ 9, 1708800 },
+	//{ 10, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -96,10 +109,18 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 245760, PLL_3,    5, 2,  61440,  1000, VDD_RAW(1000) },
 	{ 368640, PLL_3,    5, 1,  122800, 1050, VDD_RAW(1050) },
 	{ 768000, PLL_1,    2, 0,  153600, 1100, VDD_RAW(1100) },
-	/* ACPU >= 806.4MHz requires MSMC1 @ 1.2V. Voting for
-	 * AXI @ 192MHz accomplishes this implicitly. 806.4MHz
-	 * is updated to 1024MHz at runtime for QSD8x55. */
+	/* Make sure any freq based from PLL_2 is a multiple of 19200! 
+	   Voltage tables are being very conservative and are not designed to
+	   be an undervolt of any sort. */
 	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100) },
+	{ 1017600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
+	{ 1113600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
+	{ 1209600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
+	{ 1305600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
+	{ 1401600, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
+	{ 1497600, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
+	//{ 1612800, PLL_2,   3, 0,  192000, 1400, VDD_RAW(1400) },
+	//{ 1708800, PLL_2,   3, 0,  192000, 1400, VDD_RAW(1400) },
 	{ 0 }
 };
 static unsigned long max_axi_rate;
@@ -154,6 +175,11 @@ static void acpuclk_set_src(const struct clkctl_acpu_speed *s)
 	reg_clkctl |= s->acpu_src_sel << (4 + 8 * src_sel);
 	reg_clkctl |= s->acpu_src_div << (0 + 8 * src_sel);
 	writel(reg_clkctl, SCSS_CLK_CTL_ADDR);
+
+	/* Program PLL2 L val for overclocked speeds. */
+	if(s->src == PLL_2) {
+		writel(s->acpu_clk_khz/19200, PLL2_L_VAL_ADDR);
+	}
 
 	/* Toggle clock source. */
 	reg_clksel ^= 1;
@@ -450,7 +476,7 @@ static void __init lpj_init(void)
 	}
 }
 
-/* Update frequency tables for a 1024MHz PLL2. */
+/* Update frequency tables for a 1017.6MHz PLL2. */
 void __init pll2_1024mhz_fixup(void)
 {
 	if (acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz != 806400
@@ -458,8 +484,8 @@ void __init pll2_1024mhz_fixup(void)
 		pr_err("Frequency table fixups for PLL2 rate failed.\n");
 		BUG();
 	}
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz = 1024000;
-	freq_table[ARRAY_SIZE(freq_table)-2].frequency = 1024000;
+	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz = 1017600;
+	freq_table[ARRAY_SIZE(freq_table)-2].frequency = 1017600;
 }
 
 #define RPM_BYPASS_MASK	(1 << 3)
@@ -473,9 +499,10 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	drv_state.wfi_ramp_down = 1;
 	drv_state.pwrc_ramp_down = 1;
-	/* PLL2 runs at 1024MHz for MSM8x55. */
-	if (cpu_is_msm8x55())
+	/* PLL2 runs at 1017.6MHz for MSM8x55. */
+	if (cpu_is_msm8x55()) {
 		pll2_1024mhz_fixup();
+	}
 	acpuclk_init();
 	lpj_init();
 
