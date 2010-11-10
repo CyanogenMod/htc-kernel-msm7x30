@@ -2743,6 +2743,9 @@ int emulator_get_dr(struct x86_emulate_ctxt *ctxt, int dr, unsigned long *dest)
 {
 	struct kvm_vcpu *vcpu = ctxt->vcpu;
 
+	if (!kvm_x86_ops->get_dr)
+		return X86EMUL_UNHANDLEABLE;
+
 	switch (dr) {
 	case 0 ... 3:
 		*dest = kvm_x86_ops->get_dr(vcpu, dr);
@@ -2757,6 +2760,9 @@ int emulator_set_dr(struct x86_emulate_ctxt *ctxt, int dr, unsigned long value)
 {
 	unsigned long mask = (ctxt->mode == X86EMUL_MODE_PROT64) ? ~0ULL : ~0U;
 	int exception;
+
+	if (!kvm_x86_ops->set_dr)
+		return X86EMUL_UNHANDLEABLE;
 
 	kvm_x86_ops->set_dr(ctxt->vcpu, dr, value & mask, &exception);
 	if (exception) {
