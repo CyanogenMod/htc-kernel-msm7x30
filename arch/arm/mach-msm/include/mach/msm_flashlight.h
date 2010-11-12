@@ -37,6 +37,7 @@ enum flashlight_mode_flags {
 	FL_MODE_TORCH_LED_B,
 	FL_MODE_TORCH_LEVEL_1,
 	FL_MODE_TORCH_LEVEL_2,
+	FL_MODE_DEATH_RAY,
 };
 
 struct flashlight_platform_data {
