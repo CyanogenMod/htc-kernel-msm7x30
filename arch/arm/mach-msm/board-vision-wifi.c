@@ -9,7 +9,7 @@
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <linux/skbuff.h>
-#include <linux/wifi_tiwlan.h>
+#include <linux/wlan_plat.h>
 
 #include "board-vision.h"
 
@@ -77,7 +77,7 @@ static struct resource vision_wifi_resources[] = {
 		.name		= "bcm4329_wlan_irq",
 		.start		= MSM_GPIO_TO_INT(VISION_GPIO_WIFI_IRQ),
 		.end		= MSM_GPIO_TO_INT(VISION_GPIO_WIFI_IRQ),
-		.flags          = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+		.flags          = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
 	},
 };
 
@@ -86,7 +86,6 @@ static struct wifi_platform_data vision_wifi_control = {
 	.set_reset      = vision_wifi_reset,
 	.set_carddetect = vision_wifi_set_carddetect,
 	.mem_prealloc   = vision_wifi_mem_prealloc,
-	.dot11n_enable  = 1,
 };
 
 static struct platform_device vision_wifi_device = {

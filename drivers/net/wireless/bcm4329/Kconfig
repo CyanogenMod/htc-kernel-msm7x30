@@ -1,6 +1,8 @@
 config BCM4329
 	tristate "Broadcom 4329 wireless cards support"
-	depends on WIRELESS_EXT && MMC
+	depends on MMC
+	select WIRELESS_EXT
+	select WEXT_PRIV
 	---help---
 	  This module adds support for wireless adapters based on
 	  Broadcom 4329 chipset.
