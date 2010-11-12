@@ -1114,7 +1114,7 @@ struct sched_class {
 	unsigned int (*get_rr_interval) (struct task_struct *task);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
-	void (*moved_group) (struct task_struct *p);
+	void (*task_move_group) (struct task_struct *p);
 #endif
 };
 
