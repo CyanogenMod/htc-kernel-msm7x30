@@ -180,18 +180,24 @@ static struct gpio_event_direct_entry vision_keypad_input_map[] = {
 	{
 		.gpio = VISION_GPIO_KEYPAD_POWER_KEY,
 		.code = KEY_POWER,
+        .wakeup = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(VISION_VOL_UP),
 		.code = KEY_VOLUMEUP,
+		.wakeup = 1,
+		.check_call_status = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(VISION_VOL_DN),
 		.code = KEY_VOLUMEDOWN,
+		.wakeup = 1,
+		.check_call_status = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(VISION_OJ_ACTION),
 		.code = BTN_MOUSE,
+		.wakeup = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(VISION_CAM_STEP2),
@@ -228,6 +234,7 @@ static struct gpio_event_direct_entry vision_sliding_switch[] = {
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(VISION_SLIDING_INTz),
 		.code = SW_LID,
+		.wakeup = 1,
 	},
 };
 
