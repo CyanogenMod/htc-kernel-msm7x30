@@ -89,12 +89,16 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 7, 1305600 },
 	{ 8, 1401600 },
 	{ 9, 1497600 },
+#ifndef CONFIG_JESUS_PHONE
 	{ 10, CPUFREQ_TABLE_END },
+#else
 	/* Just an example of some of the insanity I was able to pull off on my
 	   device */
-	//{ 8, 1612800 },
-	//{ 9, 1708800 },
-	//{ 10, CPUFREQ_TABLE_END },
+	{ 10, 1612800 },
+	{ 11, 1708800 },
+	{ 12, 1804800 },
+	{ 13, CPUFREQ_TABLE_END },
+#endif
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -119,8 +123,11 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 1305600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
 	{ 1401600, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
 	{ 1497600, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
-	//{ 1612800, PLL_2,   3, 0,  192000, 1400, VDD_RAW(1400) },
-	//{ 1708800, PLL_2,   3, 0,  192000, 1400, VDD_RAW(1400) },
+#ifdef CONFIG_JESUS_PHONE
+	{ 1612800, PLL_2,   3, 0,  192000, 1400, VDD_RAW(1400) },
+	{ 1708800, PLL_2,   3, 0,  192000, 1400, VDD_RAW(1400) },
+	{ 1804800, PLL_2,   3, 0,  192000, 1450, VDD_RAW(1450) },
+#endif
 	{ 0 }
 };
 static unsigned long max_axi_rate;

@@ -967,6 +967,14 @@ config MSM_CPU_FREQ_ONDEMAND_MIN
 	int "Min"
 	default 245760
 
+config JESUS_PHONE
+	bool "Jesus Phone mode"
+	default n
+        depends on CPU_FREQ && !PERFLOCK
+        depends on ARCH_QSD8X50 || ARCH_MSM7X30 || ARCH_MSM7X00A || ARCH_MSM7227 || ARCH_MSM7225
+	help
+	 Enable support for dangerous acpuclock frequencies/voltages.
+
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
 	depends on EARLYSUSPEND
