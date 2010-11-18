@@ -1,0 +1,104 @@
+choice
+        prompt "Qualcomm MSM camera and video capture support"
+	depends on MSM_CAMERA
+        default MSM_CAMERA_LEGACY
+
+        config MSM_CAMERA_LEGACY
+                bool "msm camera legacy"
+
+        config MSM_CAMERA_7X30
+                bool "msm camera 7x30"
+
+endchoice
+
+config 720P_CAMERA
+        bool "Qualcomm MSM camera with 720P video support"
+        depends on MSM_CAMERA_LEGACY
+        help
+          720P video support
+
+config MSM_CAMERA_DEBUG
+	bool "Qualcomm MSM camera debugging with printk"
+	depends on MSM_CAMERA
+	help
+	  Enable printk() debug for msm camera
+
+comment "Camera Sensor Selection"
+config MT9T013
+	bool "Sensor mt9t013 (BAYER 3M)"
+	depends on MSM_CAMERA
+	---help---
+	  MICRON 3M Bayer Sensor with AutoFocus
+
+config MT9D112
+	bool "Sensor mt9d112 (YUV 2M)"
+	depends on MSM_CAMERA 
+	---help---
+	  MICRON 2M YUV Sensor
+
+config MT9P012
+	bool "Sensor mt9p012 (BAYER 5M)"
+	depends on MSM_CAMERA
+	---help---
+	  MICRON 5M Bayer Sensor with Autofocus
+
+config MSM_CAMERA_AF_FOXCONN
+	bool "FOXCONN Module"
+	depends on MT9P012
+	---help---
+	  This driver supports FOXCONN AF module for 5M Bayer sensor
+config S5K3E2FX
+	bool "Sensor s5k3e2fx (Samsung 5M)"
+	depends on MSM_CAMERA
+	---help---
+	  Samsung 5M with Autofocus
+
+config S5K4E1GX
+	bool "Sensor s5k4e1gx (Samsung 5M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Samsung 5M with Autofocus
+
+config S5K6AAFX
+	bool "Sensor s5k6aafx (Samsung 1.3M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Samsung 1.3M without Autofocus
+
+config OV8810
+	bool "Sensor ov8810"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OmniVision 8M Bayer Sensor
+
+config OV9665
+	bool "Sensor ov9665"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OmniVision 3M YUV Sensor
+
+config S5K3H1GX
+        bool "Sensor s5k3h1gx"
+        depends on MSM_CAMERA
+        default n
+        ---help---
+          Samsung 8M 3H1 MIPI AF Sensor
+
+config MSM_GEMINI
+	bool "Qualcomm MSM Gemini Jpeg Engine support"
+	depends on MSM_CAMERA_7X30
+	default n
+	---help---
+	  Enable support for Gemini Jpeg Engine
+
+config MT9V113
+	bool "Sensor mt9v113"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  MICRON VGA YUV Sensor
+

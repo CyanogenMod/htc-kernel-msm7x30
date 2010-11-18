@@ -1,0 +1,10 @@
+menu "Diag Support"
+
+config DIAG_CHAR
+	tristate "char driver interface and diag forwarding to/from ARM9"
+	default n
+	depends on USB_ANDROID_DIAG
+	depends on ARCH_MSM
+	help
+	 Char driver interface for diag user space and diag-forwarding to modem ARM and back.
+endmenu

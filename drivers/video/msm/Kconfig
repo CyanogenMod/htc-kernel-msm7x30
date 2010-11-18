@@ -1,0 +1,99 @@
+source "drivers/video/msm/vidc/Kconfig"
+config FB_MSM
+	tristate
+	depends on FB && ARCH_MSM
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	default y
+
+config FB_MSM_LEGACY_MDP
+	bool
+	depends on FB_MSM && (MSM_MDP30 || MSM_MDP31 || MSM_MDP302)
+	default y
+
+config FB_MSM_MDP_PPP
+	bool
+	depends on FB_MSM_LEGACY_MDP
+	default y
+
+config FB_MSM_LCDC
+	bool "Support for integrated LCD controller in qsd8x50 ,MSM7x27 and MSM7x30"
+	depends on FB_MSM && (MSM_MDP31 || MSM_MDP302 || MSM_MDP40)
+	default y
+
+config FB_MSM_TVOUT
+	bool "Support for TV-Out in qsd8x50"
+	depends on FB_MSM && (MSM_MDP31 || MSM_MDP40)
+	default n
+
+config FB_MSM_OVERLAY
+	bool "Support for overlay in MSM7X30"
+	depends on FB_MSM && MSM_MDP40
+	default y
+
+config FB_MSM_DTV
+	depends on FB_MSM_OVERLAY
+	bool
+	default n
+
+config GPU_MSM_KGSL
+	tristate "MSM 3D Graphics driver for QSD8x50 and MSM7x27"
+	default n
+	depends on FB_MSM && (ARCH_QSD8X50 || ARCH_MSM7227 || ARCH_MSM7X30)
+	select GENERIC_ALLOCATOR
+	select CONFIG_FW_LOADER
+	help
+	  3D graphics driver for QSD8x50 and MSM7x27. Required to
+	  use hardware accelerated OpenGL ES 2.0 and 1.1 on these
+	  chips.
+
+config GPU_MSM_KGSL_ADRENO205
+        bool "MSM 3D Graphics driver for Adreno205"
+        depends on FB_MSM && GPU_MSM_KGSL && ARCH_MSM7X30
+        default y
+        help
+          3D graphics driver for Adreno205. Required to
+          use hardware accelerated OpenGL ES 2.0 and 1.1 on these
+          chips.
+
+
+config MSM_ROTATOR
+        tristate "MSM Offline Image Rotator Driver"
+        depends on ARCH_MSM7X30 && ANDROID_PMEM
+        default y
+        help
+          This driver provides support for the image rotator HW block in the
+          MSM 7x30 SoC.
+
+config MSM_ROTATOR_USE_IMEM
+        bool "Enable rotator driver to use iMem"
+        depends on MSM_ROTATOR
+        default y
+        help
+          This option enables the msm_rotator driver to use the move efficient
+          iMem.  Some MSM platforms may not have iMem available for the rotator
+          block.  Or some systems may want the iMem to be dedicated to a
+          different function.
+
+config MSM_KGSL_MMU
+	bool "Turn on MMU for graphics driver "
+	depends on GPU_MSM_KGSL && MMU
+	default n
+	help
+	  If enabled, the GPU driver will allocate memory from vmalloc
+	  and enable the use of GPU MMU, instead of using pmem.
+
+config MSM_KGSL_PER_FD_PAGETABLE
+        bool "Turn on per-fd pagetable for MMU of graphics driver "
+        depends on MSM_KGSL_MMU && MMU
+        default n
+        help
+         If enabled, the MMU unit of GPU driver will use seperate
+         pagetables for each file descriptor
+
+config MSM_HDMI
+	bool "Support for HDMI in QCT platform"
+	depends on MSM_MDP31 || MSM_MDP40
+	default n
+

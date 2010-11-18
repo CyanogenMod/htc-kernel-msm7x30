@@ -1,0 +1,87 @@
+menu "USB Function Support"
+
+config USB_FUNCTION
+	boolean "Support for USB Function Drivers"
+	help
+	   The USB Function framework is similar to the Gadget framework
+	   but a little simpler and a little more plugable.  It trades
+	   some flexibility in the framework for smaller and simpler
+	   function drivers that can be combined into a composite driver.
+
+choice
+	prompt "USB Peripheral Controller"
+	depends on USB_FUNCTION
+	
+config USB_FUNCTION_MSM_HSUSB
+	boolean "MSM7K Highspeed USB Peripheral Controller"
+	depends on ARCH_MSM
+
+endchoice
+
+config USB_FUNCTION_NULL
+	boolean "Null Function -- eats packets"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_ZERO
+	boolean "Zero Function -- generates packets"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_LOOPBACK
+	boolean "Loopback Function -- returns packets"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_ADB
+	boolean "ADB Transport Function"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_UMS
+	boolean "USB Mass Storage Function (userspace)"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_MASS_STORAGE
+	boolean "USB Mass Storage Function (kernel based)"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_DIAG
+	boolean "USB MSM7K Diag Function"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_ETHER
+	boolean "USB Ethernet Function"
+	depends on USB_FUNCTION
+config USB_FUNCTION_RNDIS
+        boolean "USB RNDIS support"
+        depends on USB_FUNCTION_ETHER
+        default y
+
+config USB_FUNCTION_FSYNC
+	boolean "USB MSM7K FSYNC Function"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_SERIAL
+	boolean "USB SERIAL Function"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_PROJECTOR
+	boolean "USB PROJECTOR Function"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_MTP_TUNNEL
+	boolean "MTP Tunnel Transport Function"
+	depends on USB_FUNCTION
+
+config USB_FUNCTION_MODEM
+	boolean "USB MODEM Function"
+	depends on USB_FUNCTION
+
+config USB_BYPASS_VBUS_NOTIFY
+	boolean "USB BYPASS VBUS NOTIFY"
+	depends on USB_FUNCTION
+	default n
+
+config USB_FUNCTION_CAT_KIT
+	boolean "USB FUNCTION CAT KIT"
+	depends on USB_FUNCTION
+	default n
+
+endmenu
