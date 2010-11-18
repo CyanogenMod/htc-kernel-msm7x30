@@ -38,6 +38,11 @@ enum {
 	CHARGE_STATE_FULL_PENDING,  	/* charging full, stop charging*/
 };
 
+enum {
+	THERMAL_300,
+	THERMAL_1000,
+};
+
 /* power algorithm data structure and config data structure*/
 
 struct poweralg_type
@@ -84,6 +89,10 @@ struct poweralg_config_type
 	BOOL debug_disable_hw_timer;
 	BOOL debug_always_predict;
 	INT32 full_level;                  /* 0 to disable*/
+};
+
+struct ds2746_platform_data {
+	int (*func_get_thermal_id)(void);
 };
 
 /* battery behavior constant*/

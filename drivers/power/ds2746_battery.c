@@ -1100,13 +1100,16 @@ static void ds2746_battery_alarm(struct alarm *alarm)
 	queue_work(di->monitor_wqueue, &di->monitor_work);
 }
 
-
 static int ds2746_battery_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct ds2746_device_info *di;
+	struct ds2746_platform_data *pdata = pdev->dev.platform_data;
 
 	pr_info("[ds2746_batt] ds2746_battery_prob\n");
+
+	poweralg.battery.thermal_id = pdata->func_get_thermal_id();
+
 	power_alg_preinit();
 	power_alg_init(&debug_config);
 

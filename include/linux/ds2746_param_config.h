@@ -18,7 +18,8 @@ Original Auther:
 ---------------------------------------------------------------------------------*/
 
 
-
+#ifndef __BATT_PARAM_CONFIG_H__
+#define __BATT_PARAM_CONFIG_H__
 #define HTC_BATT_BOARD_NAME "ACE"
 
 /*========================================================================================
@@ -57,7 +58,7 @@ If temp_adc is located on 0-95, then the temp_01c is 700.
 			  ...
 			  1433-2046, then the temp_01c is -11.
 */
-UINT32 TEMP_MAP_XABC[] =
+UINT32 TEMP_MAP_300K[] =
 {
 0, 96, 100, 103, 107, 111, 115, 119, 123, 127,
 133, 137, 143, 148, 154, 159, 165, 172, 178, 185,
@@ -70,7 +71,7 @@ UINT32 TEMP_MAP_XABC[] =
 1406, 1433, 2047,
 };
 
-UINT32 TEMP_MAP_XD[] =
+UINT32 TEMP_MAP_1000K[] =
 {
 0, 30, 31, 32, 34, 35, 36, 38, 39, 40,
 42, 44, 45, 47, 49, 51, 53, 55, 57, 60,
@@ -83,7 +84,7 @@ UINT32 TEMP_MAP_XD[] =
 812, 843, 2047,
 };
 
-UINT32 *TEMP_MAP = TEMP_MAP_XD;
+UINT32 *TEMP_MAP = TEMP_MAP_300K;
 
 UINT32 FL_25[] =
 {
@@ -269,3 +270,5 @@ static BOOL is_allow_batt_id_change = FALSE;
 #define TEMP_MAX 70
 #define TEMP_MIN -11
 #define TEMP_NUM 83
+
+#endif
