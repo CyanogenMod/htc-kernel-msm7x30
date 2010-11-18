@@ -47,6 +47,8 @@
 #include <mach/clk.h>
 #include <mach/dma.h>
 #include <mach/htc_pwrsink.h>
+#include <mach/gpio.h>
+#include "mach/../../proc_comm.h"
 
 #include "msm_sdcc.h"
 
@@ -79,6 +81,7 @@ static unsigned int msmsdcc_4bit = 1;
 static unsigned int msmsdcc_pwrsave = 1;
 static unsigned int msmsdcc_piopoll = 1;
 static unsigned int msmsdcc_sdioirq = 1;
+static unsigned int msmsdcc_power_gpio = 0;
 static unsigned long msmsdcc_irqtime;
 
 
@@ -1857,6 +1860,19 @@ static struct platform_driver msmsdcc_driver = {
 
 static int __init msmsdcc_init(void)
 {
+	if (msmsdcc_power_gpio) {
+		uint32_t emmc_power_table[2];
+		pr_info("%s: power cycling emmc (GPIO %u)\n", __func__, msmsdcc_power_gpio);
+		emmc_power_table[0] = PCOM_GPIO_CFG(msmsdcc_power_gpio, 0, GPIO_INPUT, GPIO_NO_PULL, GPIO_4MA);
+		emmc_power_table[1] = PCOM_GPIO_CFG(msmsdcc_power_gpio, 2, GPIO_INPUT, GPIO_NO_PULL, GPIO_4MA);
+		config_gpio_table(emmc_power_table, ARRAY_SIZE(emmc_power_table));
+		mdelay(1000);
+		emmc_power_table[0] = PCOM_GPIO_CFG(msmsdcc_power_gpio, 0, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_4MA);
+		emmc_power_table[1] = PCOM_GPIO_CFG(msmsdcc_power_gpio, 2, GPIO_OUTPUT, GPIO_PULL_DOWN, GPIO_4MA);
+		config_gpio_table(emmc_power_table, ARRAY_SIZE(emmc_power_table));
+		mdelay(1000);
+	}
+
 	return platform_driver_register(&msmsdcc_driver);
 }
 
@@ -1903,12 +1919,23 @@ static int __init msmsdcc_fmax_setup(char *str)
 	msmsdcc_fmax = n;
 	return 1;
 }
+
+static int __init msmsdcc_power_gpio_setup(char *str)
+{
+	unsigned int n;
+
+	if (!get_option(&str, &n))
+		return 0;
+	msmsdcc_power_gpio = n;
+	return 1;
+}
 #endif
 
 __setup("msmsdcc_pwrsave", msmsdcc_pwrsave_setup);
 __setup("msmsdcc_nopwrsave", msmsdcc_nopwrsave_setup);
 __setup("msmsdcc_fmin=", msmsdcc_fmin_setup);
 __setup("msmsdcc_fmax=", msmsdcc_fmax_setup);
+__setup("msmsdcc_power_gpio=", msmsdcc_power_gpio_setup);
 
 module_init(msmsdcc_init);
 module_exit(msmsdcc_exit);
