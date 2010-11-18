@@ -37,6 +37,7 @@ struct battery_type{
 		INT32 pd_m;
 
 		INT32 software_charge_counter_mAms;
+		INT32 thermal_id;
 };
 
 struct protect_flags_type{

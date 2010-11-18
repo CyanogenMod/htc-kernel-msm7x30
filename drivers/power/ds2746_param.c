@@ -819,11 +819,6 @@ BOOL battery_param_update(struct battery_type *battery,	struct protect_flags_typ
 
 void battery_param_init(struct battery_type *battery)
 {
-	/*    UINT8 reg_data;*/
-	printk(DRIVER_ZONE "system_rev = %d\n", system_rev);
-	if (system_rev <= 2)
-		TEMP_MAP = TEMP_MAP_XABC;
-
 	/* set battery id to unknown to get battery id and related characters*/
 	battery->id_index = BATTERY_ID_UNKNOWN;
 
@@ -843,6 +838,13 @@ void battery_param_init(struct battery_type *battery)
 
 	if (support_ds2746_gauge_ic) {
 		__ds2746_init_config(battery);
+	}
+
+	if (battery->thermal_id == THERMAL_1000) {
+		TEMP_MAP = TEMP_MAP_1000K;
+		printk(DRIVER_ZONE "Use 1000 Kohm thermal resistance");
+	} else {
+		printk(DRIVER_ZONE "Use default(300 Kohm) thermal resistance");
 	}
 
 	/*printk(DRIVER_ZONE "battery param inited with board name <%s>\n", HTC_BATT_BOARD_NAME);*/
