@@ -184,15 +184,12 @@ static void ganeth_rx_data_ready(struct sock *sk, int len)
 
 	netdev->stats.rx_packets++;
 	netdev->stats.rx_bytes += rxskb->len;
-	skb_free_datagram(sk, skb);
 	return;
 
 out_err:
 	netdev->stats.rx_errors++;
 	netdev->stats.rx_dropped++;
-	skb_free_datagram(sk, skb);
 	return;
-
 }
 
 static const struct net_device_ops ganeth_netdev_ops = {
