@@ -17,7 +17,7 @@
  */
 
 #include "vidc_type.h"
-#include "vidc.h"
+
 #include "vcd_ddl_utils.h"
 #include "vcd_ddl_metadata.h"
 
@@ -28,615 +28,598 @@
 #endif
 
 static void ddl_decoder_input_done_callback(
-	struct	ddl_client_context *ddl, u32 frame_transact_end);
+	struct	ddl_client_context_type *p_ddl, u32 b_frame_transact_end);
 static u32 ddl_decoder_output_done_callback(
-	struct ddl_client_context *ddl, u32 frame_transact_end);
+	struct ddl_client_context_type *p_ddl, u32 b_frame_transact_end);
 
-static u32 ddl_get_frame
-    (struct vcd_frame_data *frame, u32 frame_type);
+static u32 ddl_get_frame_type
+    (struct vcd_frame_data_type *p_frame, u32 n_frame_type);
 
 static void ddl_getdec_profilelevel
-(struct ddl_decoder_data   *decoder, u32 profile, u32 level);
+(struct ddl_decoder_data_type   *p_decoder, u32 n_profile, u32 n_level);
 
-static void ddl_dma_done_callback(struct ddl_context *ddl_context)
+static void ddl_dma_done_callback(struct ddl_context_type *p_ddl_context)
 {
-	if (!DDLCOMMAND_STATE_IS(ddl_context, DDL_CMD_DMA_INIT)) {
+	if (!DDLCOMMAND_STATE_IS(p_ddl_context, DDL_CMD_DMA_INIT)) {
 		VIDC_LOGERR_STRING("UNKWN_DMADONE");
 		return;
 	}
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 	VIDC_LOG_STRING("DMA_DONE");
-	ddl_core_start_cpu(ddl_context);
+	ddl_core_start_cpu(p_ddl_context);
 }
 
-static void ddl_cpu_started_callback(struct ddl_context *ddl_context)
+static void ddl_cpu_started_callback(struct ddl_context_type *p_ddl_context)
 {
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 	VIDC_LOG_STRING("CPU-STARTED");
 
 	if (!vidc_720p_cpu_start()) {
-		ddl_hw_fatal_cb(ddl_context);
+		ddl_hw_fatal_cb(p_ddl_context);
 		return;
 	}
 
 	vidc_720p_set_deblock_line_buffer(
-			ddl_context->db_line_buffer.align_physical_addr,
-			ddl_context->db_line_buffer.buffer_size);
-	ddl_context->device_state = DDL_DEVICE_INITED;
-	ddl_context->ddl_callback(VCD_EVT_RESP_DEVICE_INIT, VCD_S_SUCCESS,
-			NULL, 0, NULL, ddl_context->client_data);
-	DDL_IDLE(ddl_context);
+			p_ddl_context->db_line_buffer.p_align_physical_addr,
+			p_ddl_context->db_line_buffer.n_buffer_size);
+	p_ddl_context->n_device_state = DDL_DEVICE_INITED;
+	p_ddl_context->ddl_callback(VCD_EVT_RESP_DEVICE_INIT, VCD_S_SUCCESS,
+			NULL, 0, NULL, p_ddl_context->p_client_data);
+	DDL_IDLE(p_ddl_context);
 }
 
 
-static u32 ddl_eos_done_callback(struct ddl_context *ddl_context)
+static void ddl_eos_done_callback(struct ddl_context_type *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	u32 displaystatus, resl_change;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	u32 n_displaystatus;
 
-	if (!DDLCOMMAND_STATE_IS(ddl_context, DDL_CMD_EOS)) {
+	if (!DDLCOMMAND_STATE_IS(p_ddl_context, DDL_CMD_EOS)) {
 		VIDC_LOGERR_STRING("UNKWN_EOSDONE");
-		ddl_client_fatal_cb(ddl_context);
-		return true;
+		ddl_client_fatal_cb(p_ddl_context);
+		return;
 	}
 
-	if (!ddl ||
-		!ddl->decoding ||
-		!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)
+	if (!p_ddl ||
+		!p_ddl->b_decoding ||
+		!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-EOSDONE");
-		ddl_client_fatal_cb(ddl_context);
-		return true;
+		ddl_client_fatal_cb(p_ddl_context);
+		return;
 	}
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 
-	vidc_720p_eos_info(&displaystatus, &resl_change);
-	if ((enum vidc_720p_display_status)displaystatus
+	vidc_720p_eos_info(&n_displaystatus);
+	if ((enum vidc_720p_display_status_type)n_displaystatus
 		!= VIDC_720P_EMPTY_BUFFER) {
 		VIDC_LOG_STRING("EOSDONE-EMPTYBUF-ISSUE");
 	}
 
-	ddl_decode_dynamic_property(ddl, false);
-	if (resl_change == 0x1) {
-		ddl->codec_data.decoder.header_in_start = false;
-		ddl->codec_data.decoder.decode_config.sequence_header =
-			ddl->input_frame.vcd_frm.physical;
-		ddl->codec_data.decoder.decode_config.sequence_header_len =
-			ddl->input_frame.vcd_frm.data_len;
-		ddl_decode_init_codec(ddl);
-		return false;
-	}
-	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_FRAME);
+	ddl_decode_dynamic_property(p_ddl, FALSE);
+	ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME);
 	VIDC_LOG_STRING("EOS_DONE");
-	ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE, VCD_S_SUCCESS,
-		NULL, 0, (u32 *) ddl, ddl_context->client_data);
-	DDL_IDLE(ddl_context);
+	p_ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE, VCD_S_SUCCESS,
+		NULL, 0, (u32 *) p_ddl, p_ddl_context->p_client_data);
 
-	return true;
+	DDL_IDLE(p_ddl_context);
 }
 
-static u32 ddl_channel_set_callback(struct ddl_context *ddl_context)
+static u32 ddl_channel_set_callback(struct ddl_context_type *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	u32 return_status = false;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	u32 return_status = FALSE;
 
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 	VIDC_DEBUG_REGISTER_LOG;
 
-	if (!ddl ||
-		!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_CHDONE)
+	if (!p_ddl ||
+		!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_CHDONE)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-CHSET");
-		DDL_IDLE(ddl_context);
+		DDL_IDLE(p_ddl_context);
 		return return_status;
 	}
 	VIDC_LOG_STRING("Channel-set");
-	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_INITCODEC);
+	ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_INITCODEC);
 
-	if (ddl->decoding) {
-		if (ddl->codec_data.decoder.header_in_start) {
-			ddl_decode_init_codec(ddl);
+	if (p_ddl->b_decoding) {
+		if (p_ddl->codec_data.decoder.b_header_in_start) {
+			ddl_decode_init_codec(p_ddl);
 		} else {
-			ddl_context->ddl_callback(VCD_EVT_RESP_START,
+			p_ddl_context->ddl_callback(VCD_EVT_RESP_START,
 				VCD_S_SUCCESS, NULL,
-				0, (u32 *) ddl,
-				ddl_context->client_data);
+				0, (u32 *) p_ddl,
+				p_ddl_context->p_client_data);
 
-			DDL_IDLE(ddl_context);
-			return_status = true;
+			DDL_IDLE(p_ddl_context);
+			return_status = TRUE;
 		}
 	} else {
-		ddl_encode_init_codec(ddl);
+		ddl_encode_init_codec(p_ddl);
 	}
 	return return_status;
 }
 
-static void ddl_init_codec_done_callback(struct ddl_context *ddl_context)
+static void ddl_init_codec_done_callback(struct ddl_context_type *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	struct ddl_encoder_data *encoder;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	struct ddl_encoder_data_type *p_encoder;
 
-	if (!ddl ||
-		ddl->decoding ||
-		!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_INITCODECDONE)
+	if (!p_ddl ||
+		p_ddl->b_decoding ||
+		!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_INITCODECDONE)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-INITCODEC");
-		ddl_client_fatal_cb(ddl_context);
+		ddl_client_fatal_cb(p_ddl_context);
 		return;
 	}
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
-	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_FRAME);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
+	ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME);
 	VIDC_LOG_STRING("INIT_CODEC_DONE");
 
-	encoder = &ddl->codec_data.encoder;
-	if (encoder->seq_header.virtual_base_addr) {
-		vidc_720p_encode_get_header(&encoder->seq_header.
-			buffer_size);
+	p_encoder = &p_ddl->codec_data.encoder;
+	if (p_encoder->seq_header.p_virtual_base_addr) {
+		vidc_720p_encode_get_header(&p_encoder->seq_header.
+			n_buffer_size);
 	}
 
-	ddl_context->ddl_callback(VCD_EVT_RESP_START, VCD_S_SUCCESS, NULL,
-		0, (u32 *) ddl, ddl_context->client_data);
+	p_ddl_context->ddl_callback(VCD_EVT_RESP_START, VCD_S_SUCCESS, NULL,
+		0, (u32 *) p_ddl, p_ddl_context->p_client_data);
 
-	DDL_IDLE(ddl_context);
+	DDL_IDLE(p_ddl_context);
 }
 
-static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
+static u32 ddl_header_done_callback(struct ddl_context_type *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	struct ddl_decoder_data *decoder;
-	struct vidc_720p_seq_hdr_info seq_hdr_info;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	struct ddl_decoder_data_type *p_decoder;
+	struct vidc_720p_seq_hdr_info_type seq_hdr_info;
 
-	u32 process_further = true;
-	u32 seq_hdr_only_frame = false;
-	u32 need_reconfig = true;
-	struct vcd_frame_data *input_vcd_frm;
-	struct ddl_frame_data_tag *reconfig_payload = NULL;
-	u32 reconfig_payload_size = 0;
+	u32 b_process_further = TRUE;
+	u32 b_seq_hdr_only_frame = FALSE;
+	u32 b_need_reconfig = TRUE;
+	struct vcd_frame_data_type *p_input_vcd_frm;
+	struct ddl_frame_data_type_tag *p_reconfig_payload;
+	u32 reconfig_payload_size;
 
-	if (!ddl ||
-		!ddl->decoding ||
-		!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_INITCODECDONE)
+	if (!p_ddl ||
+		!p_ddl->b_decoding ||
+		!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_INITCODECDONE)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-HDDONE");
-		ddl_client_fatal_cb(ddl_context);
-		return true;
+		ddl_client_fatal_cb(p_ddl_context);
+		return TRUE;
 	}
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
-	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_DPB);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
+	ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_DPB);
 	VIDC_LOG_STRING("HEADER_DONE");
 	VIDC_DEBUG_REGISTER_LOG;
 
 	vidc_720p_decode_get_seq_hdr_info(&seq_hdr_info);
 
-	decoder = &(ddl->codec_data.decoder);
-	decoder->frame_size.width = seq_hdr_info.img_size_x;
-	decoder->frame_size.height = seq_hdr_info.img_size_y;
-	decoder->min_dpb_num = seq_hdr_info.min_num_dpb;
-	decoder->y_cb_cr_size = seq_hdr_info.min_dpb_size;
-	decoder->progressive_only = 1 - seq_hdr_info.progressive;
-	if (!seq_hdr_info.img_size_x || !seq_hdr_info.img_size_y) {
+	p_decoder = &(p_ddl->codec_data.decoder);
+	p_decoder->frame_size.n_width = seq_hdr_info.n_img_size_x;
+	p_decoder->frame_size.n_height = seq_hdr_info.n_img_size_y;
+	p_decoder->n_min_dpb_num = seq_hdr_info.n_min_num_dpb;
+	p_decoder->n_y_cb_cr_size = seq_hdr_info.n_min_dpb_size;
+	p_decoder->n_progressive_only = 1 - seq_hdr_info.n_progressive;
+	if (!seq_hdr_info.n_img_size_x || !seq_hdr_info.n_img_size_y) {
 		VIDC_LOGERR_STRING("FATAL: ZeroImageSize");
-		ddl_client_fatal_cb(ddl_context);
-		return process_further;
+		ddl_client_fatal_cb(p_ddl_context);
+		return b_process_further;
 	}
-	if (seq_hdr_info.data_partitioned == 0x1 &&
-		decoder->codec.codec == VCD_CODEC_MPEG4 &&
-		seq_hdr_info.img_size_x > DDL_MAX_DP_FRAME_WIDTH &&
-		seq_hdr_info.img_size_y > DDL_MAX_DP_FRAME_HEIGHT)	{
-		ddl_client_fatal_cb(ddl_context);
-		return process_further;
+	if (seq_hdr_info.n_data_partitioned == 0x1 &&
+		p_decoder->codec_type.e_codec == VCD_CODEC_MPEG4 &&
+		seq_hdr_info.n_img_size_x > DDL_MAX_DP_FRAME_WIDTH &&
+		seq_hdr_info.n_img_size_y > DDL_MAX_DP_FRAME_HEIGHT)	{
+		ddl_client_fatal_cb(p_ddl_context);
+		return b_process_further;
 	}
-	ddl_getdec_profilelevel(decoder, seq_hdr_info.profile,
-		seq_hdr_info.level);
-	ddl_calculate_stride(&decoder->frame_size,
-			!decoder->progressive_only);
-	if (seq_hdr_info.crop_exists)	{
-		decoder->frame_size.width -=
-		(seq_hdr_info.crop_right_offset
-		+ seq_hdr_info.crop_left_offset);
-		decoder->frame_size.height -=
-		(seq_hdr_info.crop_top_offset +
-		seq_hdr_info.crop_bottom_offset);
+	ddl_getdec_profilelevel(p_decoder, seq_hdr_info.n_profile,
+		seq_hdr_info.n_level);
+	ddl_calculate_stride(&p_decoder->frame_size,
+			!p_decoder->n_progressive_only);
+	if (seq_hdr_info.n_crop_exists)	{
+		p_decoder->frame_size.n_width -=
+		(seq_hdr_info.n_crop_right_offset
+		+ seq_hdr_info.n_crop_left_offset);
+		p_decoder->frame_size.n_height -=
+		(seq_hdr_info.n_crop_top_offset +
+		seq_hdr_info.n_crop_bottom_offset);
 	}
-	ddl_set_default_decoder_buffer_req(decoder, false);
+	ddl_set_default_decoder_buffer_req(p_decoder, FALSE);
 
-	if (decoder->header_in_start) {
-		decoder->client_frame_size = decoder->frame_size;
-		decoder->client_output_buf_req =
-			decoder->actual_output_buf_req;
-		decoder->client_input_buf_req =
-			decoder->actual_input_buf_req;
-		ddl_context->ddl_callback(VCD_EVT_RESP_START, VCD_S_SUCCESS,
-			NULL, 0, (u32 *) ddl,	ddl_context->client_data);
-		DDL_IDLE(ddl_context);
+	if (p_decoder->b_header_in_start) {
+		p_decoder->client_frame_size = p_decoder->frame_size;
+		p_decoder->client_output_buf_req =
+			p_decoder->actual_output_buf_req;
+		p_decoder->client_input_buf_req =
+			p_decoder->actual_input_buf_req;
+		p_ddl_context->ddl_callback(VCD_EVT_RESP_START, VCD_S_SUCCESS,
+			NULL, 0, (u32 *) p_ddl,	p_ddl_context->p_client_data);
+		DDL_IDLE(p_ddl_context);
 	} else {
 		DBG("%s(): Client data: WxH(%u x %u) SxSL(%u x %u) Sz(%u)\n",
-			__func__, decoder->client_frame_size.width,
-			decoder->client_frame_size.height,
-			decoder->client_frame_size.stride,
-			decoder->client_frame_size.scan_lines,
-			decoder->client_output_buf_req.sz);
+			__func__, p_decoder->frame_size.n_width,
+			p_decoder->frame_size.n_height,
+			p_decoder->frame_size.n_stride,
+			p_decoder->frame_size.n_scan_lines,
+ 			p_decoder->client_output_buf_req.n_size);
 		DBG("%s(): DDL data: WxH(%u x %u) SxSL(%u x %u) Sz(%u)\n",
-			__func__, decoder->frame_size.width,
-			decoder->frame_size.height,
-			decoder->frame_size.stride,
-			decoder->frame_size.scan_lines,
-			decoder->actual_output_buf_req.sz);
-		DBG("%s(): min_dpb_num = %d actual_count = %d\n", __func__,
-			decoder->min_dpb_num,
-			decoder->client_output_buf_req.actual_count);
+			__func__, p_decoder->frame_size.n_width,
+			p_decoder->frame_size.n_height,
+			p_decoder->frame_size.n_stride,
+			p_decoder->frame_size.n_scan_lines,
+			p_decoder->actual_output_buf_req.n_size);
+		DBG("%s(): n_min_dpb_num = %d n_actual_count = %d\n", __func__,
+			p_decoder->n_min_dpb_num,
+			p_decoder->client_output_buf_req.n_actual_count);
 
-		input_vcd_frm = &(ddl->input_frame.vcd_frm);
+		p_input_vcd_frm = &(p_ddl->input_frame.vcd_frm);
 
-		if (decoder->frame_size.width ==
-			decoder->client_frame_size.width
-			&& decoder->frame_size.height ==
-			decoder->client_frame_size.height
-			&& decoder->frame_size.stride ==
-			decoder->client_frame_size.stride
-			&& decoder->frame_size.scan_lines ==
-			decoder->client_frame_size.scan_lines
-			&& decoder->actual_output_buf_req.sz <=
-			decoder->client_output_buf_req.sz
-			&& decoder->actual_output_buf_req.actual_count <=
-			decoder->client_output_buf_req.actual_count
-			&& decoder->progressive_only)
-			need_reconfig = false;
-		if ((input_vcd_frm->flags & VCD_FRAME_FLAG_CODECCONFIG) ||
-			input_vcd_frm->data_len == seq_hdr_info.dec_frm_size) {
-			input_vcd_frm->offset +=
-				seq_hdr_info.dec_frm_size;
-			input_vcd_frm->data_len -=
-				seq_hdr_info.dec_frm_size;
-			if (!need_reconfig ||
-				!(input_vcd_frm->flags & VCD_FRAME_FLAG_EOS)) {
-				input_vcd_frm->flags |=
-					VCD_FRAME_FLAG_CODECCONFIG;
-				seq_hdr_only_frame = true;
-				ddl->input_frame.frm_trans_end = !need_reconfig;
-				ddl_context->ddl_callback(
-					VCD_EVT_RESP_INPUT_DONE,
-					VCD_S_SUCCESS, &ddl->input_frame,
-					sizeof(struct ddl_frame_data_tag),
-					(u32 *) ddl,
-					ddl->ddl_context->client_data);
-			}
+		if (p_decoder->frame_size.n_width ==
+			p_decoder->client_frame_size.n_width
+			&& p_decoder->frame_size.n_height ==
+			p_decoder->client_frame_size.n_height
+			&& p_decoder->frame_size.n_stride ==
+			p_decoder->client_frame_size.n_stride
+			&& p_decoder->frame_size.n_scan_lines ==
+			p_decoder->client_frame_size.n_scan_lines
+			&& p_decoder->actual_output_buf_req.n_size <=
+			p_decoder->client_output_buf_req.n_size
+			&& p_decoder->n_min_dpb_num <=
+			p_decoder->client_output_buf_req.n_actual_count)
+			b_need_reconfig = FALSE;
+		if (((p_input_vcd_frm->n_flags & VCD_FRAME_FLAG_CODECCONFIG) ||
+				p_input_vcd_frm->n_data_len ==
+				seq_hdr_info.n_dec_frm_size) && !(p_input_vcd_frm->n_flags & VCD_FRAME_FLAG_EOS)) {
+			b_seq_hdr_only_frame = TRUE;
+			p_input_vcd_frm->n_offset +=
+				seq_hdr_info.n_dec_frm_size;
+			p_input_vcd_frm->n_data_len -=
+				seq_hdr_info.n_dec_frm_size;
+			p_input_vcd_frm->n_flags |= VCD_FRAME_FLAG_CODECCONFIG;
+			p_ddl->input_frame.b_frm_trans_end = !b_need_reconfig;
+			p_ddl_context->ddl_callback(VCD_EVT_RESP_INPUT_DONE,
+				VCD_S_SUCCESS, &p_ddl->input_frame,
+				sizeof(struct ddl_frame_data_type_tag),
+				(u32 *) p_ddl,
+				p_ddl->p_ddl_context->p_client_data);
 		}
-		if (need_reconfig) {
-			decoder->client_frame_size = decoder->frame_size;
-			decoder->client_output_buf_req =
-				decoder->actual_output_buf_req;
-			decoder->client_input_buf_req =
-				decoder->actual_input_buf_req;
-			if (!seq_hdr_only_frame) {
-				reconfig_payload = &ddl->input_frame;
-				reconfig_payload_size =
-					sizeof(struct ddl_frame_data_tag);
+		if (b_need_reconfig) {
+			p_reconfig_payload = &p_ddl->input_frame;
+			reconfig_payload_size =
+				sizeof(struct ddl_frame_data_type_tag);
+			p_decoder->client_frame_size = p_decoder->frame_size;
+			p_decoder->client_output_buf_req =
+				p_decoder->actual_output_buf_req;
+			p_decoder->client_input_buf_req =
+				p_decoder->actual_input_buf_req;
+			if (b_seq_hdr_only_frame) {
+				p_reconfig_payload = NULL;
+				reconfig_payload_size = 0;
 			}
-			ddl_context->ddl_callback(VCD_EVT_IND_OUTPUT_RECONFIG,
-					VCD_S_SUCCESS, reconfig_payload,
+			p_ddl_context->ddl_callback(VCD_EVT_IND_OUTPUT_RECONFIG,
+					VCD_S_SUCCESS, p_reconfig_payload,
 					reconfig_payload_size,
-					(u32 *) ddl,
-					ddl_context->client_data);
+					(u32 *) p_ddl,
+					p_ddl_context->p_client_data);
 		}
-		if (!need_reconfig && !seq_hdr_only_frame) {
-			if (ddl_decode_set_buffers(ddl) == VCD_S_SUCCESS)
-				process_further = false;
+		if (!b_need_reconfig && !b_seq_hdr_only_frame) {
+			if (ddl_decode_set_buffers(p_ddl) == VCD_S_SUCCESS)
+				b_process_further = FALSE;
 			else
-				ddl_client_fatal_cb(ddl_context);
+				ddl_client_fatal_cb(p_ddl_context);
 		} else
-			DDL_IDLE(ddl_context);
+			DDL_IDLE(p_ddl_context);
 	}
-	return process_further;
+	return b_process_further;
 }
 
-static u32 ddl_dpb_buffers_set_done_callback(struct ddl_context
-						  *ddl_context)
+static u32 ddl_dpb_buffers_set_done_callback(struct ddl_context_type
+						  *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
 
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
-	if (!ddl ||
-		!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_DPBDONE)
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
+	if (!p_ddl ||
+		!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_DPBDONE)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-DPBDONE");
-		ddl_client_fatal_cb(ddl_context);
-		return true;
+		ddl_client_fatal_cb(p_ddl_context);
+		return TRUE;
 	}
 	VIDC_LOG_STRING("INTR_DPBDONE");
-	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_FRAME);
-	ddl->codec_data.decoder.dec_disp_info.img_size_x = 0;
-	ddl->codec_data.decoder.dec_disp_info.img_size_y = 0;
-	ddl_decode_frame_run(ddl);
-	return false;
+	ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME);
+	p_ddl->codec_data.decoder.dec_disp_info.n_img_size_x = 0;
+	p_ddl->codec_data.decoder.dec_disp_info.n_img_size_y = 0;
+	ddl_decode_frame_run(p_ddl);
+	return FALSE;
 }
 
-static void ddl_encoder_frame_run_callback(struct ddl_context
-					   *ddl_context)
+static void ddl_encoder_frame_run_callback(struct ddl_context_type
+					   *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	struct ddl_encoder_data *encoder = &(ddl->codec_data.encoder);
-	u32 eos_present = false;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	struct ddl_encoder_data_type *p_encoder = &(p_ddl->codec_data.encoder);
+	u32 b_eos_present = FALSE;
 
-	if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE)
+	if (!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-ENCFRMRUN");
-		ddl_client_fatal_cb(ddl_context);
+		ddl_client_fatal_cb(p_ddl_context);
 		return;
 	}
 
 	VIDC_LOG_STRING("ENC_FRM_RUN_DONE");
 
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
-	vidc_720p_enc_frame_info(&encoder->enc_frame_info);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
+	vidc_720p_enc_frame_info(&p_encoder->enc_frame_info);
 
-	ddl->output_frame.vcd_frm.ip_frm_tag =
-		ddl->input_frame.vcd_frm.ip_frm_tag;
-	ddl->output_frame.vcd_frm.data_len =
-		encoder->enc_frame_info.enc_size;
-	ddl->output_frame.vcd_frm.flags |= VCD_FRAME_FLAG_ENDOFFRAME;
-	ddl_get_frame
-		(&(ddl->output_frame.vcd_frm),
-		 encoder->enc_frame_info.frame);
-	ddl_process_encoder_metadata(ddl);
+	p_ddl->output_frame.vcd_frm.n_ip_frm_tag =
+		p_ddl->input_frame.vcd_frm.n_ip_frm_tag;
+	p_ddl->output_frame.vcd_frm.n_data_len =
+		p_encoder->enc_frame_info.n_enc_size;
+	p_ddl->output_frame.vcd_frm.n_flags |= VCD_FRAME_FLAG_ENDOFFRAME;
+	ddl_get_frame_type
+		(&(p_ddl->output_frame.vcd_frm),
+		 p_encoder->enc_frame_info.n_frame_type);
+	ddl_process_encoder_metadata(p_ddl);
 
-	ddl_encode_dynamic_property(ddl, false);
+	ddl_encode_dynamic_property(p_ddl, FALSE);
 
-	ddl->input_frame.frm_trans_end = false;
-	ddl_context->ddl_callback(VCD_EVT_RESP_INPUT_DONE, VCD_S_SUCCESS,
-		&(ddl->input_frame), sizeof(struct ddl_frame_data_tag),
-		(u32 *) ddl, ddl_context->client_data);
+	p_ddl->input_frame.b_frm_trans_end = FALSE;
+	p_ddl_context->ddl_callback(VCD_EVT_RESP_INPUT_DONE, VCD_S_SUCCESS,
+		&(p_ddl->input_frame), sizeof(struct ddl_frame_data_type_tag),
+		(u32 *) p_ddl, p_ddl_context->p_client_data);
 
 #ifdef CORE_TIMING_INFO
 	ddl_calc_core_time(1);
 #endif
 	/* check the presence of EOS */
-   eos_present =
-	((VCD_FRAME_FLAG_EOS & ddl->input_frame.vcd_frm.flags));
+   b_eos_present =
+	((VCD_FRAME_FLAG_EOS & p_ddl->input_frame.vcd_frm.n_flags));
 
-	ddl->output_frame.frm_trans_end = !eos_present;
-	ddl_context->ddl_callback(VCD_EVT_RESP_OUTPUT_DONE, VCD_S_SUCCESS,
-		&(ddl->output_frame),	sizeof(struct ddl_frame_data_tag),
-		(u32 *) ddl, ddl_context->client_data);
+	p_ddl->output_frame.b_frm_trans_end = !b_eos_present;
+	p_ddl_context->ddl_callback(VCD_EVT_RESP_OUTPUT_DONE, VCD_S_SUCCESS,
+		&(p_ddl->output_frame),	sizeof(struct ddl_frame_data_type_tag),
+		(u32 *) p_ddl, p_ddl_context->p_client_data);
 
-	if (eos_present) {
+	if (b_eos_present) {
 		VIDC_LOG_STRING("ENC-EOS_DONE");
-		ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
-				VCD_S_SUCCESS, NULL, 0,	(u32 *)ddl,
-				ddl_context->client_data);
+		p_ddl_context->ddl_callback(VCD_EVT_RESP_EOS_DONE,
+				VCD_S_SUCCESS, NULL, 0,	(u32 *)p_ddl,
+				p_ddl_context->p_client_data);
 	}
 
-	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_FRAME);
-	DDL_IDLE(ddl_context);
+	ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME);
+	DDL_IDLE(p_ddl_context);
 }
 
-static u32 ddl_decoder_frame_run_callback(struct ddl_context
-					   *ddl_context)
+static u32 ddl_decoder_frame_run_callback(struct ddl_context_type
+					   *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	struct vidc_720p_dec_disp_info *dec_disp_info =
-	    &(ddl->codec_data.decoder.dec_disp_info);
-	u32 callback_end = false;
-	u32 status = true, eos_present = false;;
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	struct vidc_720p_dec_disp_info_type *p_dec_disp_info =
+	    &(p_ddl->codec_data.decoder.dec_disp_info);
+	u32 b_callback_end = FALSE;
+	u32 status = TRUE, eos_present = FALSE;;
 
-	if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE)) {
+	if (!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE)) {
 		VIDC_LOG_STRING("STATE-CRITICAL-DECFRMRUN");
-		ddl_client_fatal_cb(ddl_context);
-		return true;
+		ddl_client_fatal_cb(p_ddl_context);
+		return TRUE;
 	}
 
 	VIDC_LOG_STRING("DEC_FRM_RUN_DONE");
 
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 
-	vidc_720p_decode_display_info(dec_disp_info);
+	vidc_720p_decode_display_info(p_dec_disp_info);
 
-	ddl_decode_dynamic_property(ddl, false);
+	ddl_decode_dynamic_property(p_ddl, FALSE);
 
-	if (dec_disp_info->resl_change) {
-		VIDC_LOG_STRING
-			("DEC_FRM_RUN_DONE: RECONFIG");
-		ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE);
-		ddl_move_command_state(ddl_context, DDL_CMD_EOS);
-		vidc_720p_submit_command(ddl->channel_id,
-			VIDC_720P_CMD_FRAMERUN_REALLOCATE);
-		return false;
+	if (p_dec_disp_info->n_resl_change) {
+		VIDC_LOGERR_STRING
+			("ddl_dec_frm_done:Dec_reconfig_not_supported");
+		ddl_client_fatal_cb(p_ddl_context);
+		return TRUE;
 	}
 
-	if ((VCD_FRAME_FLAG_EOS & ddl->input_frame.vcd_frm.flags)) {
-		callback_end = false;
-		eos_present = true;
+	if ((VCD_FRAME_FLAG_EOS & p_ddl->input_frame.vcd_frm.n_flags)) {
+		b_callback_end = FALSE;
+		eos_present = TRUE;
 	}
 
 
-	if (dec_disp_info->disp_status == VIDC_720P_DECODE_ONLY ||
-		dec_disp_info->disp_status
+	if (p_dec_disp_info->e_disp_status == VIDC_720P_DECODE_ONLY ||
+		p_dec_disp_info->e_disp_status
 			== VIDC_720P_DECODE_AND_DISPLAY) {
 		if (!eos_present)
-			callback_end = (dec_disp_info->disp_status
+			b_callback_end = (p_dec_disp_info->e_disp_status
 					== VIDC_720P_DECODE_ONLY);
 
-	  ddl_decoder_input_done_callback(ddl, callback_end);
+	  ddl_decoder_input_done_callback(p_ddl, b_callback_end);
 	}
 
-	if (dec_disp_info->disp_status == VIDC_720P_DECODE_AND_DISPLAY
-		|| dec_disp_info->disp_status == VIDC_720P_DISPLAY_ONLY) {
+	if (p_dec_disp_info->e_disp_status == VIDC_720P_DECODE_AND_DISPLAY
+		|| p_dec_disp_info->e_disp_status == VIDC_720P_DISPLAY_ONLY) {
 		if (!eos_present)
-			callback_end =
-			(dec_disp_info->disp_status
+			b_callback_end =
+			(p_dec_disp_info->e_disp_status
 				== VIDC_720P_DECODE_AND_DISPLAY);
 
-		if (ddl_decoder_output_done_callback(ddl, callback_end)
+		if (ddl_decoder_output_done_callback(p_ddl, b_callback_end)
 			!= VCD_S_SUCCESS)
-			return true;
+			return TRUE;
 	}
 
-	if (dec_disp_info->disp_status ==  VIDC_720P_DISPLAY_ONLY ||
-		dec_disp_info->disp_status ==  VIDC_720P_EMPTY_BUFFER) {
+	if (p_dec_disp_info->e_disp_status ==  VIDC_720P_DISPLAY_ONLY) {
 		/* send the same input once again for decoding */
-		ddl_decode_frame_run(ddl);
+		ddl_decode_frame_run(p_ddl);
 		/* client need to ignore the interrupt */
-		status = false;
+		status = FALSE;
 	} else if (eos_present) {
 		/* send EOS command to HW */
-		ddl_decode_eos_run(ddl);
+		ddl_decode_eos_run(p_ddl);
 		/* client need to ignore the interrupt */
-		status = false;
+		status = FALSE;
 	} else {
-		ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_FRAME);
+		ddl_move_client_state(p_ddl, DDL_CLIENT_WAIT_FOR_FRAME);
 		/* move to Idle */
-		DDL_IDLE(ddl_context);
+		DDL_IDLE(p_ddl_context);
 	}
 	return status;
 }
 
-static u32 ddl_eos_frame_done_callback(struct ddl_context *ddl_context)
+static u32 ddl_eos_frame_done_callback(struct ddl_context_type *p_ddl_context)
 {
-	struct ddl_client_context *ddl = ddl_context->current_ddl;
-	struct ddl_decoder_data *decoder = &(ddl->codec_data.decoder);
-	struct vidc_720p_dec_disp_info *dec_disp_info =
-		&(decoder->dec_disp_info);
+	struct ddl_client_context_type *p_ddl = p_ddl_context->p_current_ddl;
+	struct ddl_decoder_data_type *p_decoder = &(p_ddl->codec_data.decoder);
+	struct vidc_720p_dec_disp_info_type *p_dec_disp_info =
+		&(p_decoder->dec_disp_info);
 
-	if (!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
+	if (!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_EOS_DONE)) {
 		VIDC_LOGERR_STRING("STATE-CRITICAL-EOSFRMRUN");
-		ddl_client_fatal_cb(ddl_context);
-		return true;
+		ddl_client_fatal_cb(p_ddl_context);
+		return TRUE;
 	}
 	VIDC_LOG_STRING("EOS_FRM_RUN_DONE");
 
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 
-	vidc_720p_decode_display_info(dec_disp_info);
+	vidc_720p_decode_display_info(p_dec_disp_info);
 
-	ddl_decode_dynamic_property(ddl, false);
+	ddl_decode_dynamic_property(p_ddl, FALSE);
 
-	if (dec_disp_info->disp_status == VIDC_720P_DISPLAY_ONLY) {
-		if (ddl_decoder_output_done_callback(ddl, false)
+	if (p_dec_disp_info->e_disp_status == VIDC_720P_DISPLAY_ONLY) {
+		if (ddl_decoder_output_done_callback(p_ddl, FALSE)
 			!= VCD_S_SUCCESS)
-			return true;
+			return TRUE;
 	} else
 		VIDC_LOG_STRING("STATE-CRITICAL-WRONG-DISP-STATUS");
 
-	ddl_decoder_dpb_transact(decoder, NULL, DDL_DPB_OP_SET_MASK);
-	ddl_move_command_state(ddl_context, DDL_CMD_EOS);
-	vidc_720p_submit_command(ddl->channel_id,
+	ddl_decoder_dpb_transact(p_decoder, NULL, DDL_DPB_OP_SET_MASK);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_EOS);
+	vidc_720p_submit_command(p_ddl->n_channel_id,
 		VIDC_720P_CMD_FRAMERUN);
-	return false;
+	return FALSE;
 }
 
-static void ddl_channel_end_callback(struct ddl_context *ddl_context)
+static void ddl_channel_end_callback(struct ddl_context_type *p_ddl_context)
 {
-	struct ddl_client_context *ddl;
+	struct ddl_client_context_type *p_ddl;
 
-	ddl_move_command_state(ddl_context, DDL_CMD_INVALID);
+	ddl_move_command_state(p_ddl_context, DDL_CMD_INVALID);
 	VIDC_LOG_STRING("CH_END_DONE");
 
-	ddl = ddl_context->current_ddl;
-	if (!ddl ||
-		!DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_WAIT_FOR_CHEND)
+	p_ddl = p_ddl_context->p_current_ddl;
+	if (!p_ddl ||
+		!DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_WAIT_FOR_CHEND)
 		) {
 		VIDC_LOG_STRING("STATE-CRITICAL-CHEND");
-		DDL_IDLE(ddl_context);
+		DDL_IDLE(p_ddl_context);
 		return;
 	}
 
-	ddl_release_client_internal_buffers(ddl);
-	ddl_context->ddl_callback(VCD_EVT_RESP_STOP, VCD_S_SUCCESS,
-		NULL, 0, (u32 *) ddl,	ddl_context->client_data);
-	ddl_move_client_state(ddl, DDL_CLIENT_OPEN);
-	DDL_IDLE(ddl_context);
+	ddl_release_client_internal_buffers(p_ddl);
+	p_ddl_context->ddl_callback(VCD_EVT_RESP_STOP, VCD_S_SUCCESS,
+		NULL, 0, (u32 *) p_ddl,	p_ddl_context->p_client_data);
+	ddl_move_client_state(p_ddl, DDL_CLIENT_OPEN);
+	DDL_IDLE(p_ddl_context);
 }
 
-static u32 ddl_operation_done_callback(struct ddl_context *ddl_context)
+static u32 ddl_operation_done_callback(struct ddl_context_type *p_ddl_context)
 {
-	u32 return_status = true;
+	u32 b_return_status = TRUE;
 
-	switch (ddl_context->cmd_state) {
+	switch (p_ddl_context->e_cmd_state) {
 	case DDL_CMD_DECODE_FRAME:
 		{
-			return_status = ddl_decoder_frame_run_callback(
-				ddl_context);
+			b_return_status = ddl_decoder_frame_run_callback(
+				p_ddl_context);
 			break;
 		}
 	case DDL_CMD_ENCODE_FRAME:
 		{
-			ddl_encoder_frame_run_callback(ddl_context);
+			ddl_encoder_frame_run_callback(p_ddl_context);
 			break;
 		}
 	case DDL_CMD_CHANNEL_SET:
 		{
-			return_status = ddl_channel_set_callback(
-				ddl_context);
+			b_return_status = ddl_channel_set_callback(
+				p_ddl_context);
 			break;
 		}
 	case DDL_CMD_INIT_CODEC:
 		{
-			ddl_init_codec_done_callback(ddl_context);
+			ddl_init_codec_done_callback(p_ddl_context);
 			break;
 		}
 	case DDL_CMD_HEADER_PARSE:
 		{
-			return_status = ddl_header_done_callback(
-				ddl_context);
+			b_return_status = ddl_header_done_callback(
+				p_ddl_context);
 			break;
 		}
 	case DDL_CMD_DECODE_SET_DPB:
 		{
-			return_status = ddl_dpb_buffers_set_done_callback(
-				ddl_context);
+			b_return_status = ddl_dpb_buffers_set_done_callback(
+				p_ddl_context);
 			break;
 		}
 	case DDL_CMD_CHANNEL_END:
 		{
-			ddl_channel_end_callback(ddl_context);
+			ddl_channel_end_callback(p_ddl_context);
 			break;
 		}
 	case DDL_CMD_EOS:
 		{
-			return_status = ddl_eos_frame_done_callback(
-				ddl_context);
+			b_return_status = ddl_eos_frame_done_callback(
+				p_ddl_context);
 			break;
 		}
 	case DDL_CMD_CPU_RESET:
 		{
-			ddl_cpu_started_callback(ddl_context);
+			ddl_cpu_started_callback(p_ddl_context);
 			break;
 		}
 	default:
 		{
 			VIDC_LOG_STRING("UNKWN_OPDONE");
-			return_status = false;
+			b_return_status = FALSE;
 			break;
 		}
 	}
-	return return_status;
+	return b_return_status;
 }
 
-static u32 ddl_process_intr_status(struct ddl_context *ddl_context,
+static u32 ddl_process_intr_status(struct ddl_context_type *p_ddl_context,
 			u32 int_status)
 {
-	u32 status = true;
+	u32 b_status = TRUE;
 	switch (int_status) {
 	case VIDC_720P_INTR_FRAME_DONE:
 		 {
-			status = ddl_operation_done_callback(ddl_context);
+			b_status = ddl_operation_done_callback(p_ddl_context);
 			break;
 		 }
 	case VIDC_720P_INTR_DMA_DONE:
 		 {
-			ddl_dma_done_callback(ddl_context);
-			status = false;
+			ddl_dma_done_callback(p_ddl_context);
+			b_status = FALSE;
 			break;
 		 }
 	case VIDC_720P_INTR_FW_DONE:
 		 {
-			status = ddl_eos_done_callback(ddl_context);
+			ddl_eos_done_callback(p_ddl_context);
 			break;
 		 }
 	case VIDC_720P_INTR_BUFFER_FULL:
 		 {
 			VIDC_LOGERR_STRING("BUF_FULL_INTR");
-			ddl_hw_fatal_cb(ddl_context);
+			ddl_hw_fatal_cb(p_ddl_context);
 			break;
 		 }
 	default:
@@ -645,22 +628,22 @@ static u32 ddl_process_intr_status(struct ddl_context *ddl_context,
 			break;
 		 }
 	}
-	return status;
+	return b_status;
 }
 
 void ddl_read_and_clear_interrupt(void)
 {
-	struct ddl_context *ddl_context;
+	struct ddl_context_type *p_ddl_context;
 
-	ddl_context = ddl_get_context();
-	if (!ddl_context->core_virtual_base_addr) {
+	p_ddl_context = ddl_get_context();
+	if (!p_ddl_context->p_core_virtual_base_addr) {
 		VIDC_LOGERR_STRING("SPURIOUS_INTERRUPT");
 		return;
 	}
-	vidc_720p_get_interrupt_status(&ddl_context->intr_status,
-		&ddl_context->cmd_err_status,
-		&ddl_context->disp_pic_err_status,
-		&ddl_context->op_failed
+	vidc_720p_get_interrupt_status(&p_ddl_context->intr_status,
+		&p_ddl_context->n_cmd_err_status,
+		&p_ddl_context->n_disp_pic_err_status,
+		&p_ddl_context->n_op_failed
 	);
 
 	vidc_720p_interrupt_done_clear();
@@ -669,291 +652,296 @@ void ddl_read_and_clear_interrupt(void)
 
 u32 ddl_process_core_response(void)
 {
-	struct ddl_context *ddl_context;
-	u32 return_status = true;
+	struct ddl_context_type *p_ddl_context;
+	u32 b_return_status = TRUE;
 
-	ddl_context = ddl_get_context();
-	if (!ddl_context->core_virtual_base_addr) {
+	p_ddl_context = ddl_get_context();
+	if (!p_ddl_context->p_core_virtual_base_addr) {
 		VIDC_LOGERR_STRING("UNKWN_INTR");
-		return false;
+		return FALSE;
+	}
+	if (p_ddl_context->intr_status == DDL_INVALID_INTR_STATUS) {
+		VIDC_LOGERR_STRING("INTERRUPT_NOT_READ");
+		return FALSE;
 	}
 
-	if (!ddl_handle_core_errors(ddl_context)) {
-		return_status = ddl_process_intr_status(ddl_context,
-			ddl_context->intr_status);
+	if (!ddl_handle_core_errors(p_ddl_context)) {
+		b_return_status = ddl_process_intr_status(p_ddl_context,
+			p_ddl_context->intr_status);
 	}
 
-	if (ddl_context->interrupt_clr)
-		(*ddl_context->interrupt_clr)();
+	if (p_ddl_context->pf_interrupt_clr)
+		(*p_ddl_context->pf_interrupt_clr)();
 
-	return return_status;
+	p_ddl_context->intr_status = DDL_INVALID_INTR_STATUS;
+	return b_return_status;
 }
 
 static void ddl_decoder_input_done_callback(
-	struct	ddl_client_context *ddl, u32 frame_transact_end)
+	struct	ddl_client_context_type *p_ddl, u32 b_frame_transact_end)
 {
-	struct vidc_720p_dec_disp_info *dec_disp_info =
-		&(ddl->codec_data.decoder.dec_disp_info);
-	struct vcd_frame_data *input_vcd_frm =
-		&(ddl->input_frame.vcd_frm);
-	ddl_get_frame(input_vcd_frm, dec_disp_info->
-		input_frame);
+	struct vidc_720p_dec_disp_info_type *p_dec_disp_info =
+		&(p_ddl->codec_data.decoder.dec_disp_info);
+	struct vcd_frame_data_type *p_input_vcd_frm =
+		&(p_ddl->input_frame.vcd_frm);
+	ddl_get_frame_type(p_input_vcd_frm, p_dec_disp_info->
+		n_input_frame_type);
 
-	input_vcd_frm->interlaced = (dec_disp_info->
-		input_is_interlace);
+	p_input_vcd_frm->b_interlaced = (p_dec_disp_info->
+		n_input_is_interlace);
 
-	input_vcd_frm->offset += dec_disp_info->input_bytes_consumed;
-	input_vcd_frm->data_len -= dec_disp_info->input_bytes_consumed;
+	p_input_vcd_frm->n_offset += p_dec_disp_info->n_input_bytes_consumed;
+	p_input_vcd_frm->n_data_len -= p_dec_disp_info->n_input_bytes_consumed;
 
-	ddl->input_frame.frm_trans_end = frame_transact_end;
-	ddl->ddl_context->ddl_callback(
+	p_ddl->input_frame.b_frm_trans_end = b_frame_transact_end;
+	p_ddl->p_ddl_context->ddl_callback(
 		VCD_EVT_RESP_INPUT_DONE,
 		VCD_S_SUCCESS,
-		&ddl->input_frame,
-		sizeof(struct ddl_frame_data_tag),
-		(void *)ddl,
-		ddl->ddl_context->client_data);
+		&p_ddl->input_frame,
+		sizeof(struct ddl_frame_data_type_tag),
+		(void *)p_ddl,
+		p_ddl->p_ddl_context->p_client_data);
 }
 
 static u32 ddl_decoder_output_done_callback(
-	struct ddl_client_context *ddl,
-	u32 frame_transact_end)
+	struct ddl_client_context_type *p_ddl,
+	u32 b_frame_transact_end)
 {
-	struct ddl_decoder_data *decoder = &(ddl->codec_data.decoder);
-	struct vidc_720p_dec_disp_info *dec_disp_info =
-		&(decoder->dec_disp_info);
-	struct ddl_frame_data_tag *output_frame =
-		&ddl->output_frame;
-	struct vcd_frame_data *output_vcd_frm =
-		&(output_frame->vcd_frm);
+	struct ddl_decoder_data_type *p_decoder = &(p_ddl->codec_data.decoder);
+	struct vidc_720p_dec_disp_info_type *p_dec_disp_info =
+		&(p_decoder->dec_disp_info);
+	struct ddl_frame_data_type_tag *p_output_frame =
+		&p_ddl->output_frame;
+	struct vcd_frame_data_type *p_output_vcd_frm =
+		&(p_output_frame->vcd_frm);
 	u32 vcd_status;
-	u32 free_luma_dpb = 0;
+	u32 n_free_luma_dpb = 0;
 
-	output_vcd_frm->physical = (u8 *)dec_disp_info->y_addr;
+	p_output_vcd_frm->p_physical = (u8 *)p_dec_disp_info->n_y_addr;
 
-	if (decoder->codec.codec == VCD_CODEC_MPEG4 ||
-		decoder->codec.codec == VCD_CODEC_VC1 ||
-		decoder->codec.codec == VCD_CODEC_VC1_RCV ||
-		(decoder->codec.codec >= VCD_CODEC_DIVX_3 &&
-		 decoder->codec.codec <= VCD_CODEC_XVID)){
-		vidc_720p_decode_skip_frm_details(&free_luma_dpb);
-		if (free_luma_dpb)
-			output_vcd_frm->physical = (u8 *) free_luma_dpb;
+	if (p_decoder->codec_type.e_codec == VCD_CODEC_MPEG4 ||
+		p_decoder->codec_type.e_codec == VCD_CODEC_VC1 ||
+		p_decoder->codec_type.e_codec == VCD_CODEC_VC1_RCV ||
+		(p_decoder->codec_type.e_codec >= VCD_CODEC_DIVX_3 &&
+		 p_decoder->codec_type.e_codec <= VCD_CODEC_XVID)){
+		vidc_720p_decode_skip_frm_details(&n_free_luma_dpb);
+		if (n_free_luma_dpb)
+			p_output_vcd_frm->p_physical = (u8 *) n_free_luma_dpb;
 	}
 
 
 	vcd_status = ddl_decoder_dpb_transact(
-			decoder,
-			output_frame,
+			p_decoder,
+			p_output_frame,
 			DDL_DPB_OP_MARK_BUSY);
 
 	if (vcd_status != VCD_S_SUCCESS) {
 		VIDC_LOGERR_STRING("CorruptedOutputBufferAddress");
-		ddl_hw_fatal_cb(ddl->ddl_context);
+		ddl_hw_fatal_cb(p_ddl->p_ddl_context);
 		return vcd_status;
 	}
 
-	output_vcd_frm->ip_frm_tag =  dec_disp_info->tag_top;
-	if (dec_disp_info->crop_exists == 0x1) {
-		output_vcd_frm->dec_op_prop.disp_frm.left =
-			dec_disp_info->crop_left_offset;
-		output_vcd_frm->dec_op_prop.disp_frm.top =
-			dec_disp_info->crop_top_offset;
-		output_vcd_frm->dec_op_prop.disp_frm.right =
-			dec_disp_info->img_size_x -
-			dec_disp_info->crop_right_offset;
-		output_vcd_frm->dec_op_prop.disp_frm.bottom =
-			dec_disp_info->img_size_y -
-			dec_disp_info->crop_bottom_offset;
+	p_output_vcd_frm->n_ip_frm_tag =  p_dec_disp_info->n_tag_top;
+	if (p_dec_disp_info->n_crop_exists == 0x1) {
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_left =
+			p_dec_disp_info->n_crop_left_offset;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_top =
+			p_dec_disp_info->n_crop_top_offset;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_right =
+			p_dec_disp_info->n_img_size_x -
+			p_dec_disp_info->n_crop_right_offset;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_bottom =
+			p_dec_disp_info->n_img_size_y -
+			p_dec_disp_info->n_crop_bottom_offset;
 	} else {
-		output_vcd_frm->dec_op_prop.disp_frm.left = 0;
-		output_vcd_frm->dec_op_prop.disp_frm.top = 0;
-		output_vcd_frm->dec_op_prop.disp_frm.right =
-			dec_disp_info->img_size_x;
-		output_vcd_frm->dec_op_prop.disp_frm.bottom =
-			dec_disp_info->img_size_y;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_left = 0;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_top = 0;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_right =
+			p_dec_disp_info->n_img_size_x;
+		p_output_vcd_frm->dec_op_prop.disp_frm.n_bottom =
+			p_dec_disp_info->n_img_size_y;
 	}
-	if (!dec_disp_info->disp_is_interlace) {
-		output_vcd_frm->interlaced = false;
-		output_vcd_frm->intrlcd_ip_frm_tag = VCD_FRAMETAG_INVALID;
+	if (!p_dec_disp_info->n_disp_is_interlace) {
+		p_output_vcd_frm->b_interlaced = FALSE;
+		p_output_vcd_frm->n_intrlcd_ip_frm_tag = VCD_FRAMETAG_INVALID;
 	} else {
-		output_vcd_frm->interlaced = true;
-		output_vcd_frm->intrlcd_ip_frm_tag =
-			dec_disp_info->tag_bottom;
+		p_output_vcd_frm->b_interlaced = TRUE;
+		p_output_vcd_frm->n_intrlcd_ip_frm_tag =
+			p_dec_disp_info->n_tag_bottom;
 	}
 
-	output_vcd_frm->offset = 0;
-	output_vcd_frm->data_len = decoder->y_cb_cr_size;
-	if (free_luma_dpb) {
-		output_vcd_frm->data_len = 0;
-		output_vcd_frm->flags |= VCD_FRAME_FLAG_DECODEONLY;
+	p_output_vcd_frm->n_offset = 0;
+	p_output_vcd_frm->n_data_len = p_decoder->n_y_cb_cr_size;
+	if (n_free_luma_dpb) {
+		p_output_vcd_frm->n_data_len = 0;
+		p_output_vcd_frm->n_flags |= VCD_FRAME_FLAG_DECODEONLY;
 	}
-	output_vcd_frm->flags |= VCD_FRAME_FLAG_ENDOFFRAME;
-	ddl_process_decoder_metadata(ddl);
-	output_frame->frm_trans_end = frame_transact_end;
+	p_output_vcd_frm->n_flags |= VCD_FRAME_FLAG_ENDOFFRAME;
+	ddl_process_decoder_metadata(p_ddl);
+	p_output_frame->b_frm_trans_end = b_frame_transact_end;
 
 #ifdef CORE_TIMING_INFO
 	ddl_calc_core_time(0);
 #endif
 
-	ddl->ddl_context->ddl_callback(
+	p_ddl->p_ddl_context->ddl_callback(
 		VCD_EVT_RESP_OUTPUT_DONE,
 		vcd_status,
-		output_frame,
-		sizeof(struct ddl_frame_data_tag),
-		(void *)ddl,
-		ddl->ddl_context->client_data);
+		p_output_frame,
+		sizeof(struct ddl_frame_data_type_tag),
+		(void *)p_ddl,
+		p_ddl->p_ddl_context->p_client_data);
 	return vcd_status;
 }
 
-static u32 ddl_get_frame
-	(struct vcd_frame_data *frame, u32 frametype) {
-	enum vidc_720p_frame vidc_frame =
-		(enum vidc_720p_frame)frametype;
-	u32 status = true;
+static u32 ddl_get_frame_type
+	(struct vcd_frame_data_type *p_frame, u32 n_frame_type) {
+	enum vidc_720p_frame_type e_frame_type =
+		(enum vidc_720p_frame_type)n_frame_type;
+	u32 b_status = TRUE;
 
-	switch (vidc_frame) {
+	switch (e_frame_type) {
 	case VIDC_720P_IFRAME:
 		{
-			frame->flags |= VCD_FRAME_FLAG_SYNCFRAME;
-			frame->frame = VCD_FRAME_I;
+			p_frame->n_flags |= VCD_FRAME_FLAG_SYNCFRAME;
+			p_frame->e_frame_type = VCD_FRAME_I;
 			break;
 		}
 	case VIDC_720P_PFRAME:
 		{
-			frame->frame = VCD_FRAME_P;
+			p_frame->e_frame_type = VCD_FRAME_P;
 			break;
 		}
 	case VIDC_720P_BFRAME:
 		{
-			frame->frame = VCD_FRAME_B;
+			p_frame->e_frame_type = VCD_FRAME_B;
 			break;
 		}
 	case VIDC_720P_NOTCODED:
 		{
-			frame->frame = VCD_FRAME_NOTCODED;
-			frame->data_len = 0;
+			p_frame->e_frame_type = VCD_FRAME_NOTCODED;
+			p_frame->n_data_len = 0;
 			break;
 		}
 	default:
 		{
 			VIDC_LOG_STRING("CRITICAL-FRAMETYPE");
-			status = false;
+			b_status = FALSE;
 			break;
 		}
 	}
-	return status;
+	return b_status;
 }
 
-static void ddl_getmpeg4_declevel(enum vcd_codec_level *codec_level,
-	u32 level)
+static void ddl_getmpeg4_declevel(enum vcd_codec_level_type *p_level,
+	u32 n_level)
 {
-	switch (level) {
+	switch (n_level) {
 	case VIDC_720P_MPEG4_LEVEL0:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_0;
+			*p_level = VCD_LEVEL_MPEG4_0;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL0b:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_0b;
+			*p_level = VCD_LEVEL_MPEG4_0b;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL1:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_1;
+			*p_level = VCD_LEVEL_MPEG4_1;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL2:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_2;
+			*p_level = VCD_LEVEL_MPEG4_2;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL3:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_3;
+			*p_level = VCD_LEVEL_MPEG4_3;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL3b:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_3b;
+			*p_level = VCD_LEVEL_MPEG4_3b;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL4a:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_4a;
+			*p_level = VCD_LEVEL_MPEG4_4a;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL5:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_5;
+			*p_level = VCD_LEVEL_MPEG4_5;
 			break;
 		}
 	case VIDC_720P_MPEG4_LEVEL6:
 		{
-			*codec_level = VCD_LEVEL_MPEG4_6;
+			*p_level = VCD_LEVEL_MPEG4_6;
 			break;
 		}
 	}
 }
 
-static void ddl_geth264_declevel(enum vcd_codec_level *codec_level,
-	u32 level)
+static void ddl_geth264_declevel(enum vcd_codec_level_type *p_level,
+	u32 n_level)
 {
-	switch (level) {
+	switch (n_level) {
 	case VIDC_720P_H264_LEVEL1:
 		{
-			*codec_level = VCD_LEVEL_H264_1;
+			*p_level = VCD_LEVEL_H264_1;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL1b:
 		{
-			*codec_level = VCD_LEVEL_H264_1b;
+			*p_level = VCD_LEVEL_H264_1b;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL1p1:
 		{
-			*codec_level = VCD_LEVEL_H264_1p1;
+			*p_level = VCD_LEVEL_H264_1p1;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL1p2:
 		{
-			*codec_level = VCD_LEVEL_H264_1p2;
+			*p_level = VCD_LEVEL_H264_1p2;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL1p3:
 		{
-			*codec_level = VCD_LEVEL_H264_1p3;
+			*p_level = VCD_LEVEL_H264_1p3;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL2:
 		{
-			*codec_level = VCD_LEVEL_H264_2;
+			*p_level = VCD_LEVEL_H264_2;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL2p1:
 		{
-			*codec_level = VCD_LEVEL_H264_2p1;
+			*p_level = VCD_LEVEL_H264_2p1;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL2p2:
 		{
-			*codec_level = VCD_LEVEL_H264_2p2;
+			*p_level = VCD_LEVEL_H264_2p2;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL3:
 		{
-			*codec_level = VCD_LEVEL_H264_3;
+			*p_level = VCD_LEVEL_H264_3;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL3p1:
 		{
-			*codec_level = VCD_LEVEL_H264_3p1;
+			*p_level = VCD_LEVEL_H264_3p1;
 			break;
 		}
 	case VIDC_720P_H264_LEVEL3p2:
 	{
-		*codec_level = VCD_LEVEL_H264_3p2;
+		*p_level = VCD_LEVEL_H264_3p2;
 		break;
 	}
 
@@ -961,34 +949,34 @@ static void ddl_geth264_declevel(enum vcd_codec_level *codec_level,
 }
 
 static void ddl_get_vc1_dec_level(
-	enum vcd_codec_level *codec_level, u32 level,
-	enum vcd_codec_profile vc1_profile)
+	enum vcd_codec_level_type *p_level, u32 level,
+	enum vcd_codec_profile_type vc1_profile)
 {
 	if (vc1_profile == VCD_PROFILE_VC1_ADVANCE)	{
 		switch (level) {
 		case VIDC_720P_VC1_LEVEL0:
 			{
-				*codec_level = VCD_LEVEL_VC1_0;
+				*p_level = VCD_LEVEL_VC1_0;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL1:
 			{
-				*codec_level = VCD_LEVEL_VC1_1;
+				*p_level = VCD_LEVEL_VC1_1;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL2:
 			{
-				*codec_level = VCD_LEVEL_VC1_2;
+				*p_level = VCD_LEVEL_VC1_2;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL3:
 			{
-				*codec_level = VCD_LEVEL_VC1_3;
+				*p_level = VCD_LEVEL_VC1_3;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL4:
 			{
-				*codec_level = VCD_LEVEL_VC1_4;
+				*p_level = VCD_LEVEL_VC1_4;
 				break;
 			}
 		}
@@ -999,70 +987,70 @@ static void ddl_get_vc1_dec_level(
 	switch (level) {
 	case VIDC_720P_VC1_LEVEL_LOW:
 		{
-			*codec_level = VCD_LEVEL_VC1_LOW;
+			*p_level = VCD_LEVEL_VC1_LOW;
 			break;
 		}
 	case VIDC_720P_VC1_LEVEL_MED:
 		{
-			*codec_level = VCD_LEVEL_VC1_MEDIUM;
+			*p_level = VCD_LEVEL_VC1_MEDIUM;
 			break;
 		}
 	case VIDC_720P_VC1_LEVEL_HIGH:
 		{
-			*codec_level = VCD_LEVEL_VC1_HIGH;
+			*p_level = VCD_LEVEL_VC1_HIGH;
 			break;
 		}
 	}
 }
 
-static void ddl_get_mpeg2_dec_level(enum vcd_codec_level *codec_level,
+static void ddl_get_mpeg2_dec_level(enum vcd_codec_level_type *p_level,
 								 u32 level)
 {
 	switch (level) {
 	case VIDCL_720P_MPEG2_LEVEL_LOW:
 		{
-			*codec_level = VCD_LEVEL_MPEG2_LOW;
+			*p_level = VCD_LEVEL_MPEG2_LOW;
 			break;
 		}
 	case VIDCL_720P_MPEG2_LEVEL_MAIN:
 		{
-			*codec_level = VCD_LEVEL_MPEG2_MAIN;
+			*p_level = VCD_LEVEL_MPEG2_MAIN;
 			break;
 		}
 	case VIDCL_720P_MPEG2_LEVEL_HIGH14:
 		{
-			*codec_level = VCD_LEVEL_MPEG2_HIGH_14;
+			*p_level = VCD_LEVEL_MPEG2_HIGH_14;
 			break;
 		}
 	}
 }
 
-static void ddl_getdec_profilelevel(struct ddl_decoder_data *decoder,
-		u32 profile, u32 level)
+static void ddl_getdec_profilelevel(struct ddl_decoder_data_type *p_decoder,
+		u32 n_profile, u32 n_level)
 {
-	enum vcd_codec_profile codec_profile = VCD_PROFILE_UNKNOWN;
-	enum vcd_codec_level codec_level = VCD_LEVEL_UNKNOWN;
+	enum vcd_codec_profile_type profile = VCD_PROFILE_UNKNOWN;
+	enum vcd_codec_level_type level = VCD_LEVEL_UNKNOWN;
 
-	switch (decoder->codec.codec) {
+	switch (p_decoder->codec_type.e_codec) {
 	case VCD_CODEC_MPEG4:
 		{
-			if (profile == VIDC_720P_PROFILE_MPEG4_SP)
-				codec_profile = VCD_PROFILE_MPEG4_SP;
-			else if (profile == VIDC_720P_PROFILE_MPEG4_ASP)
-				codec_profile = VCD_PROFILE_MPEG4_ASP;
+			if (n_profile == VIDC_720P_PROFILE_MPEG4_SP)
+				profile = VCD_PROFILE_MPEG4_SP;
+			else if (n_profile == VIDC_720P_PROFILE_MPEG4_ASP)
+				profile = VCD_PROFILE_MPEG4_ASP;
 
-			ddl_getmpeg4_declevel(&codec_level, level);
+			ddl_getmpeg4_declevel(&level, n_level);
 			break;
 		}
 	case VCD_CODEC_H264:
 		{
-			if (profile == VIDC_720P_PROFILE_H264_BASELINE)
-				codec_profile = VCD_PROFILE_H264_BASELINE;
-			else if (profile == VIDC_720P_PROFILE_H264_MAIN)
-				codec_profile = VCD_PROFILE_H264_MAIN;
-			else if (profile == VIDC_720P_PROFILE_H264_HIGH)
-				codec_profile = VCD_PROFILE_H264_HIGH;
-			ddl_geth264_declevel(&codec_level, level);
+			if (n_profile == VIDC_720P_PROFILE_H264_BASELINE)
+				profile = VCD_PROFILE_H264_BASELINE;
+			else if (n_profile == VIDC_720P_PROFILE_H264_MAIN)
+				profile = VCD_PROFILE_H264_MAIN;
+			else if (n_profile == VIDC_720P_PROFILE_H264_HIGH)
+				profile = VCD_PROFILE_H264_HIGH;
+			ddl_geth264_declevel(&level, n_level);
 			break;
 		}
 	default:
@@ -1073,26 +1061,26 @@ static void ddl_getdec_profilelevel(struct ddl_decoder_data *decoder,
 	case VCD_CODEC_VC1:
 	case VCD_CODEC_VC1_RCV:
 		{
-			if (profile == VIDC_720P_PROFILE_VC1_SP)
-				codec_profile = VCD_PROFILE_VC1_SIMPLE;
-			else if (profile == VIDC_720P_PROFILE_VC1_MAIN)
-				codec_profile = VCD_PROFILE_VC1_MAIN;
-			else if (profile == VIDC_720P_PROFILE_VC1_ADV)
-				codec_profile = VCD_PROFILE_VC1_ADVANCE;
-			ddl_get_vc1_dec_level(&codec_level, level, profile);
+			if (n_profile == VIDC_720P_PROFILE_VC1_SP)
+				profile = VCD_PROFILE_VC1_SIMPLE;
+			else if (n_profile == VIDC_720P_PROFILE_VC1_MAIN)
+				profile = VCD_PROFILE_VC1_MAIN;
+			else if (n_profile == VIDC_720P_PROFILE_VC1_ADV)
+				profile = VCD_PROFILE_VC1_ADVANCE;
+			ddl_get_vc1_dec_level(&level, n_level, profile);
 			break;
 		}
 	case VCD_CODEC_MPEG2:
 		{
-			if (profile == VIDC_720P_PROFILE_MPEG2_MAIN)
-				codec_profile = VCD_PROFILE_MPEG2_MAIN;
-			else if (profile == VIDC_720P_PROFILE_MPEG2_SP)
-				codec_profile = VCD_PROFILE_MPEG2_SIMPLE;
-			ddl_get_mpeg2_dec_level(&codec_level, level);
+			if (n_profile == VIDC_720P_PROFILE_MPEG2_MAIN)
+				profile = VCD_PROFILE_MPEG2_MAIN;
+			else if (n_profile == VIDC_720P_PROFILE_MPEG2_SP)
+				profile = VCD_PROFILE_MPEG2_SIMPLE;
+			ddl_get_mpeg2_dec_level(&level, n_level);
 			break;
 		}
 	}
 
-	decoder->profile.profile = codec_profile;
-	decoder->level.level = codec_level;
+	p_decoder->profile.e_profile = profile;
+	p_decoder->level.e_level = level;
 }
