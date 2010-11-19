@@ -1656,7 +1656,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	tx->dma_in_flight = 0;
 
 	tx->xfer.complete_func = msm_hs_dmov_tx_callback;
-	tx->xfer.execute_func = NULL;
+	tx->xfer.exec_func = NULL;
 
 	tx->command_ptr->cmd = CMD_LC |
 	    CMD_DST_CRCI(msm_uport->dma_tx_crci) | CMD_MODE_BOX;
@@ -1672,7 +1672,7 @@ static int msm_hs_startup(struct uart_port *uport)
 
 	/* Turn on Uart Receive */
 	rx->xfer.complete_func = msm_hs_dmov_rx_callback;
-	rx->xfer.execute_func = NULL;
+	rx->xfer.exec_func = NULL;
 
 	rx->command_ptr->cmd = CMD_LC |
 	    CMD_SRC_CRCI(msm_uport->dma_rx_crci) | CMD_MODE_BOX;

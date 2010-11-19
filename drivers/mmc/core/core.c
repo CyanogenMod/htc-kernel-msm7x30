@@ -208,8 +208,6 @@ void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 {
 	DECLARE_COMPLETION_ONSTACK(complete);
 
-	msmsdcc_wait_for_host_resume(host);
-
 	mrq->done_data = &complete;
 	mrq->done = mmc_wait_done;
 
