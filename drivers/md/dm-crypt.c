@@ -733,11 +733,13 @@ static void kcryptd_io(struct work_struct *work)
 
 static void kcryptd_queue_io(struct dm_crypt_io *io)
 {
+#ifndef CONFIG_DM_CRYPT_GLOBAL_WORKQUEUES
+	struct crypt_config *cc = io->target->private;
+#endif
 	INIT_WORK(&io->work, kcryptd_io);
 #ifdef CONFIG_DM_CRYPT_GLOBAL_WORKQUEUES
 	queue_work(_io_queue, &io->work);
 #else
-	struct crypt_config *cc = io->target->private;
 	queue_work(cc->io_queue, &io->work);
 #endif
 }
@@ -920,11 +922,13 @@ static void kcryptd_crypt(struct work_struct *work)
 
 static void kcryptd_queue_crypt(struct dm_crypt_io *io)
 {
+#ifndef CONFIG_DM_CRYPT_GLOBAL_WORKQUEUES
+	struct crypt_config *cc = io->target->private;
+#endif
 	INIT_WORK(&io->work, kcryptd_crypt);
 #ifdef CONFIG_DM_CRYPT_GLOBAL_WORKQUEUES
 	queue_work(_crypt_queue, &io->work);
 #else
-	struct crypt_config *cc = io->target->private;
 	queue_work(cc->crypt_queue, &io->work);
 #endif
 }
