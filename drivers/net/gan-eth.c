@@ -175,7 +175,7 @@ static void ganeth_rx_data_ready(struct sock *sk, int len)
 	memcpy(buf, skb->data + sizeof(struct udphdr), ulen);
 
 	rxskb->dev = netdev;
-	rxskb->protocol = eth_type_trans(skb, netdev);
+	rxskb->protocol = eth->h_proto;
 	rxskb->ip_summed = CHECKSUM_NONE;
 	rxskb->pkt_type = PACKET_HOST;
 
