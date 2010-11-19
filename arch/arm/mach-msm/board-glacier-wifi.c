@@ -9,7 +9,7 @@
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <linux/skbuff.h>
-#include <linux/wifi_tiwlan.h>
+#include <linux/wlan_plat.h>
 
 #include "board-glacier.h"
 
@@ -77,7 +77,7 @@ static struct resource glacier_wifi_resources[] = {
 		.name		= "bcm4329_wlan_irq",
 		.start		= MSM_GPIO_TO_INT(GLACIER_GPIO_WIFI_IRQ),
 		.end		= MSM_GPIO_TO_INT(GLACIER_GPIO_WIFI_IRQ),
-		.flags          = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+		.flags          = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
 	},
 };
 
@@ -86,8 +86,6 @@ static struct wifi_platform_data glacier_wifi_control = {
 	.set_reset      = glacier_wifi_reset,
 	.set_carddetect = glacier_wifi_set_carddetect,
 	.mem_prealloc   = glacier_wifi_mem_prealloc,
-	.dot11n_enable  = 1,
-	.cscan_enable   = 1,
 };
 
 static struct platform_device glacier_wifi_device = {
@@ -138,6 +136,7 @@ int __init glacier_wifi_init(void)
 	glacier_wifi_update_nvs("sd_oobonly=1\n");
 	glacier_wifi_update_nvs("btc_params80=0\n");
 	glacier_wifi_update_nvs("btc_params6=30\n");
+    glacier_wifi_update_nvs("btc_params70=0x32\n");
 	glacier_init_wifi_mem();
 	ret = platform_device_register(&glacier_wifi_device);
 	return ret;
