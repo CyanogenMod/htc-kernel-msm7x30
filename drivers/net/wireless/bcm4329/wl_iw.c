@@ -4723,7 +4723,7 @@ wl_iw_set_power(
 
 	WL_TRACE(("%s: SIOCSIWPOWER\n", dev->name));
 
-	pm = vwrq->disabled ? PM_OFF : PM_MAX;
+	pm = vwrq->disabled ? PM_OFF : PM_FAST;
 
 	pm = htod32(pm);
 	if ((error = dev_wlc_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm))))
