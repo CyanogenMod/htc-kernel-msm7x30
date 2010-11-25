@@ -82,6 +82,24 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 0, 245760 },
 	{ 1, 368640 },
 	{ 2, 768000 },
+#ifdef CONFIG_MACH_SPADE
+	{ 3, 1017600 },
+	{ 4, 1113600 },
+	{ 5, 1209600 },
+	{ 6, 1305600 },
+	{ 7, 1401600 },
+	{ 8, 1497600 },
+#ifndef CONFIG_JESUS_PHONE
+	{ 9, CPUFREQ_TABLE_END },
+#else
+	/* Just an example of some of the insanity I was able to pull off on my
+	   device */
+	{ 9, 1612800 },
+	{ 10, 1708800 },
+	{ 11, 1804800 },
+	{ 12, CPUFREQ_TABLE_END },
+#endif
+#else
 	{ 3, 806400 },
 	{ 4, 1017600 },
 	{ 5, 1113600 },
@@ -98,6 +116,7 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 11, 1708800 },
 	{ 12, 1804800 },
 	{ 13, CPUFREQ_TABLE_END },
+#endif
 #endif
 };
 
@@ -116,8 +135,12 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	/* Make sure any freq based from PLL_2 is a multiple of 19200! 
 	   Voltage tables are being very conservative and are not designed to
 	   be an undervolt of any sort. */
+#ifdef CONFIG_MACH_SPADE
+	{ 1017600, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1100) },
+#else
 	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100) },
 	{ 1017600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
+#endif
 	{ 1113600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
 	{ 1209600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
 	{ 1305600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
@@ -483,18 +506,6 @@ static void __init lpj_init(void)
 	}
 }
 
-/* Update frequency tables for a 1017.6MHz PLL2. */
-void __init pll2_1024mhz_fixup(void)
-{
-	if (acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz != 806400
-		  || freq_table[ARRAY_SIZE(freq_table)-2].frequency != 806400) {
-		pr_err("Frequency table fixups for PLL2 rate failed.\n");
-		BUG();
-	}
-	acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2].acpu_clk_khz = 1017600;
-	freq_table[ARRAY_SIZE(freq_table)-2].frequency = 1017600;
-}
-
 #define RPM_BYPASS_MASK	(1 << 3)
 #define PMIC_MODE_MASK	(1 << 4)
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
@@ -506,10 +517,6 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	drv_state.wfi_ramp_down = 1;
 	drv_state.pwrc_ramp_down = 1;
-	/* PLL2 runs at 1017.6MHz for MSM8x55. */
-	if (cpu_is_msm8x55()) {
-		pll2_1024mhz_fixup();
-	}
 	acpuclk_init();
 	lpj_init();
 
