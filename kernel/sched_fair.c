@@ -1519,11 +1519,8 @@ select_task_rq_fair(struct rq *rq, struct task_struct *p, int sd_flag, int wake_
 		if (affine_sd && (!tmp || affine_sd->span_weight > sd->span_weight))
 			tmp = affine_sd;
 
-		if (tmp) {
-			spin_unlock(&rq->lock);
+		if (tmp)
 			update_shares(tmp);
-			spin_lock(&rq->lock);
-		}
 	}
 #endif
 
