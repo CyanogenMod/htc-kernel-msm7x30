@@ -2,8 +2,8 @@
  *  drivers/cpufreq/cpufreq_ondemand.c
  *
  *  Copyright (C)  2001 Russell King
- *            (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
- *                      Jun Nakajima <jun.nakajima@intel.com>
+ *	    (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
+ *		      Jun Nakajima <jun.nakajima@intel.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -66,10 +66,10 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 static
 #endif
 struct cpufreq_governor cpufreq_gov_ondemand = {
-       .name                   = "ondemand",
-       .governor               = cpufreq_governor_dbs,
+       .name		   = "ondemand",
+       .governor	       = cpufreq_governor_dbs,
        .max_transition_latency = TRANSITION_LATENCY_LIMIT,
-       .owner                  = THIS_MODULE,
+       .owner		  = THIS_MODULE,
 };
 
 /* Sampling types */
@@ -251,7 +251,7 @@ define_one_ro(sampling_rate_min);
 /* cpufreq_ondemand Governor Tunables */
 #define show_one(file_name, object)					\
 static ssize_t show_##file_name						\
-(struct kobject *kobj, struct attribute *attr, char *buf)              \
+(struct kobject *kobj, struct attribute *attr, char *buf)	      \
 {									\
 	return sprintf(buf, "%u\n", dbs_tuners_ins.object);		\
 }
@@ -283,7 +283,7 @@ show_one_old(sampling_rate_min);
 show_one_old(sampling_rate_max);
 
 #define define_one_ro_old(object, _name)       \
-static struct freq_attr object =               \
+static struct freq_attr object =	       \
 __ATTR(_name, 0444, show_##_name##_old, NULL)
 
 define_one_ro_old(sampling_rate_min_old, sampling_rate_min);
@@ -449,7 +449,7 @@ write_one_old(ignore_nice_load);
 write_one_old(powersave_bias);
 
 #define define_one_rw_old(object, _name)       \
-static struct freq_attr object =               \
+static struct freq_attr object =	       \
 __ATTR(_name, 0644, show_##_name##_old, store_##_name##_old)
 
 define_one_rw_old(sampling_rate_old, sampling_rate);
@@ -687,11 +687,29 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 	schedule_work(&dbs_refresh_work);
 }
 
+static int input_dev_filter(const char* input_dev_name)
+{
+	int ret = 0;
+	if (strstr(input_dev_name, "touchscreen") ||
+		strstr(input_dev_name, "-keypad") ||
+		strstr(input_dev_name, "-nav") ||
+		strstr(input_dev_name, "-oj")) {
+	}
+	else {
+		ret = 1;
+	}
+	return ret;
+}
+
 static int dbs_input_connect(struct input_handler *handler,
 		struct input_dev *dev, const struct input_device_id *id)
 {
 	struct input_handle *handle;
 	int error;
+
+	/* filter out those input_dev that we don't care */
+	if (input_dev_filter(dev->name))
+		return 0;
 
 	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
 	if (!handle)
