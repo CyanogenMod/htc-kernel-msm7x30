@@ -122,7 +122,9 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_common_settings_array_parallel[] =
   { 0x0100 , 0x00 },
   /* MIPI/CCP/Parallel Setting */
   { 0x3091 , 0x00 },
-  { 0x310E , 0x08 },
+  { 0x3065 , 0x15 },  /* sync mode */
+  { 0x310E , 0x08 },  /* reg_sel 08h:parallel / 04h: CCP / 00h : MIPI */
+  { 0x0111 , 0x01 },  /* CCP2_signalling_mode */
   { 0x308E , 0x05 },
   { 0x308F , 0x88 },
   /* Manufacture Setting */
@@ -148,7 +150,7 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_common_settings_array_parallel[] =
   { 0x3083 , 0x21 },
   { 0x3011 , 0x5F },
   { 0x3156 , 0xE2 },
-  { 0x3027 , 0x0E },
+ /* { 0x3027 , 0x0E }, */
   { 0x300f , 0x02 },
   { 0x3072 , 0x13 },
   { 0x3073 , 0x61 },
@@ -229,54 +231,52 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_qtr_settings_array_mipi[] =
 
 struct s5k3h1gx_i2c_reg_conf s5k3h1gx_qtr_settings_array_parallel[] =
 {
-#if 0
   /* PLL settings  MCLK:24MHz,vt_pix_clk_freq_mhz=130.2MHz,op_sys_clk_freq_mhz=65.1MHz */
-  { 0x0305 , 0x08 }, /*	pre_pll_clk_div = 8	*/
-  { 0x0306 , 0x00 }, /*	pll_multiplier */
-  { 0x0307 , 0xD9 }, /*	pll_multiplier = 217 */
-  { 0x0303 , 0x01 }, /*	vt_sys_clk_div = 1 */
-  { 0x0301 , 0x05 }, /*	vt_pix_clk_div = 5 */
-  { 0x030B , 0x01 }, /*	op_sys_clk_div = 1 */
-  { 0x0309 , 0x0A }, /*	op_pix_clk_div = 10 */
-#endif
-  /* PLL settings  MCLK:24MHz,vt_pix_clk_freq_mhz=96MHz,op_sys_clk_freq_mhz=96MHz */
-  { 0x0305 , 0x08 }, /* pre_pll_clk_div = 8 */
+  { 0x0305 , 0x08 }, /* pre_pll_clk_div = 8	*/
   { 0x0306 , 0x01 }, /* pll_multiplier */
-  { 0x0307 , 0x40 }, /* pll_multiplier  = 320 */
+  { 0x0307 , 0x40 }, /* pll_multiplier = 320 */
   { 0x0303 , 0x01 }, /* vt_sys_clk_div = 1 */
-  { 0x0301 , 0x0A }, /* vt_pix_clk_div = 10 */
+  { 0x0301 , 0x05 }, /* vt_pix_clk_div = 5 */
   { 0x030B , 0x01 }, /* op_sys_clk_div = 1 */
   { 0x0309 , 0x0A }, /* op_pix_clk_div = 10 */
-  /* ------------------------------------------------ */
+  /* DBLR Clock setting = 96Mhz = vt_pix_clk_freq_mhz/2 */
+  { 0x3027 , 0x7E },
+
   /* Readout	H:1/2 SubSampling binning, V:1/2 SubSampling binning */
-  { 0x0344 , 0x00 }, /*	X addr start 0d */
+  { 0x0344 , 0x00 }, /* X addr start 0d */
   { 0x0345 , 0x00 },
-  { 0x0346 , 0x00 }, /*	Y addr start 0d */
+  { 0x0346 , 0x00 }, /* Y addr start 0d */
   { 0x0347 , 0x00 },
-  { 0x0348 , 0x0C }, /*	X addr end 3279d */
+  { 0x0348 , 0x0C }, /* X addr end 3279d */
   { 0x0349 , 0xCF },
-  { 0x034A , 0x09 }, /*	Y addr end 2463d */
+  { 0x034A , 0x09 }, /* Y addr end 2463d */
   { 0x034B , 0x9F },
-  { 0x0381 , 0x01 }, /*	x_even_inc = 1 */
-  { 0x0383 , 0x01 }, /*	x_odd_inc = 1 */
-  { 0x0385 , 0x01 }, /*	y_even_inc = 1 */
-  { 0x0387 , 0x03 }, /*	y_odd_inc = 3 */
-  { 0x034C , 0x06 }, /*	x_output_size = 1640 */
+  { 0x0381 , 0x01 }, /* x_even_inc = 1 */
+  { 0x0383 , 0x01 }, /* x_odd_inc = 1 */
+  { 0x0385 , 0x01 }, /* y_even_inc = 1 */
+  { 0x0387 , 0x03 }, /* y_odd_inc = 3 */
+  /* ------------- */
+  { 0x0401 , 0x01 }, /* Derating_en  = 1 (disable) */
+  { 0x0405 , 0x10 },
+  { 0x0700 , 0x05 }, /* fifo_threshold = 1328 */
+  { 0x0701 , 0x30 },
+  /* ------------- */
+  { 0x034C , 0x06 }, /* x_output_size = 1640 */
   { 0x034D , 0x68 },
-  { 0x034E , 0x04 }, /*	y_output_size = 1232 */
+  { 0x034E , 0x04 }, /* y_output_size = 1232 */
   { 0x034F , 0xD0 },
-  { 0x0200 , 0x06 }, /*	fine integration time */
-  { 0x0201 , 0xC2 },
+  { 0x0200 , 0x03 }, /* fine integration time */
+  { 0x0201 , 0x50 },
   /* ------------- */
-  { 0x0202 , 0x04 }, /*	Coarse integration time */
-  { 0x0203 , 0xDB },
+  { 0x0202 , 0x03 }, /* Coarse integration time */
+  { 0x0203 , 0xA0 }, /* DB */
   /* ------------- */
-  { 0x0204 , 0x00 }, /*	Analog gain */
+  { 0x0204 , 0x00 }, /* Analog gain */
   { 0x0205 , 0x20 },
-  { 0x0342 , 0x0D }, /*	Line_length_pck 3470d */
+  { 0x0342 , 0x0D }, /* Line_length_pck 3470d */
   { 0x0343 , 0x8E },
-  { 0x0340 , 0x04 }, /*	Frame_length_lines 1248d */
-  { 0x0341 , 0xE0 },
+  { 0x0340 , 0x07 }, /* Frame_length_lines 1843d */
+  { 0x0341 , 0x33 },
   /* Manufacture Setting */
   { 0x300E , 0xED },
   { 0x3085 , 0x00 },
@@ -290,7 +290,8 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_qtr_settings_array_parallel[] =
   { 0x3117 , 0x0A }, /* H/V sync driving strength 6mA */
   { 0x3118 , 0xA3 }, /* parallel data driving strength 6mA */
   /* ------------- */
-  { 0x0100 , 0x01 },
+
+  /*{ 0x0100 , 0x01 },*/
 };
 
 struct s5k3h1gx_i2c_reg_conf s5k3h1gx_full_settings_array_mipi[] =
@@ -335,13 +336,15 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_full_settings_array_mipi[] =
 struct s5k3h1gx_i2c_reg_conf s5k3h1gx_full_settings_array_parallel[] =
 {
   /* PLL settings  MCLK:24MHz,vt_pix_clk_freq_mhz=96MHz,op_sys_clk_freq_mhz=96MHz */
-  { 0x0305 , 0x08 }, /* pre_pll_clk_div = 8 */
-  { 0x0306 , 0x01 }, /* pll_multiplier */
-  { 0x0307 , 0x40 }, /* pll_multiplier  = 320 */
+  { 0x0305 , 0x04 }, /* pre_pll_clk_div = 4 */
+  { 0x0306 , 0x00 }, /* pll_multiplier */
+  { 0x0307 , 0xA0 }, /* pll_multiplier  = 160 */
   { 0x0303 , 0x01 }, /* vt_sys_clk_div = 1 */
   { 0x0301 , 0x0A }, /* vt_pix_clk_div = 10 */
   { 0x030B , 0x01 }, /* op_sys_clk_div = 1 */
   { 0x0309 , 0x0A }, /* op_pix_clk_div = 10 */
+  /* DBLR Clock setting = 96Mhz = vt_pix_clk_freq_mhz */
+  { 0x3027 , 0x3E },
   /* Readout	Full */
   { 0x0344 , 0x00 }, /* X addr start 0d */
   { 0x0345 , 0x00 },
@@ -388,7 +391,8 @@ struct s5k3h1gx_i2c_reg_conf s5k3h1gx_full_settings_array_parallel[] =
   { 0x3117 , 0x0A }, /* H/V sync driving strength 6mA */
   { 0x3118 , 0xA3 }, /* parallel data driving strength 6mA */
   /* ------------- */
-  { 0x0100 , 0x01 },
+
+  /*{ 0x0100 , 0x01 },*/
 };
 
 

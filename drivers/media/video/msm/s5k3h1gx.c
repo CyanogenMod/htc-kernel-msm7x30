@@ -81,12 +81,13 @@
 #define SENSOR_VER_FULL_BLK_LINES 16 /* 0 */
 #define SENSOR_HRZ_QTR_BLK_PIXELS 1830
 #define SENSOR_VER_QTR_BLK_LINES 16 /* 8 */
+#define SENSOR_VER_QTR_BLK_LINES_PARALLEL 611 /* 16 */ /* 8 */
 
 #define S5K3H1GX_AF_I2C_ADDR 0x18
 #define S5K3H1GX_TOTAL_STEPS_NEAR_TO_FAR 42 /* 36 */
 #define S5K3H1GX_SW_DAMPING_STEP 10
 #define S5K3H1GX_MAX_FPS 30
-#define S5K3H1GX_MAX_FPS_PARALLEL 22 /* 30 */
+#define S5K3H1GX_MAX_FPS_PARALLEL 30 /* 22 */
 
 /*=============================================================
  SENSOR REGISTER DEFINES
@@ -249,8 +250,6 @@ static int s5k3h1gx_i2c_rxdata(unsigned short saddr,
 		.buf   = rxdata,
 	},
 	};
-	pr_info("%s: saddr=0x%X\n", __func__, saddr);
-	pr_info("%s: raddr=0x%X\n", __func__, *rxdata);
 
 	if (i2c_transfer(s5k3h1gx_client->adapter, msgs, 2) < 0) {
 		pr_err("s5k3h1gx_i2c_rxdata failed!\n");
@@ -277,6 +276,32 @@ static int32_t s5k3h1gx_i2c_txdata(unsigned short saddr,
 	}
 
 	return 0;
+}
+
+static int32_t s5k3h1gx_i2c_read_b(unsigned short saddr, unsigned short raddr,
+	unsigned short *rdata)
+{
+	int32_t rc = 0;
+	unsigned char buf[4];
+
+	if (!rdata)
+		return -EIO;
+
+	memset(buf, 0, sizeof(buf));
+
+	buf[0] = (raddr & 0xFF00)>>8;
+	buf[1] = (raddr & 0x00FF);
+
+	rc = s5k3h1gx_i2c_rxdata(saddr, buf, 1);
+	if (rc < 0)
+		return rc;
+
+	*rdata = buf[0];
+
+	if (rc < 0)
+		pr_info("s5k3h1gx_i2c_read failed!\n");
+
+	return rc;
 }
 
 
@@ -349,29 +374,38 @@ retry:
 static void s5k3h1gx_get_pict_fps(uint16_t fps, uint16_t *pfps)
 {
 	/* input fps is preview fps in Q8 format */
-
 	uint32_t divider, d1, d2;
-
 	uint16_t snapshot_height, preview_height, preview_width, snapshot_width;
+	struct msm_camera_sensor_info *sinfo = s5k3h1gx_pdev->dev.platform_data;
 
 	if (s5k3h1gx_ctrl->prev_res == QTR_SIZE) {
 		preview_width =
-			SENSOR_QTR_SIZE_WIDTH  + SENSOR_HRZ_QTR_BLK_PIXELS ;
-		preview_height =
-			SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES ;
+			SENSOR_QTR_SIZE_WIDTH  + SENSOR_HRZ_QTR_BLK_PIXELS;
+
+		if (sinfo->csi_if)
+			preview_height =
+				SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES;
+		else
+			preview_height =
+				SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES_PARALLEL;
 	} else {
 		/* full size resolution used for preview. */
 		preview_width =
-			SENSOR_FULL_SIZE_WIDTH + SENSOR_HRZ_FULL_BLK_PIXELS ;
+			SENSOR_FULL_SIZE_WIDTH + SENSOR_HRZ_FULL_BLK_PIXELS;
 		preview_height =
-			SENSOR_FULL_SIZE_HEIGHT + SENSOR_VER_FULL_BLK_LINES ;
+			SENSOR_FULL_SIZE_HEIGHT + SENSOR_VER_FULL_BLK_LINES;
 	}
 
 	if (s5k3h1gx_ctrl->pict_res == QTR_SIZE) {
 		snapshot_width =
-			SENSOR_QTR_SIZE_WIDTH + SENSOR_HRZ_QTR_BLK_PIXELS ;
-		snapshot_height =
-			SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES ;
+			SENSOR_QTR_SIZE_WIDTH + SENSOR_HRZ_QTR_BLK_PIXELS;
+
+		if (sinfo->csi_if)
+			snapshot_height =
+				SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES;
+		else
+			snapshot_height =
+				SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES_PARALLEL;
 	} else {
 		snapshot_width =
 			SENSOR_FULL_SIZE_WIDTH + SENSOR_HRZ_FULL_BLK_PIXELS;
@@ -389,8 +423,13 @@ static void s5k3h1gx_get_pict_fps(uint16_t fps, uint16_t *pfps)
 
 static uint16_t s5k3h1gx_get_prev_lines_pf(void)
 {
+	struct msm_camera_sensor_info *sinfo = s5k3h1gx_pdev->dev.platform_data;
+
 	if (s5k3h1gx_ctrl->prev_res == QTR_SIZE) {
-		return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES);
+		if (sinfo->csi_if)
+			return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES);
+		else
+			return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES_PARALLEL);
 	} else  {
 		return (SENSOR_FULL_SIZE_HEIGHT + SENSOR_VER_FULL_BLK_LINES);
 	}
@@ -407,8 +446,13 @@ static uint16_t s5k3h1gx_get_prev_pixels_pl(void)
 
 static uint16_t s5k3h1gx_get_pict_lines_pf(void)
 {
+	struct msm_camera_sensor_info *sinfo = s5k3h1gx_pdev->dev.platform_data;
+
 	if (s5k3h1gx_ctrl->pict_res == QTR_SIZE) {
-		return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES);
+		if (sinfo->csi_if)
+			return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES);
+		else
+			return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES_PARALLEL);
 	} else  {
 		return (SENSOR_FULL_SIZE_HEIGHT + SENSOR_VER_FULL_BLK_LINES);
 	}
@@ -425,8 +469,13 @@ static uint16_t s5k3h1gx_get_pict_pixels_pl(void)
 
 static uint32_t s5k3h1gx_get_pict_max_exp_lc(void)
 {
+	struct msm_camera_sensor_info *sinfo = s5k3h1gx_pdev->dev.platform_data;
+
 	if (s5k3h1gx_ctrl->pict_res == QTR_SIZE) {
-		return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES);
+		if (sinfo->csi_if)
+			return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES);
+		else
+			return (SENSOR_QTR_SIZE_HEIGHT + SENSOR_VER_QTR_BLK_LINES_PARALLEL);
 	} else  {
 		return (SENSOR_FULL_SIZE_HEIGHT + SENSOR_VER_FULL_BLK_LINES);
 	}
@@ -465,12 +514,12 @@ static int32_t s5k3h1gx_write_exp_gain
 	uint16_t max_legal_gain = 0x0200;
 	uint32_t ll_ratio; /* Q10 */
 	uint32_t ll_pck, fl_lines;
-	uint16_t offset = 4;
+	uint16_t offset = 8; /* 4; */     /* kipper */
 	uint32_t gain_msb, gain_lsb;
 	uint32_t intg_t_msb, intg_t_lsb;
 	uint32_t ll_pck_msb, ll_pck_lsb;
-
 	struct s5k3h1gx_i2c_reg_conf tbl[3];
+	struct msm_camera_sensor_info *sinfo = s5k3h1gx_pdev->dev.platform_data;
 
 	CDBG("Line:%d s5k3h1gx_write_exp_gain \n", __LINE__);
 
@@ -479,8 +528,12 @@ static int32_t s5k3h1gx_write_exp_gain
 		s5k3h1gx_ctrl->my_reg_gain = gain;
 		s5k3h1gx_ctrl->my_reg_line_count = (uint16_t)line;
 
-		fl_lines = SENSOR_QTR_SIZE_HEIGHT +
-			SENSOR_VER_QTR_BLK_LINES;
+		if (sinfo->csi_if)
+			fl_lines = SENSOR_QTR_SIZE_HEIGHT +
+				SENSOR_VER_QTR_BLK_LINES;
+		else
+			fl_lines = SENSOR_QTR_SIZE_HEIGHT +
+				SENSOR_VER_QTR_BLK_LINES_PARALLEL;
 
 		ll_pck = SENSOR_QTR_SIZE_WIDTH +
 			SENSOR_HRZ_QTR_BLK_PIXELS;
@@ -503,7 +556,7 @@ static int32_t s5k3h1gx_write_exp_gain
 	pr_info("s5k3h1gx_ctrl->fps_divider = %d\n", s5k3h1gx_ctrl->fps_divider);
 	pr_info("fl_lines = %d\n", fl_lines);
 	pr_info("line = %d\n", line);
-	if (fl_lines < (line / 0x400))
+	if ((fl_lines-offset) < (line / 0x400))    /* kipper, 3H1 maximum coarse_integration_time = frame length lines -8 */
 		ll_ratio = (line / (fl_lines - offset));
 	else
 		ll_ratio = 0x400;
@@ -556,6 +609,7 @@ static int32_t s5k3h1gx_set_pict_exp_gain(uint16_t gain, uint32_t line)
 {
 	int32_t rc = 0;
 	rc = s5k3h1gx_write_exp_gain(gain, line);
+
 	return rc;
 } /* endof s5k3h1gx_set_pict_exp_gain*/
 
@@ -606,53 +660,63 @@ static int32_t s5k3h1gx_setting(int rt)
     if (rc < 0)
       return rc;
 
-  switch (rt) {
-    case QTR_SIZE:
-      pr_err("s5k3h1gx_setting(QTR_SIZE)\n");
-      if (sinfo->csi_if) {
-        rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.qtr_mipi, s5k3h1gx_regs.qtr_mipi_size);
-      } else {
-        rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.qtr_parallel, s5k3h1gx_regs.qtr_parallel_size);
-      }
-      if (rc < 0)
-        return rc;
+	switch (rt) {
+	case QTR_SIZE:
+		pr_err("s5k3h1gx_setting(QTR_SIZE)\n");
+		if (sinfo->csi_if) {
+			rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.qtr_mipi, s5k3h1gx_regs.qtr_mipi_size);
+		} else {
+			rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.qtr_parallel, s5k3h1gx_regs.qtr_parallel_size);
+			if (rc < 0)
+				return rc;
 
-      s5k3h1gx_ctrl->curr_res = QTR_SIZE;
+			msleep(200);
+			rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, 0x0100, 0x01);
+		}
+		if (rc < 0)
+			return rc;
 
-      /* test pattern */
+		s5k3h1gx_ctrl->curr_res = QTR_SIZE;
+
+		/* test pattern */
 #if 0
-      rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, S5K3H1GX_COLOR_BAR_PATTERN_SEL_REG, 0x02);
-      if (rc < 0)
-        return rc;
+		rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, S5K3H1GX_COLOR_BAR_PATTERN_SEL_REG, 0x02);
+		if (rc < 0)
+			return rc;
 #endif
-      break;
+		break;
 
-    case FULL_SIZE:
-      pr_err("s5k3h1gx_setting(FULL_SIZE)\n");
-      if (sinfo->csi_if) {
-        rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.full_mipi, s5k3h1gx_regs.full_mipi_size);
-      } else {
-        rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.full_parallel, s5k3h1gx_regs.full_parallel_size);
-      }
-      if (rc < 0)
-        return rc;
+	case FULL_SIZE:
+		pr_err("s5k3h1gx_setting(FULL_SIZE)\n");
+		if (sinfo->csi_if) {
+			rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.full_mipi, s5k3h1gx_regs.full_mipi_size);
+		} else {
+			rc = s5k3h1gx_i2c_write_table(s5k3h1gx_regs.full_parallel, s5k3h1gx_regs.full_parallel_size);
+			if (rc < 0)
+				return rc;
 
-      /* test pattern */
+			msleep(100);
+			rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, 0x0100, 0x01);
+		}
+		if (rc < 0)
+			return rc;
+
+		/* test pattern */
 #if 0
-      rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, S5K3H1GX_COLOR_BAR_PATTERN_SEL_REG, 0x02);
-      if (rc < 0)
-        return rc;
+		rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, S5K3H1GX_COLOR_BAR_PATTERN_SEL_REG, 0x02);
+		if (rc < 0)
+			return rc;
 #endif
 
-      s5k3h1gx_ctrl->curr_res = FULL_SIZE;
-      break;
+		s5k3h1gx_ctrl->curr_res = FULL_SIZE;
+		break;
 
-    default:
-      rc = -EFAULT;
-      return rc;
-  }
+	default:
+		rc = -EFAULT;
+		return rc;
+	}
 
-  return rc;
+	return rc;
 } /* end of s5k3h1gx_setting */
 
 static int32_t s5k3h1gx_video_config(int mode)
@@ -896,6 +960,81 @@ s5k3h1gx_go_to_position(uint32_t lens_pos, uint8_t mask)
       S5K3H1GX_AF_I2C_ADDR >> 1, buf[0], buf[1]);
 
   return rc;
+}
+
+static int s5k3h1gx_i2c_read_fuseid(struct sensor_cfg_data *cdata)
+{
+
+	int32_t  rc;
+	unsigned short i, R1, R2, R3;
+	unsigned short  OTP[10];
+
+	pr_info("%s: sensor OTP information:\n", __func__);
+
+	for (i = 0; i < 10; i++)
+		OTP[i] = 5;
+
+	rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, 0x3124, 0x10);
+	if (rc < 0)
+		pr_info("%s: i2c_write_b 0x30FB fail\n", __func__);
+
+	rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, 0x3127, 0xF1);
+	if (rc < 0)
+		pr_info("%s: i2c_write_b 0x30FB fail\n", __func__);
+
+	mdelay(4);
+
+	for (i = 0; i < 10; i++) {
+		rc = s5k3h1gx_i2c_write_b(s5k3h1gx_client->addr, 0x312B, i);
+			if (rc < 0)
+			pr_info("%s: i2c_write_b 0x310C fail\n", __func__);
+		rc = s5k3h1gx_i2c_read_b(s5k3h1gx_client->addr, 0x312C, &R1);
+			if (rc < 0)
+			pr_info("%s: i2c_read_b 0x310F fail\n", __func__);
+		rc = s5k3h1gx_i2c_read_b(s5k3h1gx_client->addr, 0x312D, &R2);
+			if (rc < 0)
+			pr_info("%s: i2c_read_b 0x310E fail\n", __func__);
+		rc = s5k3h1gx_i2c_read_b(s5k3h1gx_client->addr, 0x312E, &R3);
+			if (rc < 0)
+			pr_info("%s: i2c_read_b 0x310D fail\n", __func__);
+
+		if ((R3&0x0F) != 0)
+			OTP[i] = (short)(R3&0x0F);
+		else if ((R2&0x0F) != 0)
+			OTP[i] = (short)(R2&0x0F);
+		else if ((R2>>4) != 0)
+			OTP[i] = (short)(R2>>4);
+		else if ((R1&0x0F) != 0)
+			OTP[i] = (short)(R1&0x0F);
+		else
+			OTP[i] = (short)(R1>>4);
+
+	}
+	pr_info("%s: VenderID=%x,LensID=%x,SensorID=%x%x\n", __func__,
+		OTP[0], OTP[1], OTP[2], OTP[3]);
+	pr_info("%s: ModuleFuseID= %x%x%x%x%x%x\n", __func__,
+		OTP[4], OTP[5], OTP[6], OTP[7], OTP[8], OTP[9]);
+
+    cdata->cfg.fuse.fuse_id_word1 = 0;
+    cdata->cfg.fuse.fuse_id_word2 = 0;
+	cdata->cfg.fuse.fuse_id_word3 = (OTP[0]);
+	cdata->cfg.fuse.fuse_id_word4 =
+		(OTP[4]<<20) |
+		(OTP[5]<<16) |
+		(OTP[6]<<12) |
+		(OTP[7]<<8) |
+		(OTP[8]<<4) |
+		(OTP[9]);
+
+	pr_info("s5k3h1gx: fuse->fuse_id_word1:%d\n",
+		cdata->cfg.fuse.fuse_id_word1);
+	pr_info("s5k3h1gx: fuse->fuse_id_word2:%d\n",
+		cdata->cfg.fuse.fuse_id_word2);
+	pr_info("s5k3h1gx: fuse->fuse_id_word3:0x%08x\n",
+		cdata->cfg.fuse.fuse_id_word3);
+	pr_info("s5k3h1gx: fuse->fuse_id_word4:0x%08x\n",
+		cdata->cfg.fuse.fuse_id_word4);
+	return 0;
 }
 
 static int s5k3h1gx_sensor_open_init(struct msm_camera_sensor_info *data)
@@ -1383,6 +1522,13 @@ int s5k3h1gx_sensor_config(void __user *argp)
       s5k3h1gx_set_default_focus();
     break;
 
+	case CFG_I2C_IOCTL_R_OTP:{
+		pr_info("Line:%d CFG_I2C_IOCTL_R_OTP \n", __LINE__);
+		rc = s5k3h1gx_i2c_read_fuseid(&cdata);
+		if (copy_to_user(argp, &cdata, sizeof(struct sensor_cfg_data)))
+			rc = -EFAULT;
+		}
+		break;
   default:
     rc = -EFAULT;
     break;
