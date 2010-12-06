@@ -184,6 +184,12 @@ void ddl_decode_init_codec(struct ddl_client_context_type *p_ddl)
 
 	vidc_720p_decode_set_mpeg4Post_filter(p_decoder->post_filter.
 					       b_post_filter);
+
+	if (p_decoder->codec_type.e_codec == VCD_CODEC_H264) {
+		vidc_720p_decode_setH264VSPBuffer(
+			p_decoder->h264Vsp_temp_buffer.p_align_physical_addr);
+	}
+
 	if (p_decoder->codec_type.e_codec == VCD_CODEC_VC1_RCV) {
 		vidc_720p_set_frame_size(p_decoder->client_frame_size.n_width,
 			p_decoder->client_frame_size.n_height);
@@ -291,6 +297,11 @@ void ddl_encode_dynamic_property(struct ddl_client_context_type *p_ddl,
 		p_encoder->target_bit_rate.n_target_bitrate);
 		n_enc_param_change |= VIDC_720P_ENC_BITRATE_CHANGE;
 		p_encoder->n_dynamic_prop_change &= ~(DDL_ENC_CHANGE_BITRATE);
+	}
+	if ((p_encoder->n_dynamic_prop_change & DDL_ENC_CHANGE_CIR)) {
+		vidc_720p_encode_set_intra_refresh_mb_number(
+		p_encoder->intra_refresh.n_cir_mb_number);
+		p_encoder->n_dynamic_prop_change &= ~(DDL_ENC_CHANGE_CIR);
 	}
 	if ((p_encoder->n_dynamic_prop_change & DDL_ENC_CHANGE_IPERIOD)) {
 		vidc_720p_encode_set_i_period

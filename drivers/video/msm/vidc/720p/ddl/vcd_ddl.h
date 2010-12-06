@@ -79,6 +79,7 @@
 #define DDL_ENC_CHANGE_IPERIOD                  0x2
 #define DDL_ENC_CHANGE_BITRATE                  0x4
 #define DDL_ENC_CHANGE_FRAMERATE                0x8
+#define DDL_ENC_CHANGE_CIR                      0x10
 
 #define DDL_DEC_REQ_OUTPUT_FLUSH                0x1
 
@@ -185,6 +186,7 @@ struct ddl_decoder_data_type {
 	struct vcd_property_profile_type profile;
 	struct vcd_property_level_type level;
 	u32 n_progressive_only;
+	u32 n_output_order;
 	u32 n_meta_data_enable_flag;
 	u32 n_suffix;
 	struct ddl_buf_addr_type meta_data_input;

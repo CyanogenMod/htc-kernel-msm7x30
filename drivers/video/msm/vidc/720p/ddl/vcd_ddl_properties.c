@@ -354,6 +354,21 @@ static u32 ddl_set_dec_property
 							     p_property_value);
 			break;
 		}
+	case VCD_I_OUTPUT_ORDER:
+		{
+			if (sizeof(u32) == p_property_hdr->n_size &&
+				DDLCLIENT_STATE_IS(p_ddl, DDL_CLIENT_OPEN)) {
+					p_decoder->n_output_order =
+						*(u32 *)p_property_value;
+					vcd_status = VCD_S_SUCCESS;
+			}
+			break;
+		}
+	case VCD_I_FRAME_RATE:
+		{
+			vcd_status = VCD_S_SUCCESS;
+			break;
+		}
 	default:
 		{
 			vcd_status = VCD_ERR_ILLEGAL_OP;
@@ -1038,6 +1053,14 @@ static u32 ddl_get_dec_property
 			}
 			break;
 		}
+	case VCD_I_OUTPUT_ORDER:
+		{
+			if (sizeof(u32) == p_property_hdr->n_size) {
+				*(u32 *)p_property_value = p_decoder->n_output_order;
+				vcd_status = VCD_S_SUCCESS;
+			}
+			break;
+		}
 	case VCD_I_METADATA_ENABLE:
 	case VCD_I_METADATA_HEADER:
 		{
@@ -1459,6 +1482,31 @@ static u32 ddl_set_enc_dynamic_property
 				    DDL_ENC_CHANGE_FRAMERATE;
 				vcd_status = VCD_S_SUCCESS;
 			}
+			break;
+		}
+	case VCD_I_INTRA_REFRESH:
+		{
+
+		struct vcd_property_intra_refresh_mb_number_type
+			*p_intra_refresh_mbnum =
+			(struct	vcd_property_intra_refresh_mb_number_type *)
+			p_property_value;
+
+			u32 n_frame_mbnum =
+				(p_encoder->frame_size.n_width / 16) *
+				(p_encoder->frame_size.n_height / 16);
+			if (sizeof(struct
+				vcd_property_intra_refresh_mb_number_type)
+				== p_property_hdr->n_size &&
+				p_intra_refresh_mbnum->n_cir_mb_number <=
+				n_frame_mbnum) {
+				p_encoder->intra_refresh =
+					*p_intra_refresh_mbnum;
+				p_encoder->n_dynamic_prop_change |=
+					DDL_ENC_CHANGE_CIR;
+				vcd_status = VCD_S_SUCCESS;
+			}
+
 			break;
 		}
 	default:
