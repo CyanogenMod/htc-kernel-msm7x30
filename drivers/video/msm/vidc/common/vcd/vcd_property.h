@@ -54,6 +54,7 @@
 #define VCD_I_INTRA_REFRESH  (VCD_START_BASE + 0x16)
 #define VCD_I_POST_FILTER    (VCD_START_BASE + 0x17)
 #define VCD_I_PROGRESSIVE_ONLY (VCD_START_BASE + 0x18)
+#define VCD_I_OUTPUT_ORDER (VCD_START_BASE + 0x19)
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -307,6 +308,11 @@ struct vcd_frame_rect_type{
 
 struct vcd_property_dec_output_buffer_type {
 	struct vcd_frame_rect_type   disp_frm;
+};
+
+enum vcd_output_order_type {
+   VCD_DEC_ORDER_DISPLAY  = 0x0,
+   VCD_DEC_ORDER_DECODE   = 0x1
 };
 
 #endif
