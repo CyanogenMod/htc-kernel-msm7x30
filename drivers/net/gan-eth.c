@@ -156,6 +156,8 @@ static void ganeth_rx_data_ready(struct sock *sk, int len)
 		}
 	}
 
+	dst_confirm(skb_dst(skb));
+
 	rxskb = dev_alloc_skb(ulen + ETH_HLEN + NET_IP_ALIGN);
 	if (!rxskb) {
 		pr_err("%s: failed to allocate skb\n", netdev->name);
@@ -175,7 +177,11 @@ static void ganeth_rx_data_ready(struct sock *sk, int len)
 	memcpy(buf, skb->data + sizeof(struct udphdr), ulen);
 
 	rxskb->dev = netdev;
+
+	skb_reset_mac_header(rxskb);
 	rxskb->protocol = eth->h_proto;
+	skb_pull(rxskb, ETH_HLEN); /* Eat ethernet header */
+
 	rxskb->ip_summed = CHECKSUM_NONE;
 	rxskb->pkt_type = PACKET_HOST;
 
