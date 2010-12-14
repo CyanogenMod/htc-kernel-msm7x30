@@ -432,7 +432,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		} else {
 			brq.cmd.opcode = writecmd;
 			brq.data.flags |= MMC_DATA_WRITE;
-#if 1
+#if 0
 		if (board_emmc_boot())
 			if (mmc_card_mmc(card)) {
 				if (brq.cmd.arg < 131072) {/* 131072 mean modem_st1 partition*/
