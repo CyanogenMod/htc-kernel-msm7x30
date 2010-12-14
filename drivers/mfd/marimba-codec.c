@@ -825,10 +825,8 @@ static struct dentry *debugfs_marimba_dent;
 static struct dentry *debugfs_peek;
 static struct dentry *debugfs_poke;
 static struct dentry *debugfs_power;
-static unsigned char dump_reg[] = {0x03, 0x0d, 0x0e, 0x0f, 0x1a, 0x24, 0x2b, 0x2c, 0x33,
-		0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3b, 0x3c, 0x80, 0x81, 0x82, 0x83,
-		0x84, 0x85, 0x86, 0x87, 0x8a, 0x8b, 0x8c, 0x91};
-static unsigned char read_all_data[sizeof(dump_reg)];
+
+static unsigned char read_data;
 
 static int codec_debug_open(struct inode *inode, struct file *file)
 {
@@ -864,12 +862,8 @@ static int get_parameters(char *buf, long int *param1, int num_of_par)
 static ssize_t codec_debug_read(struct file *file, char __user *ubuf,
 				size_t count, loff_t *ppos)
 {
-	char lbuf[1024];
-	int i = 0;
-	int offset = 0;
-	for (i = 0; i < sizeof(dump_reg); i++)
-			offset += sprintf(lbuf + offset, "%x=0x%x\n" ,dump_reg[i] , read_all_data[i]);
-	lbuf[offset-1] = '\n';
+	char lbuf[8];
+	snprintf(lbuf, sizeof(lbuf), "0x%x\n", read_data);
 	return simple_read_from_buffer(ubuf, count, ppos, lbuf, strlen(lbuf));
 }
 
@@ -879,7 +873,6 @@ static ssize_t codec_debug_write(struct file *filp,
 	char *access_str = filp->private_data;
 	char lbuf[32];
 	int rc;
-	int i;
 	long int param[5];
 
 	if (cnt > sizeof(lbuf) - 1)
@@ -919,13 +912,9 @@ static ssize_t codec_debug_write(struct file *filp,
 	} else if (!strcmp(access_str, "peek")) {
 		/* read */
 		rc = get_parameters(lbuf, param, 1);
-		if ((param[0] < 0xFF) && (rc == 0))
-			adie_codec_read(param[0], &read_all_data[0]);
-		else if ((param[0] == 0xFF) && (rc == 0)) {
-			for (i = 0; i < sizeof(read_all_data); i++) {
-				adie_codec_read(dump_reg[i], &read_all_data[i]);
-			}
-		} else
+		if ((param[0] <= 0xFF) && (rc == 0))
+			adie_codec_read(param[0], &read_data);
+		else
 			rc = -EINVAL;
 	}
 
