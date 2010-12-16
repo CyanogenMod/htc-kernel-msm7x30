@@ -83,7 +83,7 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 0, 245760 },
 	{ 1, 368640 },
 	{ 2, 768000 },
-#ifdef CONFIG_MACH_SPADE
+#if defined(CONFIG_MACH_SPADE) || defined(CONFIG_MACH_GLACIER)
 	{ 3, 1017600 },
 	{ 4, 1113600 },
 	{ 5, 1209600 },
@@ -137,7 +137,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	/* Make sure any freq based from PLL_2 is a multiple of 19200! 
 	   Voltage tables are being very conservative and are not designed to
 	   be an undervolt of any sort. */
-#ifdef CONFIG_MACH_SPADE
+#if defined(CONFIG_MACH_SPADE) || defined(CONFIG_MACH_GLACIER)
 	{ 1017600, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1100) },
 #else
 	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100) },
