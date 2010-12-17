@@ -19,41 +19,35 @@
 #include "vidc_type.h"
 #include "vcd.h"
 
-u32 vcd_init(struct vcd_init_config_type *p_config, s32 *p_driver_handle)
+u32 vcd_init(struct vcd_init_config *config, s32 *driver_handle)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_drv_ctxt *drv_ctxt;
 
 	VCD_MSG_MED("vcd_init:");
 
-	if (!p_config ||
-	    !p_driver_handle || !p_config->pf_map_dev_base_addr) {
+	if (!config ||
+	    !driver_handle || !config->map_dev_base_addr) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_ILLEGAL_PARM;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
+	mutex_init(&drv_ctxt->dev_mutex);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (!p_drv_ctxt->dev_cs)
-		rc = vcd_critical_section_create(&p_drv_ctxt->dev_cs);
-
-	if (rc)
-		return VCD_ERR_ALLOC_FAIL;
-
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
-
-	if (p_drv_ctxt->dev_state.p_state_table->ev_hdlr.pf_init) {
-		rc = p_drv_ctxt->dev_state.p_state_table->ev_hdlr.
-		    pf_init(p_drv_ctxt, p_config, p_driver_handle);
+	if (drv_ctxt->dev_state.state_table->ev_hdlr.init) {
+		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
+		    init(drv_ctxt, config, driver_handle);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
-			      p_drv_ctxt->dev_state.e_state);
+			      drv_ctxt->dev_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -63,52 +57,35 @@ EXPORT_SYMBOL(vcd_init);
 u32 vcd_term(s32 driver_handle)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_drv_ctxt *drv_ctxt;
 
 	VCD_MSG_MED("vcd_term:");
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (!p_drv_ctxt->dev_cs) {
-		VCD_MSG_ERROR("No critical section object");
-
-		return VCD_ERR_BAD_STATE;
-	}
-
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
-
-	if (p_drv_ctxt->dev_state.p_state_table->ev_hdlr.pf_term) {
-		rc = p_drv_ctxt->dev_state.p_state_table->ev_hdlr.
-		    pf_term(p_drv_ctxt, driver_handle);
+	if (drv_ctxt->dev_state.state_table->ev_hdlr.term) {
+		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
+		    term(drv_ctxt, driver_handle);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
-			      p_drv_ctxt->dev_state.e_state);
+			      drv_ctxt->dev_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
-
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
-
-	if (p_drv_ctxt->dev_state.e_state == VCD_DEVICE_STATE_NULL) {
-		VCD_MSG_HIGH
-		    ("Device in NULL state. Releasing critical section");
-
-		vcd_critical_section_release(p_drv_ctxt->dev_cs);
-		p_drv_ctxt->dev_cs = NULL;
-	}
-
+	mutex_unlock(&drv_ctxt->dev_mutex);
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_term);
 
-u32 vcd_open(s32 driver_handle, u32 b_decoding,
-	void (*callback) (u32 event, u32 status, void *p_info, u32 n_size,
-		       void *handle, void *const p_client_data),
-	void *p_client_data)
+u32 vcd_open(s32 driver_handle, u32 decoding,
+	void (*callback) (u32 event, u32 status, void *info, size_t sz,
+		       void *handle, void *const client_data),
+	void *client_data)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_drv_ctxt *drv_ctxt;
 
 	VCD_MSG_MED("vcd_open:");
 
@@ -118,28 +95,21 @@ u32 vcd_open(s32 driver_handle, u32 b_decoding,
 		return VCD_ERR_ILLEGAL_PARM;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (!p_drv_ctxt->dev_cs) {
-		VCD_MSG_ERROR("No critical section object");
-
-		return VCD_ERR_BAD_STATE;
-	}
-
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
-
-	if (p_drv_ctxt->dev_state.p_state_table->ev_hdlr.pf_open) {
-		rc = p_drv_ctxt->dev_state.p_state_table->ev_hdlr.
-		    pf_open(p_drv_ctxt, driver_handle, b_decoding, callback,
-			    p_client_data);
+	if (drv_ctxt->dev_state.state_table->ev_hdlr.open) {
+		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
+		    open(drv_ctxt, driver_handle, decoding, callback,
+			    client_data);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
-			      p_drv_ctxt->dev_state.e_state);
+			      drv_ctxt->dev_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -148,27 +118,27 @@ EXPORT_SYMBOL(vcd_open);
 
 u32 vcd_close(void *handle)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_close:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	if (p_drv_ctxt->dev_state.p_state_table->ev_hdlr.pf_close) {
-		rc = p_drv_ctxt->dev_state.p_state_table->ev_hdlr.
-		    pf_close(p_drv_ctxt, p_cctxt);
+	if (drv_ctxt->dev_state.state_table->ev_hdlr.close) {
+		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
+		    close(drv_ctxt, cctxt);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
-			      p_drv_ctxt->dev_state.e_state);
+			      drv_ctxt->dev_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
@@ -180,160 +150,160 @@ EXPORT_SYMBOL(vcd_close);
 
 u32 vcd_encode_start(void *handle)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_encode_start:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_encode_start &&
-	    p_drv_ctxt->dev_ctxt.e_pwr_state != VCD_PWR_STATE_SLEEP) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_encode_start(p_cctxt);
+	if (cctxt->clnt_state.state_table->ev_hdlr.encode_start &&
+	    drv_ctxt->dev_ctxt.pwr_state != VCD_PWR_STATE_SLEEP) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    encode_start(cctxt);
 	} else {
 		VCD_MSG_ERROR
 		    ("Unsupported API in dev power state %d OR client state %d",
-		     p_drv_ctxt->dev_ctxt.e_pwr_state,
-		     p_cctxt->clnt_state.e_state);
+		     drv_ctxt->dev_ctxt.pwr_state,
+		     cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_encode_start);
 
-u32 vcd_encode_frame(void *handle, struct vcd_frame_data_type *p_input_frame)
+u32 vcd_encode_frame(void *handle, struct vcd_frame_data *input_frame)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_encode_frame:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_input_frame) {
+	if (!input_frame) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_encode_frame) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_encode_frame(p_cctxt, p_input_frame);
+	if (cctxt->clnt_state.state_table->ev_hdlr.encode_frame) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    encode_frame(cctxt, input_frame);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_encode_frame);
 
-u32 vcd_decode_start(void *handle, struct vcd_sequence_hdr_type *p_seq_hdr)
+u32 vcd_decode_start(void *handle, struct vcd_sequence_hdr *seq_hdr)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_decode_start:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_decode_start &&
-	    p_drv_ctxt->dev_ctxt.e_pwr_state != VCD_PWR_STATE_SLEEP) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_decode_start(p_cctxt, p_seq_hdr);
+	if (cctxt->clnt_state.state_table->ev_hdlr.decode_start &&
+	    drv_ctxt->dev_ctxt.pwr_state != VCD_PWR_STATE_SLEEP) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    decode_start(cctxt, seq_hdr);
 	} else {
 		VCD_MSG_ERROR
 		    ("Unsupported API in dev power state %d OR client state %d",
-		     p_drv_ctxt->dev_ctxt.e_pwr_state,
-		     p_cctxt->clnt_state.e_state);
+		     drv_ctxt->dev_ctxt.pwr_state,
+		     cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_decode_start);
 
-u32 vcd_decode_frame(void *handle, struct vcd_frame_data_type *p_input_frame)
+u32 vcd_decode_frame(void *handle, struct vcd_frame_data *input_frame)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_decode_frame:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_input_frame) {
+	if (!input_frame) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_decode_frame) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_decode_frame(p_cctxt, p_input_frame);
+	if (cctxt->clnt_state.state_table->ev_hdlr.decode_frame) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    decode_frame(cctxt, input_frame);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -342,34 +312,34 @@ EXPORT_SYMBOL(vcd_decode_frame);
 
 u32 vcd_pause(void *handle)
 {
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_pause:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_pause) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_pause(p_cctxt);
+	if (cctxt->clnt_state.state_table->ev_hdlr.pause) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    pause(cctxt);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -378,73 +348,73 @@ EXPORT_SYMBOL(vcd_pause);
 
 u32 vcd_resume(void *handle)
 {
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_resume:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_drv_ctxt->dev_state.p_state_table->ev_hdlr.pf_resume &&
-	    p_drv_ctxt->dev_ctxt.e_pwr_state != VCD_PWR_STATE_SLEEP) {
-		rc = p_drv_ctxt->dev_state.p_state_table->ev_hdlr.
-		    pf_resume(p_drv_ctxt, p_cctxt);
+	if (drv_ctxt->dev_state.state_table->ev_hdlr.resume &&
+	    drv_ctxt->dev_ctxt.pwr_state != VCD_PWR_STATE_SLEEP) {
+		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
+		    resume(drv_ctxt, cctxt);
 	} else {
 		VCD_MSG_ERROR
 		    ("Unsupported API in dev power state %d OR client state %d",
-		     p_drv_ctxt->dev_ctxt.e_pwr_state,
-		     p_cctxt->clnt_state.e_state);
+		     drv_ctxt->dev_ctxt.pwr_state,
+		     cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_resume);
 
-u32 vcd_flush(void *handle, u32 n_mode)
+u32 vcd_flush(void *handle, u32 mode)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_flush:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_flush) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_flush(p_cctxt, n_mode);
+	if (cctxt->clnt_state.state_table->ev_hdlr.flush) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    flush(cctxt, mode);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -453,37 +423,37 @@ EXPORT_SYMBOL(vcd_flush);
 
 u32 vcd_stop(void *handle)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_stop:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_stop &&
-	    p_drv_ctxt->dev_ctxt.e_pwr_state != VCD_PWR_STATE_SLEEP) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_stop(p_cctxt);
+	if (cctxt->clnt_state.state_table->ev_hdlr.stop &&
+	    drv_ctxt->dev_ctxt.pwr_state != VCD_PWR_STATE_SLEEP) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    stop(cctxt);
 	} else {
 		VCD_MSG_ERROR
 		    ("Unsupported API in dev power state %d OR client state %d",
-		     p_drv_ctxt->dev_ctxt.e_pwr_state,
-		     p_cctxt->clnt_state.e_state);
+		     drv_ctxt->dev_ctxt.pwr_state,
+		     cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -491,42 +461,42 @@ u32 vcd_stop(void *handle)
 EXPORT_SYMBOL(vcd_stop);
 
 u32 vcd_set_property(void *handle,
-     struct vcd_property_hdr_type *p_prop_hdr, void *p_prop_val)
+     struct vcd_property_hdr *prop_hdr, void *prop_val)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_set_property:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_prop_hdr || !p_prop_val) {
+	if (!prop_hdr || !prop_val) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_set_property) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_set_property(p_cctxt, p_prop_hdr, p_prop_val);
+	if (cctxt->clnt_state.state_table->ev_hdlr.set_property) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    set_property(cctxt, prop_hdr, prop_val);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -534,42 +504,42 @@ u32 vcd_set_property(void *handle,
 EXPORT_SYMBOL(vcd_set_property);
 
 u32 vcd_get_property(void *handle,
-     struct vcd_property_hdr_type *p_prop_hdr, void *p_prop_val)
+     struct vcd_property_hdr *prop_hdr, void *prop_val)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_get_property:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_prop_hdr || !p_prop_val) {
+	if (!prop_hdr || !prop_val) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_get_property) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_get_property(p_cctxt, p_prop_hdr, p_prop_val);
+	if (cctxt->clnt_state.state_table->ev_hdlr.get_property) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    get_property(cctxt, prop_hdr, prop_val);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -577,44 +547,44 @@ u32 vcd_get_property(void *handle,
 EXPORT_SYMBOL(vcd_get_property);
 
 u32 vcd_set_buffer_requirements(void *handle,
-     enum vcd_buffer_type e_buffer,
-     struct vcd_buffer_requirement_type *p_buffer_req)
+     enum vcd_buffer_type buffer,
+     struct vcd_buffer_requirement *buffer_req)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_set_buffer_requirements:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_buffer_req) {
+	if (!buffer_req) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.
-	    pf_set_buffer_requirements) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_set_buffer_requirements(p_cctxt, e_buffer, p_buffer_req);
+	if (cctxt->clnt_state.state_table->ev_hdlr.
+	    set_buffer_requirements) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    set_buffer_requirements(cctxt, buffer, buffer_req);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -622,44 +592,44 @@ u32 vcd_set_buffer_requirements(void *handle,
 EXPORT_SYMBOL(vcd_set_buffer_requirements);
 
 u32 vcd_get_buffer_requirements(void *handle,
-     enum vcd_buffer_type e_buffer,
-     struct vcd_buffer_requirement_type *p_buffer_req)
+     enum vcd_buffer_type buffer,
+     struct vcd_buffer_requirement *buffer_req)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_get_buffer_requirements:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_buffer_req) {
+	if (!buffer_req) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.
-	    pf_get_buffer_requirements) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_get_buffer_requirements(p_cctxt, e_buffer, p_buffer_req);
+	if (cctxt->clnt_state.state_table->ev_hdlr.
+	    get_buffer_requirements) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    get_buffer_requirements(cctxt, buffer, buffer_req);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -667,42 +637,42 @@ u32 vcd_get_buffer_requirements(void *handle,
 EXPORT_SYMBOL(vcd_get_buffer_requirements);
 
 u32 vcd_set_buffer(void *handle,
-     enum vcd_buffer_type e_buffer, u8 *p_buffer, u32 n_buf_size)
+     enum vcd_buffer_type buffer_type, u8 *buffer, u32 buf_size)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_set_buffer:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_buffer || !n_buf_size) {
+	if (!buffer || !buf_size) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_set_buffer) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_set_buffer(p_cctxt, e_buffer, p_buffer, n_buf_size);
+	if (cctxt->clnt_state.state_table->ev_hdlr.set_buffer) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    set_buffer(cctxt, buffer_type, buffer, buf_size);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -710,123 +680,123 @@ u32 vcd_set_buffer(void *handle,
 EXPORT_SYMBOL(vcd_set_buffer);
 
 u32 vcd_allocate_buffer(void *handle,
-     enum vcd_buffer_type e_buffer,
-     u32 n_buf_size, u8 **pp_vir_buf_addr, u8 **pp_phy_buf_addr)
+     enum vcd_buffer_type buffer,
+     u32 buf_size, u8 **vir_buf_addr, u8 **phy_buf_addr)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_allocate_buffer:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!pp_vir_buf_addr || !pp_phy_buf_addr
-	    || !n_buf_size) {
+	if (!vir_buf_addr || !phy_buf_addr
+	    || !buf_size) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_allocate_buffer) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_allocate_buffer(p_cctxt, e_buffer, n_buf_size,
-				       pp_vir_buf_addr, pp_phy_buf_addr);
+	if (cctxt->clnt_state.state_table->ev_hdlr.allocate_buffer) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    allocate_buffer(cctxt, buffer, buf_size,
+				       vir_buf_addr, phy_buf_addr);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_allocate_buffer);
 
-u32 vcd_free_buffer(void *handle, enum vcd_buffer_type e_buffer, u8 *p_buffer)
+u32 vcd_free_buffer(void *handle, enum vcd_buffer_type buffer_type, u8 *buffer)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_free_buffer:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_free_buffer) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_free_buffer(p_cctxt, e_buffer, p_buffer);
+	if (cctxt->clnt_state.state_table->ev_hdlr.free_buffer) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    free_buffer(cctxt, buffer_type, buffer);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
 }
 EXPORT_SYMBOL(vcd_free_buffer);
 
-u32 vcd_fill_output_buffer(void *handle, struct vcd_frame_data_type *p_buffer)
+u32 vcd_fill_output_buffer(void *handle, struct vcd_frame_data *buffer)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt =
-	    (struct vcd_clnt_ctxt_type_t *)handle;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt =
+	    (struct vcd_clnt_ctxt *)handle;
+	struct vcd_drv_ctxt *drv_ctxt;
 	u32 rc;
 
 	VCD_MSG_MED("vcd_fill_output_buffer:");
 
-	if (!p_cctxt || p_cctxt->n_signature != VCD_SIGNATURE) {
+	if (!cctxt || cctxt->signature != VCD_SIGNATURE) {
 		VCD_MSG_ERROR("Bad client handle");
 
 		return VCD_ERR_BAD_HANDLE;
 	}
 
-	if (!p_buffer) {
+	if (!buffer) {
 		VCD_MSG_ERROR("Bad parameters");
 
 		return VCD_ERR_BAD_POINTER;
 	}
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (p_cctxt->clnt_state.p_state_table->ev_hdlr.pf_fill_output_buffer) {
-		rc = p_cctxt->clnt_state.p_state_table->ev_hdlr.
-		    pf_fill_output_buffer(p_cctxt, p_buffer);
+	if (cctxt->clnt_state.state_table->ev_hdlr.fill_output_buffer) {
+		rc = cctxt->clnt_state.state_table->ev_hdlr.
+		    fill_output_buffer(cctxt, buffer);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in client state %d",
-			      p_cctxt->clnt_state.e_state);
+			      cctxt->clnt_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -834,34 +804,27 @@ u32 vcd_fill_output_buffer(void *handle, struct vcd_frame_data_type *p_buffer)
 EXPORT_SYMBOL(vcd_fill_output_buffer);
 
 u32 vcd_set_device_power(s32 driver_handle,
-		enum vcd_power_state_type e_pwr_state)
+		enum vcd_power_state pwr_state)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_drv_ctxt *drv_ctxt;
 
 	VCD_MSG_MED("vcd_set_device_power:");
 
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
+	mutex_lock(&drv_ctxt->dev_mutex);
 
-	if (!p_drv_ctxt->dev_cs) {
-		VCD_MSG_ERROR("No critical section object");
-
-		return VCD_ERR_BAD_STATE;
-	}
-
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
-
-	if (p_drv_ctxt->dev_state.p_state_table->ev_hdlr.pf_set_dev_pwr) {
-		rc = p_drv_ctxt->dev_state.p_state_table->ev_hdlr.
-		    pf_set_dev_pwr(p_drv_ctxt, e_pwr_state);
+	if (drv_ctxt->dev_state.state_table->ev_hdlr.set_dev_pwr) {
+		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
+		    set_dev_pwr(drv_ctxt, pwr_state);
 	} else {
 		VCD_MSG_ERROR("Unsupported API in device state %d",
-			      p_drv_ctxt->dev_state.e_state);
+			      drv_ctxt->dev_state.state);
 
 		rc = VCD_ERR_BAD_STATE;
 	}
 
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 
 	return rc;
 
@@ -877,43 +840,43 @@ void vcd_read_and_clear_interrupt(void)
 
 void vcd_response_handler(void)
 {
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
+	struct vcd_drv_ctxt *drv_ctxt;
 
 	VCD_MSG_LOW("vcd_response_handler:");
-  p_drv_ctxt = vcd_get_drv_context();
+  drv_ctxt = vcd_get_drv_context();
 
-  vcd_critical_section_enter(p_drv_ctxt->dev_cs);
+  mutex_lock(&drv_ctxt->dev_mutex);
 
 	if (!ddl_process_core_response()) {
 		VCD_MSG_HIGH
 		    ("ddl_process_core_response indicated no further"
 		     "processing");
-    vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+    mutex_unlock(&drv_ctxt->dev_mutex);
 		return;
 	}
 
-	if (p_drv_ctxt->dev_ctxt.b_continue)
+	if (drv_ctxt->dev_ctxt.command_continue)
 		vcd_continue();
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 }
 EXPORT_SYMBOL(vcd_response_handler);
 
 u8 vcd_get_num_of_clients(void)
 {
-	struct vcd_drv_ctxt_type_t *p_drv_ctxt;
-	struct vcd_clnt_ctxt_type_t *p_cctxt;
+	struct vcd_drv_ctxt *drv_ctxt;
+	struct vcd_clnt_ctxt *cctxt;
 	u8 count = 0;
 
 	VCD_MSG_LOW("vcd_get_num_of_clients:");
-	p_drv_ctxt = vcd_get_drv_context();
+	drv_ctxt = vcd_get_drv_context();
 
-	vcd_critical_section_enter(p_drv_ctxt->dev_cs);
-	p_cctxt = p_drv_ctxt->dev_ctxt.p_cctxt_list_head;
-	while (p_cctxt) {
+	mutex_lock(&drv_ctxt->dev_mutex);
+	cctxt = drv_ctxt->dev_ctxt.cctxt_list_head;
+	while (cctxt) {
 		count++;
-		p_cctxt = p_cctxt->p_next;
+		cctxt = cctxt->next;
 	}
-	vcd_critical_section_leave(p_drv_ctxt->dev_cs);
+	mutex_unlock(&drv_ctxt->dev_mutex);
 	return count;
 }
 EXPORT_SYMBOL(vcd_get_num_of_clients);
