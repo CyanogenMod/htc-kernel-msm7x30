@@ -824,6 +824,11 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	ret = mdp->overlay_play(mdp, info, &req, &p_src_file);
 
+	if (mdp->overrides & MSM_MDP_FORCE_UPDATE) {
+		msmfb_pan_update(info,
+			0, 0, info->var.xres, info->var.yres, 0, 0);
+	}
+
 	if (p_src_file)
 		put_pmem_file(p_src_file);
 
