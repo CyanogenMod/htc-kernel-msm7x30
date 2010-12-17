@@ -40,17 +40,6 @@
 
 #define VCD_MIN_PERF_LEVEL                   37900
 
-#define VCD_MAX_SCHEDULER_QUEUE_DURATION     1
-
-#define VCD_MAX_SCHEDULER_QUEUE_SIZE(n_fps_n, n_fps_d)          \
-      (n_fps_n / n_fps_d * VCD_MAX_SCHEDULER_QUEUE_DURATION)
-
-#define VCD_SCHEDULER_INITIAL_PERF_LEVEL        108000
-
-#define VCD_SCHEDULER_ENC_DFLT_OTKN_PERFRM        1
-
-#define VCD_SCHEDULER_DEC_DFLT_OTKN_PERFRM        1
-
 #define VCD_DRIVER_INSTANCE_MAX              4
 
 #define VCD_MAX_CLIENT_TRANSACTIONS          32
@@ -64,13 +53,16 @@
 #define VCD_TIMESTAMP_RESOLUTION             1000000
 #define VCD_DEC_INITIAL_FRAME_RATE           30
 
-#define VCD_S_SCHED_STAT_BASE  0x20000000
-#define VCD_S_SCHED_EOS        (VCD_S_SCHED_STAT_BASE + 0x1)
-#define VCD_S_SCHED_SLEEP      (VCD_S_SCHED_STAT_BASE + 0x2)
-#define VCD_S_SCHED_QEMPTY     (VCD_S_SCHED_STAT_BASE + 0x3)
-#define VCD_S_SCHED_QFULL      (VCD_S_SCHED_STAT_BASE + 0x4)
+#define VCD_FIRST_IP_RCVD                    0x00000004
+#define VCD_FIRST_OP_RCVD                    0x00000008
+#define VCD_EOS_PREV_VALID                   0x00000010
+#define VCD_EOS_WAIT_OP_BUF                  0x00000020
+#define VCD_CLEANING_UP                      0x00000040
+#define VCD_STOP_PENDING                     0x00000080
+#define VCD_CLOSE_PENDING                    0x00000100
+#define VCD_IN_RECONFIG                      0x00000200
 
-enum vcd_command_type {
+enum vcd_command {
 	VCD_CMD_NONE,
 	VCD_CMD_DEVICE_INIT,
 	VCD_CMD_DEVICE_TERM,
@@ -82,163 +74,146 @@ enum vcd_command_type {
 	VCD_CMD_CLIENT_CLOSE
 };
 
-struct vcd_cmd_q_element_type {
-	enum vcd_command_type e_pending_cmd;
+struct vcd_cmd_q_element {
+	enum vcd_command pending_cmd;
 };
 
-struct vcd_buffer_entry_type {
+struct vcd_buffer_entry {
 	struct list_head sched_list;
 	struct list_head list;
-	u32 b_valid;
-	u8 *p_alloc;
-	u8 *p_virtual;
-	u8 *p_physical;
-	u32 n_size;
-	u32 b_allocated;
-	u32 b_in_use;
-	struct vcd_frame_data_type frame;
+	u32 valid;
+	u8 *alloc;
+	u8 *virtual;
+	u8 *physical;
+	size_t sz;
+	u32 allocated;
+	u32 in_use;
+	struct vcd_frame_data frame;
 
 };
 
-struct vcd_buffer_pool_type {
-	struct vcd_buffer_entry_type *a_entries;
-	u32 n_count;
-	struct vcd_buffer_requirement_type buf_req;
-	u32 n_validated;
-	u32 n_allocated;
-	u32 n_in_use;
-	struct list_head a_queue;
-	u16 n_q_len;
+struct vcd_buffer_pool {
+	struct vcd_buffer_entry *entries;
+	u32 count;
+	struct vcd_buffer_requirement buf_req;
+	u32 validated;
+	u32 allocated;
+	u32 in_use;
+	struct list_head queue;
+	u16 q_len;
 };
 
-struct vcd_transc_type {
-	u32 b_in_use;
-	enum vcd_command_type e_type;
-	struct vcd_clnt_ctxt_type_t *p_cctxt;
+struct vcd_transc {
+	u32 in_use;
+	enum vcd_command type;
+	struct vcd_clnt_ctxt *cctxt;
 
-	struct vcd_buffer_entry_type *p_ip_buf_entry;
+	struct vcd_buffer_entry *ip_buf_entry;
 
 	s64 time_stamp;
-	u32 n_ip_frm_tag;
-	enum vcd_frame_type e_frame_type;
+	u32 ip_frm_tag;
+	enum vcd_frame frame;
 
-	struct vcd_buffer_entry_type *p_op_buf_entry;
+	struct vcd_buffer_entry *op_buf_entry;
 
-	u32 b_input_done;
-	u32 b_frame_done;
+	u32 input_done;
+	u32 frame_done;
 };
 
-struct vcd_dev_ctxt_type {
-	u32 b_ddl_cmd_concurrency;
-	u32 n_ddl_frame_ch_depth;
-	u32 n_ddl_cmd_ch_depth;
-	u32 n_ddl_frame_ch_interim;
-	u32 n_ddl_cmd_ch_interim;
-	u32 n_ddl_frame_ch_free;
-	u32 n_ddl_cmd_ch_free;
+struct vcd_dev_ctxt {
+	u32 ddl_cmd_concurrency;
+	u32 ddl_frame_ch_depth;
+	u32 ddl_cmd_ch_depth;
+	u32 ddl_frame_ch_interim;
+	u32 ddl_cmd_ch_interim;
+	u32 ddl_frame_ch_free;
+	u32 ddl_cmd_ch_free;
 
 	struct list_head sched_clnt_list;
 
-	struct vcd_init_config_type config;
+	struct vcd_init_config config;
 
-	u32 b_driver_ids[VCD_DRIVER_INSTANCE_MAX];
-	u32 n_refs;
-	u8 *p_device_base_addr;
-	void *p_hw_timer_handle;
-	u32               n_hw_time_out;
-	struct vcd_clnt_ctxt_type_t *p_cctxt_list_head;
+	u32 driver_ids[VCD_DRIVER_INSTANCE_MAX];
+	u32 refs;
+	u8 *device_base_addr;
+	void *hw_timer_handle;
+	u32               hw_time_out;
+	struct vcd_clnt_ctxt *cctxt_list_head;
 
-	enum vcd_command_type e_pending_cmd;
+	enum vcd_command pending_cmd;
 
-	u32 b_continue;
+	u32 command_continue;
 
-	struct vcd_transc_type *a_trans_tbl;
-	u32 n_trans_tbl_size;
+	struct vcd_transc *trans_tbl;
+	u32 trans_tbl_size;
 
-	enum vcd_power_state_type e_pwr_state;
-	enum vcd_pwr_clk_state_type e_pwr_clk_state;
-	u32 n_active_clnts;
-	u32 n_max_perf_lvl;
-	u32 n_reqd_perf_lvl;
-	u32 n_curr_perf_lvl;
-	u32 b_set_perf_lvl_pending;
+	enum vcd_power_state pwr_state;
+	enum vcd_pwr_clk_state pwr_clk_state;
+	u32 active_clnts;
+	u32 max_perf_lvl;
+	u32 reqd_perf_lvl;
+	u32 curr_perf_lvl;
+	u32 set_perf_lvl_pending;
 
 };
 
-struct vcd_clnt_status_type {
-	u32 b_req_perf_lvl;
-
-	u32 b_first_ip_frame_recvd;
-	u32 b_first_op_frame_recvd;
-
-	u32 n_frame_submitted;
-	u32 n_frame_delayed;
-	u32 n_cmd_submitted;
-
-	u32 n_int_field_cnt;
-
+struct vcd_clnt_status {
+	u32 req_perf_lvl;
+	u32 frame_submitted;
+	u32 frame_delayed;
+	u32 cmd_submitted;
+	u32 int_field_cnt;
 	s64 first_ts;
 	s64 prev_ts;
-	u32 n_time_elapsed;
-
-	u32 b_stop_pending;
-	u32 n_flush_mode;
-
-	u32 b_eos_wait_for_op_buf;
-	struct vcd_frame_data_type eos_trig_ip_frm;
-
-	u32 b_eos_prev_valid;
-	struct ddl_frame_data_type_tag eos_prev_op_frm;
+	u64 time_elapsed;
+	struct vcd_frame_data eos_trig_ip_frm;
+	struct ddl_frame_data_tag eos_prev_op_frm;
 	u32 eos_prev_op_frm_status;
-	u32	e_last_err;
-	u32	e_last_evt;
-	u32	b_cleaning_up;
-	u32	b_close_pending;
-        u32     b_reconfig;
+	u32	last_err;
+	u32	last_evt;
+	u32 mask;
 };
 
-struct vcd_sched_clnt_ctx_type {
+struct vcd_sched_clnt_ctx {
 	struct list_head list;
-	u32 b_clnt_active;
-	void *p_clnt_data;
-	u32 n_o_tkns;
-	u32 r_p_frm;
-	u32 n_rounds;
+	u32 clnt_active;
+	void *clnt_data;
+	u32 tkns;
+	u32 round_perfrm;
+	u32 rounds;
 	struct list_head ip_frm_list;
 };
 
-struct vcd_clnt_ctxt_type_t {
-	u32 n_signature;
-	struct vcd_clnt_state_ctxt_type_t clnt_state;
+struct vcd_clnt_ctxt {
+	u32 signature;
+	struct vcd_clnt_state_ctxt clnt_state;
 
 	s32 driver_id;
 
-	u32 b_live;
-	u32 b_decoding;
+	u32 live;
+	u32 decoding;
 
-	struct vcd_property_frame_rate_type frm_rate;
-	u32 n_frm_p_units;
-	u32 n_reqd_perf_lvl;
-	u32 n_time_resoln;
+	struct vcd_property_frame_rate frm_rate;
+	u32 frm_p_units;
+	u32 reqd_perf_lvl;
+	u32 time_resoln;
 
-	struct vcd_buffer_pool_type in_buf_pool;
-	struct vcd_buffer_pool_type out_buf_pool;
+	struct vcd_buffer_pool in_buf_pool;
+	struct vcd_buffer_pool out_buf_pool;
 
-	void (*callback) (u32 event, u32 status, void *p_info, u32 n_size,
-			  void *handle, void *const p_client_data);
-	void *p_client_data;
-
-	struct vcd_sched_clnt_ctx_type *sched_clnt_hdl;
-
-	u32	b_ddl_hdl_valid;
+	void (*callback) (u32 event, u32 status, void *info, size_t sz,
+			  void *handle, void *const client_data);
+	void *client_data;
+	struct vcd_sched_clnt_ctx *sched_clnt_hdl;
+	u32	ddl_hdl_valid;
 	u32 *ddl_handle;
-	struct vcd_dev_ctxt_type *p_dev_ctxt;
-	struct vcd_cmd_q_element_type cmd_q;
-	struct vcd_sequence_hdr_type seq_hdr;
-	u8 *p_seq_hdr_phy_addr;
-	struct vcd_clnt_status_type status;
+	struct vcd_dev_ctxt *dev_ctxt;
+	struct vcd_cmd_q_element cmd_q;
+	struct vcd_sequence_hdr seq_hdr;
+	u8 *seq_hdr_phy_addr;
+	struct vcd_clnt_status status;
 
-	struct vcd_clnt_ctxt_type_t *p_next;
+	struct vcd_clnt_ctxt *next;
 };
 
 #define VCD_BUFFERPOOL_INUSE_DECREMENT(val) \
@@ -248,7 +223,6 @@ do { \
 	else { \
 		VCD_MSG_ERROR("%s(): Inconsistent val given in " \
 			" VCD_BUFFERPOOL_INUSE_DECREMENT\n", __func__); \
-		vcd_assert(); \
 	} \
 } while (0)
 

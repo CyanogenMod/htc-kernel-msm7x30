@@ -93,14 +93,14 @@ static u32 res_trk_disable_pwr_rail(void)
 
 	if (resource_context.clock_enabled) {
 		mutex_unlock(&resource_context.lock);
-		VCDRES_MSG_LOW("\n Calling CLK disable in Power Down \n");
+		VCDRES_MSG_LOW("\n Calling CLK disable in Power Down\n");
 		res_trk_disable_clocks();
 		mutex_lock(&resource_context.lock);
 	}
 
 	if (!resource_context.rail_enabled) {
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 
 	resource_context.rail_enabled = 0;
@@ -108,7 +108,7 @@ static u32 res_trk_disable_pwr_rail(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("\n clk_reset failed %d\n", rc);
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 	msleep(20);
 
@@ -116,7 +116,7 @@ static u32 res_trk_disable_pwr_rail(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("\n clk_reset failed %d\n", rc);
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 
 	clk_put(resource_context.hclk_div2);
@@ -124,7 +124,7 @@ static u32 res_trk_disable_pwr_rail(void)
 	clk_put(resource_context.pclk);
 	mutex_unlock(&resource_context.lock);
 
-	return TRUE;
+	return true;
 }
 
 u32 res_trk_enable_clocks(void)
@@ -139,34 +139,34 @@ u32 res_trk_enable_clocks(void)
 		VCDRES_MSG_LOW("%s(): Enabling the clocks ...\n", __func__);
 
 		if (clk_enable(resource_context.pclk)) {
-			VCDRES_MSG_ERROR("vidc pclk Enable failed \n");
+			VCDRES_MSG_ERROR("vidc pclk Enable failed\n");
 
 			clk_put(resource_context.hclk);
 			clk_put(resource_context.hclk_div2);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
 
 		if (clk_enable(resource_context.hclk)) {
-			VCDRES_MSG_ERROR("vidc  hclk Enable failed \n");
+			VCDRES_MSG_ERROR("vidc  hclk Enable failed\n");
 			clk_put(resource_context.pclk);
 			clk_put(resource_context.hclk_div2);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
 
 		if (clk_enable(resource_context.hclk_div2)) {
-			VCDRES_MSG_ERROR("vidc  hclk Enable failed \n");
+			VCDRES_MSG_ERROR("vidc  hclk Enable failed\n");
 			clk_put(resource_context.hclk);
 			clk_put(resource_context.pclk);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
 	}
 
 	resource_context.clock_enabled = 1;
 	mutex_unlock(&resource_context.lock);
-	return TRUE;
+	return true;
 }
 
 static u32 res_trk_sel_clk_rate(unsigned long hclk_rate)
@@ -174,30 +174,30 @@ static u32 res_trk_sel_clk_rate(unsigned long hclk_rate)
 	mutex_lock(&resource_context.lock);
 	if (clk_set_rate(resource_context.hclk,
 		hclk_rate)) {
-		VCDRES_MSG_ERROR("vidc hclk set rate failed \n");
+		VCDRES_MSG_ERROR("vidc hclk set rate failed\n");
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 	resource_context.hclk_rate = hclk_rate;
 	mutex_unlock(&resource_context.lock);
-	return TRUE;
+	return true;
 }
 
 static u32 res_trk_get_clk_rate(unsigned long *phclk_rate)
 {
 	if (!phclk_rate) {
 		VCDRES_MSG_ERROR("%s(): phclk_rate is NULL\n", __func__);
-		return FALSE;
+		return false;
 	}
 	mutex_lock(&resource_context.lock);
 	*phclk_rate = clk_get_rate(resource_context.hclk);
 	if (!(*phclk_rate)) {
-		VCDRES_MSG_ERROR("vidc hclk get rate failed \n");
+		VCDRES_MSG_ERROR("vidc hclk get rate failed\n");
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 	mutex_unlock(&resource_context.lock);
-	return TRUE;
+	return true;
 }
 
 u32 res_trk_disable_clocks(void)
@@ -208,7 +208,7 @@ u32 res_trk_disable_clocks(void)
 
 	if (!resource_context.clock_enabled) {
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 
 	VCDRES_MSG_LOW("Disabling IRQ in %s()\n", __func__);
@@ -221,7 +221,7 @@ u32 res_trk_disable_clocks(void)
 	clk_disable(resource_context.pclk);
 	mutex_unlock(&resource_context.lock);
 
-	return TRUE;
+	return true;
 }
 
 static u32 res_trk_enable_pwr_rail(void)
@@ -233,47 +233,47 @@ static u32 res_trk_enable_pwr_rail(void)
 			PWR_RAIL_CTL_MANUAL);
 		if (rc) {
 			VCDRES_MSG_ERROR("%s(): internal_pwr_rail_mode \
-					failed %d \n", __func__, rc);
+					failed %d\n", __func__, rc);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
-		VCDRES_MSG_LOW("%s(): internal_pwr_rail_mode Success %d \n",
+		VCDRES_MSG_LOW("%s(): internal_pwr_rail_mode Success %d\n",
 			__func__, rc);
 
 		resource_context.pclk = clk_get(resource_context.device,
 			"mfc_pclk");
 
 		if (IS_ERR(resource_context.pclk)) {
-			VCDRES_MSG_ERROR("%s(): mfc_pclk get failed \n"
+			VCDRES_MSG_ERROR("%s(): mfc_pclk get failed\n"
 							 , __func__);
 
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
 
 		resource_context.hclk = clk_get(resource_context.device,
 			"mfc_clk");
 
 		if (IS_ERR(resource_context.hclk)) {
-			VCDRES_MSG_ERROR("%s(): mfc_clk get failed \n"
+			VCDRES_MSG_ERROR("%s(): mfc_clk get failed\n"
 							 , __func__);
 
 			clk_put(resource_context.pclk);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
 
 		resource_context.hclk_div2 =
 			clk_get(resource_context.device, "mfc_div2_clk");
 
 		if (IS_ERR(resource_context.pclk)) {
-			VCDRES_MSG_ERROR("%s(): mfc_div2_clk get failed \n"
+			VCDRES_MSG_ERROR("%s(): mfc_div2_clk get failed\n"
 							 , __func__);
 
 			clk_put(resource_context.pclk);
 			clk_put(resource_context.hclk);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
 
 		rc = internal_pwr_rail_ctl(PWR_RAIL_MFC_CLK, 1);
@@ -281,56 +281,60 @@ static u32 res_trk_enable_pwr_rail(void)
 			VCDRES_MSG_ERROR("\n internal_pwr_rail_ctl failed %d\n"
 							 , rc);
 			mutex_unlock(&resource_context.lock);
-			return FALSE;
+			return false;
 		}
-		VCDRES_MSG_LOW("%s(): internal_pwr_rail_ctl Success %d \n"
+		VCDRES_MSG_LOW("%s(): internal_pwr_rail_ctl Success %d\n"
 					   , __func__, rc);
 		msleep(20);
 
 		rc = clk_reset(resource_context.pclk, CLK_RESET_DEASSERT);
 		if (rc) {
 			VCDRES_MSG_ERROR("\n clk_reset failed %d\n", rc);
-			return FALSE;
+			return false;
 		}
 		msleep(20);
 	}
 	resource_context.rail_enabled = 1;
 	mutex_unlock(&resource_context.lock);
-	return TRUE;
+	return true;
 }
 
-static u32 res_trk_convert_freq_to_perf_lvl(u64 n_freq)
+static u32 res_trk_convert_freq_to_perf_lvl(u64 freq)
 {
-	u64 n_perf_lvl;
-	u64 n_temp;
+	u64 perf_lvl;
+	u64 temp;
 
-	VCDRES_MSG_MED("\n %s():: n_freq = %u\n", __func__, (u32)n_freq);
+	VCDRES_MSG_MED("\n %s():: freq = %u\n", __func__, (u32)freq);
 
-	if (!n_freq)
+	if (!freq)
 		return 0;
 
-	n_temp = n_freq * 1000;
-	do_div(n_temp, VCD_RESTRK_HZ_PER_1000_PERFLVL);
-	n_perf_lvl = (u32)n_temp;
-	VCDRES_MSG_MED("\n %s(): n_perf_lvl = %u\n", __func__,
-		(u32)n_perf_lvl);
+	temp = freq * 1000;
+	do_div(temp, VCD_RESTRK_HZ_PER_1000_PERFLVL);
+	perf_lvl = (u32)temp;
+	VCDRES_MSG_MED("\n %s(): perf_lvl = %u\n", __func__,
+		(u32)perf_lvl);
 
-	return (u32)n_perf_lvl;
+	return (u32)perf_lvl;
 }
 
-static u32 res_trk_convert_perf_lvl_to_freq(u64 n_perf_lvl)
+static u32 res_trk_convert_perf_lvl_to_freq(u64 perf_lvl)
 {
-	u64 n_freq, n_temp;
+	u64 freq, temp;
 
-	VCDRES_MSG_MED("\n %s():: n_perf_lvl = %u\n", __func__,
-		(u32)n_perf_lvl);
-	n_temp = (n_perf_lvl * VCD_RESTRK_HZ_PER_1000_PERFLVL) + 999;
-	do_div(n_temp, 1000);
-	n_freq = (u32)n_temp;
-	VCDRES_MSG_MED("\n %s(): n_freq = %u\n", __func__, (u32)n_freq);
+	VCDRES_MSG_MED("\n %s():: perf_lvl = %u\n", __func__,
+		(u32)perf_lvl);
+	temp = (perf_lvl * VCD_RESTRK_HZ_PER_1000_PERFLVL) + 999;
+	do_div(temp, 1000);
+	freq = (u32)temp;
+	VCDRES_MSG_MED("\n %s(): freq = %u\n", __func__, (u32)freq);
 
-	return (u32)n_freq;
+	return (u32)freq;
 }
+
+#ifdef AXI_CLK_SCALING
+static struct pm_qos_request_list *qos_req_list;
+#endif
 
 u32 res_trk_power_up(void)
 {
@@ -341,12 +345,11 @@ u32 res_trk_power_up(void)
 	int rc;
 	VCDRES_MSG_MED("\n res_trk_power_up():: "
 		"Calling AXI add requirement\n");
-	rc = pm_qos_add_requirement(PM_QOS_SYSTEM_BUS_FREQ,
-		MSM_AXI_QOS_NAME, PM_QOS_DEFAULT_VALUE);
-	if (rc < 0)	{
-		VCDRES_MSG_ERROR("Request AXI bus QOS fails. rc = %d\n",
-			rc);
-		return FALSE;
+	qos_req_list = pm_qos_add_request(PM_QOS_SYSTEM_BUS_FREQ,
+		PM_QOS_DEFAULT_VALUE);
+	if (IS_ERR_OR_NULL(qos_req_list))	{
+		VCDRES_MSG_ERROR("Request AXI bus QOS fails.");
+		return false;
 	}
 }
 #endif
@@ -362,8 +365,7 @@ u32 res_trk_power_down(void)
 #ifdef AXI_CLK_SCALING
 	VCDRES_MSG_MED("\n res_trk_power_down()::"
 		"Calling AXI remove requirement\n");
-	pm_qos_remove_requirement(PM_QOS_SYSTEM_BUS_FREQ,
-		MSM_AXI_QOS_NAME);
+	pm_qos_remove_request(qos_req_list);
 #endif
 	VCDRES_MSG_MED("\n res_trk_power_down():: Calling "
 		"res_trk_disable_pwr_rail()\n");
@@ -375,143 +377,132 @@ u32 res_trk_get_max_perf_level(u32 *pn_max_perf_lvl)
 	if (!pn_max_perf_lvl) {
 		VCDRES_MSG_ERROR("%s(): pn_max_perf_lvl is NULL\n",
 			__func__);
-		return FALSE;
+		return false;
 	}
 
 	*pn_max_perf_lvl = VCD_RESTRK_MAX_PERF_LEVEL;
-	return TRUE;
+	return true;
 }
 
-u32 res_trk_set_perf_level(u32 n_req_perf_lvl, u32 *pn_set_perf_lvl,
-	struct vcd_clnt_ctxt_type_t *p_cctxt)
+u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
+	struct vcd_dev_ctxt *dev_ctxt)
 {
-	struct vcd_clnt_ctxt_type_t *p_cctxt_itr = NULL;
+	struct vcd_clnt_ctxt *cctxt_itr = NULL;
 	u32 axi_freq = 0, mfc_freq = 0, calc_mfc_freq = 0;
-	int rc = -1;
-	u8 enc_clnt_present = FALSE;
+	u8 enc_clnt_present = false;
 
-	if (!pn_set_perf_lvl) {
-		VCDRES_MSG_ERROR("%s(): pn_perf_lvl is NULL\n",
-			__func__);
-		return FALSE;
+	if (!pn_set_perf_lvl || !dev_ctxt) {
+		VCDRES_MSG_ERROR("%s(): NULL pointer! dev_ctxt(%p)\n",
+			__func__, dev_ctxt);
+		return false;
 	}
 
-	VCDRES_MSG_LOW("%s(), n_req_perf_lvl = %d", __func__, n_req_perf_lvl);
-	if (p_cctxt) {
-		calc_mfc_freq = res_trk_convert_perf_lvl_to_freq(
-			(u64)n_req_perf_lvl);
+	VCDRES_MSG_LOW("%s(), req_perf_lvl = %d", __func__, req_perf_lvl);
+	calc_mfc_freq = res_trk_convert_perf_lvl_to_freq(
+		(u64)req_perf_lvl);
 
-		if (calc_mfc_freq < VCD_RESTRK_MIN_FREQ_POINT)
-			calc_mfc_freq = VCD_RESTRK_MIN_FREQ_POINT;
-		else if (calc_mfc_freq > VCD_RESTRK_MAX_FREQ_POINT)
-			calc_mfc_freq = VCD_RESTRK_MAX_FREQ_POINT;
+	if (calc_mfc_freq < VCD_RESTRK_MIN_FREQ_POINT)
+		calc_mfc_freq = VCD_RESTRK_MIN_FREQ_POINT;
+	else if (calc_mfc_freq > VCD_RESTRK_MAX_FREQ_POINT)
+		calc_mfc_freq = VCD_RESTRK_MAX_FREQ_POINT;
 
-		p_cctxt_itr = p_cctxt->p_dev_ctxt->p_cctxt_list_head;
-		while (p_cctxt_itr) {
-			VCDRES_MSG_LOW("\n p_cctxt_itr = %p", p_cctxt_itr);
-			if (!p_cctxt_itr->b_decoding) {
-					VCDRES_MSG_LOW("\n Encoder client");
-					enc_clnt_present = TRUE;
-					break;
-			} else {
-					VCDRES_MSG_LOW("\n Decoder client");
-			}
-			p_cctxt_itr = p_cctxt_itr->p_next;
-		}
-
-		if (!p_cctxt->b_decoding || enc_clnt_present) {
-			if (n_req_perf_lvl >= VGA_PERF_LEVEL) {
-				mfc_freq = mfc_clk_freq_table[2];
-				axi_freq = axi_clk_freq_table_enc[1];
-			} else {
-				mfc_freq = mfc_clk_freq_table[0];
-				axi_freq = axi_clk_freq_table_enc[0];
-			}
-			VCDRES_MSG_HIGH("\n ENCODER: axi_freq = %u"
-				", mfc_freq = %u, calc_mfc_freq = %u,"
-				" n_req_perf_lvl = %u", axi_freq,
-				mfc_freq, calc_mfc_freq,
-				n_req_perf_lvl);
+	cctxt_itr = dev_ctxt->cctxt_list_head;
+	while (cctxt_itr) {
+		VCDRES_MSG_LOW("\n cctxt_itr = %p", cctxt_itr);
+		if (!cctxt_itr->decoding) {
+				VCDRES_MSG_LOW("\n Encoder client");
+				enc_clnt_present = true;
+				break;
 		} else {
-			if (n_req_perf_lvl <= QVGA_PERF_LEVEL) {
-				mfc_freq = mfc_clk_freq_table[0];
-				axi_freq = axi_clk_freq_table_dec[0];
-			} else {
-				axi_freq = axi_clk_freq_table_dec[0];
-				if (n_req_perf_lvl <= VGA_PERF_LEVEL)
-					mfc_freq = mfc_clk_freq_table[0];
-				else if (n_req_perf_lvl <= WVGA_PERF_LEVEL)
-					mfc_freq = mfc_clk_freq_table[1];
-				else {
-					mfc_freq = mfc_clk_freq_table[2];
-					axi_freq = axi_clk_freq_table_dec[1];
-				}
-			}
-			VCDRES_MSG_HIGH("\n DECODER: axi_freq = %u"
-				", mfc_freq = %u, calc_mfc_freq = %u,"
-				" n_req_perf_lvl = %u", axi_freq,
-				mfc_freq, calc_mfc_freq,
-				n_req_perf_lvl);
+				VCDRES_MSG_LOW("\n Decoder client");
 		}
+		cctxt_itr = cctxt_itr->next;
+	}
+
+	if (enc_clnt_present) {
+		if (req_perf_lvl >= VGA_PERF_LEVEL) {
+			mfc_freq = mfc_clk_freq_table[2];
+			axi_freq = axi_clk_freq_table_enc[1];
+		} else {
+			mfc_freq = mfc_clk_freq_table[0];
+			axi_freq = axi_clk_freq_table_enc[0];
+		}
+		VCDRES_MSG_HIGH("\n ENCODER: axi_freq = %u"
+			", mfc_freq = %u, calc_mfc_freq = %u,"
+			" req_perf_lvl = %u", axi_freq,
+			mfc_freq, calc_mfc_freq,
+			req_perf_lvl);
 	} else {
-		VCDRES_MSG_HIGH("%s() WARNING:: p_cctxt is NULL", __func__);
-		return TRUE;
+		if (req_perf_lvl <= QVGA_PERF_LEVEL) {
+			mfc_freq = mfc_clk_freq_table[0];
+			axi_freq = axi_clk_freq_table_dec[0];
+		} else {
+			axi_freq = axi_clk_freq_table_dec[0];
+			if (req_perf_lvl <= VGA_PERF_LEVEL)
+				mfc_freq = mfc_clk_freq_table[0];
+			else if (req_perf_lvl <= WVGA_PERF_LEVEL)
+				mfc_freq = mfc_clk_freq_table[1];
+			else {
+				mfc_freq = mfc_clk_freq_table[2];
+				axi_freq = axi_clk_freq_table_dec[1];
+			}
+		}
+		VCDRES_MSG_HIGH("\n DECODER: axi_freq = %u"
+			", mfc_freq = %u, calc_mfc_freq = %u,"
+			" req_perf_lvl = %u", axi_freq,
+			mfc_freq, calc_mfc_freq,
+			req_perf_lvl);
 	}
 
 #ifdef AXI_CLK_SCALING
-    if (n_req_perf_lvl != VCD_RESTRK_MIN_PERF_LEVEL) {
+    if (req_perf_lvl != VCD_RESTRK_MIN_PERF_LEVEL) {
 		VCDRES_MSG_HIGH("\n %s(): Setting AXI freq to %u",
 			__func__, axi_freq);
-		rc = pm_qos_update_requirement(PM_QOS_SYSTEM_BUS_FREQ,
-			MSM_AXI_QOS_NAME, axi_freq);
+		pm_qos_update_request(qos_req_list,
+			axi_freq);
 
-		if (rc < 0)	{
-			VCDRES_MSG_ERROR("\n Update AXI bus QOS fails,"
-				"rc = %d\n", rc);
-			return FALSE;
-		}
 	}
 #endif
 
 #ifdef USE_RES_TRACKER
-    if (n_req_perf_lvl != VCD_RESTRK_MIN_PERF_LEVEL) {
+    if (req_perf_lvl != VCD_RESTRK_MIN_PERF_LEVEL) {
 		VCDRES_MSG_HIGH("\n %s(): Setting MFC freq to %u",
 			__func__, mfc_freq);
 		if (!res_trk_sel_clk_rate(mfc_freq)) {
 			VCDRES_MSG_ERROR("%s(): res_trk_sel_clk_rate FAILED\n",
 				__func__);
 			*pn_set_perf_lvl = 0;
-			return FALSE;
+			return false;
 		}
 	}
 #endif
 
 	*pn_set_perf_lvl =
 	    res_trk_convert_freq_to_perf_lvl((u64) mfc_freq);
-	return TRUE;
+	return true;
 }
 
 u32 res_trk_get_curr_perf_level(u32 *pn_perf_lvl)
 {
-	unsigned long n_freq;
+	unsigned long freq;
 
 	if (!pn_perf_lvl) {
 		VCDRES_MSG_ERROR("%s(): pn_perf_lvl is NULL\n",
 			__func__);
-		return FALSE;
+		return false;
 	}
 	VCDRES_MSG_LOW("clk_regime_msm_get_clk_freq_hz");
-	if (!res_trk_get_clk_rate(&n_freq)) {
+	if (!res_trk_get_clk_rate(&freq)) {
 		VCDRES_MSG_ERROR("%s(): res_trk_get_clk_rate FAILED\n",
 			__func__);
 		*pn_perf_lvl = 0;
-		return FALSE;
+		return false;
 	}
 
-	*pn_perf_lvl = res_trk_convert_freq_to_perf_lvl((u64) n_freq);
-	VCDRES_MSG_MED("%s(): n_freq = %lu, *pn_perf_lvl = %u", __func__,
-		n_freq, *pn_perf_lvl);
-	return TRUE;
+	*pn_perf_lvl = res_trk_convert_freq_to_perf_lvl((u64) freq);
+	VCDRES_MSG_MED("%s(): freq = %lu, *pn_perf_lvl = %u", __func__,
+		freq, *pn_perf_lvl);
+	return true;
 }
 
 u32 res_trk_download_firmware(void)
@@ -524,9 +515,9 @@ u32 res_trk_download_firmware(void)
 	const struct firmware *fw_h264_enc = NULL;
 	const struct firmware *fw_vc1_dec = NULL;
 	int rc = 0;
-	u32 status = TRUE;
+	u32 status = true;
 
-	VCDRES_MSG_HIGH("%s(): Request firmware download \n",
+	VCDRES_MSG_HIGH("%s(): Request firmware download\n",
 		__func__);
 	mutex_lock(&resource_context.lock);
 	rc = request_firmware(&fw_boot, VIDC_BOOT_FW,
@@ -535,7 +526,7 @@ u32 res_trk_download_firmware(void)
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_BOOT_FW, rc);
 		mutex_unlock(&resource_context.lock);
-		return FALSE;
+		return false;
 	}
 	vidc_command_control_fw = (unsigned char *)fw_boot->data;
 	vidc_command_control_fw_size = (u32) fw_boot->size;
@@ -545,7 +536,7 @@ u32 res_trk_download_firmware(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_MPG4_DEC_FW, rc);
-		status = FALSE;
+		status = false;
 		goto boot_fw_free;
 	}
 	vidc_mpg4_dec_fw = (unsigned char *)fw_mpg4_dec->data;
@@ -557,7 +548,7 @@ u32 res_trk_download_firmware(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_H263_DEC_FW, rc);
-		status = FALSE;
+		status = false;
 		goto mp4dec_fw_free;
 	}
 	vidc_h263_dec_fw = (unsigned char *)fw_h263_dec->data;
@@ -568,7 +559,7 @@ u32 res_trk_download_firmware(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_H264_DEC_FW, rc);
-		status = FALSE;
+		status = false;
 		goto h263dec_fw_free;
 	}
 	vidc_h264_dec_fw = (unsigned char *)fw_h264_dec->data;
@@ -579,7 +570,7 @@ u32 res_trk_download_firmware(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_MPG4_ENC_FW, rc);
-		status = FALSE;
+		status = false;
 		goto h264dec_fw_free;
 	}
 	vidc_mpg4_enc_fw = (unsigned char *)fw_mpg4_enc->data;
@@ -590,7 +581,7 @@ u32 res_trk_download_firmware(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_H264_ENC_FW, rc);
-		status = FALSE;
+		status = false;
 		goto mp4enc_fw_free;
 	}
 	vidc_h264_enc_fw = (unsigned char *)fw_h264_enc->data;
@@ -601,7 +592,7 @@ u32 res_trk_download_firmware(void)
 	if (rc) {
 		VCDRES_MSG_ERROR("request_firmware for %s error %d\n",
 				VIDC_VC1_DEC_FW, rc);
-		status = FALSE;
+		status = false;
 		goto h264enc_fw_free;
 	}
 	vidc_vc1_dec_fw = (unsigned char *)fw_vc1_dec->data;
@@ -622,14 +613,14 @@ mp4dec_fw_free:
 boot_fw_free:
 	release_firmware(fw_boot);
 	mutex_unlock(&resource_context.lock);
-	return FALSE;
+	return false;
 }
 
 void res_trk_init(struct device *device, u32 irq)
 {
 	if (resource_context.device || resource_context.irq_num ||
 		!device) {
-		VCDRES_MSG_ERROR("%s() Resource Tracker Init error \n",
+		VCDRES_MSG_ERROR("%s() Resource Tracker Init error\n",
 				__func__);
 		return;
 	}
