@@ -49,7 +49,7 @@
 #define VCD_EVT_PWR_CLNT_LAST_FRAME     (VCD_EVT_PWR_BASE + 0x11)
 #define VCD_EVT_PWR_CLNT_ERRFATAL       (VCD_EVT_PWR_BASE + 0x12)
 
-enum vcd_pwr_clk_state_type {
+enum vcd_pwr_clk_state {
 	VCD_PWRCLK_STATE_OFF = 0,
 	VCD_PWRCLK_STATE_ON_NOTCLOCKED,
 	VCD_PWRCLK_STATE_ON_CLOCKED,

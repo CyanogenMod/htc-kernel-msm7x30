@@ -20,268 +20,269 @@
 #include "vcd.h"
 
 #define NORMALIZATION_FACTOR 3600
-#define ADJUST_CLIENT_ROUNDS(client, rounds) \
+#define ADJUST_CLIENT_ROUNDS(client, round_adjustment) \
 do {\
-	if ((client)->n_rounds < round_adjustment) {\
-		(client)->n_rounds = 0;\
+	if ((client)->rounds < round_adjustment) {\
+		(client)->rounds = 0;\
 		VCD_MSG_HIGH("%s(): WARNING: Scheduler list unsorted",\
 			__func__);\
 	} else\
-		(client)->n_rounds -= round_adjustment;\
+		(client)->rounds -= round_adjustment;\
 } while (0)
 
-u32 vcd_sched_create(struct list_head *p_sched_list)
+u32 vcd_sched_create(struct list_head *sched_list)
 {
 	u32 rc = VCD_S_SUCCESS;
-	if (!p_sched_list) {
+	if (!sched_list) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
 	} else
-		INIT_LIST_HEAD(p_sched_list);
+		INIT_LIST_HEAD(sched_list);
 	return rc;
 }
 
-void vcd_sched_destroy(struct list_head *p_sched_clnt_list)
+void vcd_sched_destroy(struct list_head *sched_clnt_list)
 {
-	struct vcd_sched_clnt_ctx_type *p_sched_clnt, *p_sched_clnt_next;
-	if (p_sched_clnt_list)
-		list_for_each_entry_safe(p_sched_clnt,
-			p_sched_clnt_next, p_sched_clnt_list, list) {
-			list_del_init(&p_sched_clnt->list);
-			p_sched_clnt->b_clnt_active = FALSE;
+	struct vcd_sched_clnt_ctx *sched_clnt, *sched_clnt_next;
+	if (sched_clnt_list)
+		list_for_each_entry_safe(sched_clnt,
+			sched_clnt_next, sched_clnt_list, list) {
+			list_del_init(&sched_clnt->list);
+			sched_clnt->clnt_active = false;
 		}
 }
 
-void insert_client_in_list(struct list_head *p_sched_clnt_list,
-	struct vcd_sched_clnt_ctx_type *p_sched_new_clnt, bool b_tail)
+void insert_client_in_list(struct list_head *sched_clnt_list,
+	struct vcd_sched_clnt_ctx *sched_new_clnt, bool tail)
 {
-	struct vcd_sched_clnt_ctx_type *p_sched_clnt;
-	if (!list_empty(p_sched_clnt_list)) {
-		if (b_tail)
-			p_sched_clnt = list_entry(p_sched_clnt_list->prev,
-				struct vcd_sched_clnt_ctx_type, list);
+	struct vcd_sched_clnt_ctx *sched_clnt;
+	if (!list_empty(sched_clnt_list)) {
+		if (tail)
+			sched_clnt = list_entry(sched_clnt_list->prev,
+				struct vcd_sched_clnt_ctx, list);
 		else
-			p_sched_clnt = list_first_entry(p_sched_clnt_list,
-				struct vcd_sched_clnt_ctx_type, list);
-		p_sched_new_clnt->n_rounds = p_sched_clnt->n_rounds;
+			sched_clnt = list_first_entry(sched_clnt_list,
+				struct vcd_sched_clnt_ctx, list);
+		sched_new_clnt->rounds = sched_clnt->rounds;
 	} else
-		p_sched_new_clnt->n_rounds = 0;
-	if (b_tail)
-		list_add_tail(&p_sched_new_clnt->list, p_sched_clnt_list);
+		sched_new_clnt->rounds = 0;
+	if (tail)
+		list_add_tail(&sched_new_clnt->list, sched_clnt_list);
 	else
-		list_add(&p_sched_new_clnt->list, p_sched_clnt_list);
+		list_add(&sched_new_clnt->list, sched_clnt_list);
 }
 
-u32 vcd_sched_add_client(struct vcd_clnt_ctxt_type_t *p_cctxt)
+u32 vcd_sched_add_client(struct vcd_clnt_ctxt *cctxt)
 {
-	struct vcd_property_hdr_type prop_hdr;
-	struct vcd_sched_clnt_ctx_type *p_sched_cctxt;
+	struct vcd_property_hdr prop_hdr;
+	struct vcd_sched_clnt_ctx *sched_cctxt;
 	u32 rc = VCD_S_SUCCESS;
-	if (!p_cctxt) {
+	if (!cctxt) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (p_cctxt->sched_clnt_hdl)
+	} else if (cctxt->sched_clnt_hdl)
 		VCD_MSG_HIGH(
 			"%s(): Scheduler client already exists!", __func__);
 	else {
-		p_sched_cctxt = (struct vcd_sched_clnt_ctx_type *)
-			vcd_malloc(sizeof(struct vcd_sched_clnt_ctx_type));
-		if (p_sched_cctxt) {
+		sched_cctxt = (struct vcd_sched_clnt_ctx *)
+			kmalloc(sizeof(struct vcd_sched_clnt_ctx),
+					GFP_KERNEL);
+		if (sched_cctxt) {
 
 			prop_hdr.prop_id = DDL_I_FRAME_PROC_UNITS;
-			prop_hdr.n_size = sizeof(p_cctxt->n_frm_p_units);
-			rc = ddl_get_property(p_cctxt->ddl_handle, &prop_hdr,
-						  &p_cctxt->n_frm_p_units);
+			prop_hdr.sz = sizeof(cctxt->frm_p_units);
+			rc = ddl_get_property(cctxt->ddl_handle, &prop_hdr,
+						  &cctxt->frm_p_units);
 			VCD_FAILED_RETURN(rc,
 				"Failed: Get DDL_I_FRAME_PROC_UNITS");
-			if (p_cctxt->b_decoding) {
-				p_cctxt->frm_rate.n_fps_numerator =
+			if (cctxt->decoding) {
+				cctxt->frm_rate.fps_numerator =
 					VCD_DEC_INITIAL_FRAME_RATE;
-				p_cctxt->frm_rate.n_fps_denominator = 1;
+				cctxt->frm_rate.fps_denominator = 1;
 			} else {
 				prop_hdr.prop_id = VCD_I_FRAME_RATE;
-				prop_hdr.n_size = sizeof(p_cctxt->frm_rate);
-				rc = ddl_get_property(p_cctxt->ddl_handle,
-						&prop_hdr, &p_cctxt->frm_rate);
+				prop_hdr.sz = sizeof(cctxt->frm_rate);
+				rc = ddl_get_property(cctxt->ddl_handle,
+						&prop_hdr, &cctxt->frm_rate);
 				VCD_FAILED_RETURN(rc,
 					"Failed: Get VCD_I_FRAME_RATE");
 			}
-			p_cctxt->n_reqd_perf_lvl = p_cctxt->n_frm_p_units *
-				p_cctxt->frm_rate.n_fps_numerator /
-				p_cctxt->frm_rate.n_fps_denominator;
+			cctxt->reqd_perf_lvl = cctxt->frm_p_units *
+				cctxt->frm_rate.fps_numerator /
+				cctxt->frm_rate.fps_denominator;
 
-			p_cctxt->sched_clnt_hdl = p_sched_cctxt;
-			memset(p_sched_cctxt, 0,
-				sizeof(struct vcd_sched_clnt_ctx_type));
-			p_sched_cctxt->n_o_tkns = 0;
-			p_sched_cctxt->r_p_frm = NORMALIZATION_FACTOR *
-				p_cctxt->frm_rate.n_fps_denominator /
-				p_cctxt->frm_rate.n_fps_numerator;
-			p_sched_cctxt->b_clnt_active = TRUE;
-			p_sched_cctxt->p_clnt_data = p_cctxt;
-			INIT_LIST_HEAD(&p_sched_cctxt->ip_frm_list);
+			cctxt->sched_clnt_hdl = sched_cctxt;
+			memset(sched_cctxt, 0,
+				sizeof(struct vcd_sched_clnt_ctx));
+			sched_cctxt->tkns = 0;
+			sched_cctxt->round_perfrm = NORMALIZATION_FACTOR *
+				cctxt->frm_rate.fps_denominator /
+				cctxt->frm_rate.fps_numerator;
+			sched_cctxt->clnt_active = true;
+			sched_cctxt->clnt_data = cctxt;
+			INIT_LIST_HEAD(&sched_cctxt->ip_frm_list);
 
 			insert_client_in_list(
-				&p_cctxt->p_dev_ctxt->sched_clnt_list,
-				p_sched_cctxt, false);
+				&cctxt->dev_ctxt->sched_clnt_list,
+				sched_cctxt, false);
 		}
 	}
 	return rc;
 }
 
-u32 vcd_sched_remove_client(struct vcd_sched_clnt_ctx_type *p_sched_cctxt)
+u32 vcd_sched_remove_client(struct vcd_sched_clnt_ctx *sched_cctxt)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_clnt_ctxt_type_t *p_cctxt;
-	if (!p_sched_cctxt) {
+	struct vcd_clnt_ctxt *cctxt;
+	if (!sched_cctxt) {
 		VCD_MSG_ERROR("%s(): Invalid handle ptr", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (!list_empty(&p_sched_cctxt->ip_frm_list)) {
+	} else if (!list_empty(&sched_cctxt->ip_frm_list)) {
 		VCD_MSG_ERROR(
 			"%s(): Cannot remove client, queue no empty", __func__);
 		rc = VCD_ERR_ILLEGAL_OP;
 	} else {
-		p_cctxt = p_sched_cctxt->p_clnt_data;
-		list_del(&p_sched_cctxt->list);
-		memset(p_sched_cctxt, 0,
-			sizeof(struct vcd_sched_clnt_ctx_type));
-		vcd_free(p_sched_cctxt);
+		cctxt = sched_cctxt->clnt_data;
+		list_del(&sched_cctxt->list);
+		memset(sched_cctxt, 0,
+			sizeof(struct vcd_sched_clnt_ctx));
+		kfree(sched_cctxt);
 	}
 	return rc;
 }
 
-u32 vcd_sched_update_config(struct vcd_clnt_ctxt_type_t *p_cctxt)
+u32 vcd_sched_update_config(struct vcd_clnt_ctxt *cctxt)
 {
 	u32 rc = VCD_S_SUCCESS;
-	if (!p_cctxt || !p_cctxt->sched_clnt_hdl) {
+	if (!cctxt || !cctxt->sched_clnt_hdl) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
 	} else {
-		p_cctxt->sched_clnt_hdl->n_rounds /=
-			p_cctxt->sched_clnt_hdl->r_p_frm;
-		p_cctxt->sched_clnt_hdl->r_p_frm =
+		cctxt->sched_clnt_hdl->rounds /=
+			cctxt->sched_clnt_hdl->round_perfrm;
+		cctxt->sched_clnt_hdl->round_perfrm =
 			NORMALIZATION_FACTOR *
-			p_cctxt->frm_rate.n_fps_denominator /
-			p_cctxt->frm_rate.n_fps_numerator;
-		p_cctxt->sched_clnt_hdl->n_rounds *=
-			p_cctxt->sched_clnt_hdl->r_p_frm;
+			cctxt->frm_rate.fps_denominator /
+			cctxt->frm_rate.fps_numerator;
+		cctxt->sched_clnt_hdl->rounds *=
+			cctxt->sched_clnt_hdl->round_perfrm;
 	}
 	return rc;
 }
 
 u32 vcd_sched_queue_buffer(
-	struct vcd_sched_clnt_ctx_type *p_sched_cctxt,
-	struct vcd_buffer_entry_type *p_buffer, u32 b_tail)
+	struct vcd_sched_clnt_ctx *sched_cctxt,
+	struct vcd_buffer_entry *buffer, u32 tail)
 {
 	u32 rc = VCD_S_SUCCESS;
-	if (!p_sched_cctxt || !p_buffer) {
+	if (!sched_cctxt || !buffer) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (b_tail)
-		list_add_tail(&p_buffer->sched_list,
-				&p_sched_cctxt->ip_frm_list);
+	} else if (tail)
+		list_add_tail(&buffer->sched_list,
+				&sched_cctxt->ip_frm_list);
 	else
-		list_add(&p_buffer->sched_list, &p_sched_cctxt->ip_frm_list);
+		list_add(&buffer->sched_list, &sched_cctxt->ip_frm_list);
 	return rc;
 }
 
 u32 vcd_sched_dequeue_buffer(
-	struct vcd_sched_clnt_ctx_type *p_sched_cctxt,
-	struct vcd_buffer_entry_type **pp_buffer)
+	struct vcd_sched_clnt_ctx *sched_cctxt,
+	struct vcd_buffer_entry **buffer)
 {
-	u32 rc = VCD_S_SCHED_QEMPTY;
-	if (!p_sched_cctxt || !pp_buffer) {
+	u32 rc = VCD_ERR_QEMPTY;
+	if (!sched_cctxt || !buffer) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
 	} else {
-		*pp_buffer = NULL;
-		if (!list_empty(&p_sched_cctxt->ip_frm_list)) {
-			*pp_buffer = list_first_entry(
-					&p_sched_cctxt->ip_frm_list,
-					struct vcd_buffer_entry_type,
+		*buffer = NULL;
+		if (!list_empty(&sched_cctxt->ip_frm_list)) {
+			*buffer = list_first_entry(
+					&sched_cctxt->ip_frm_list,
+					struct vcd_buffer_entry,
 					sched_list);
-			list_del(&(*pp_buffer)->sched_list);
+			list_del(&(*buffer)->sched_list);
 			rc = VCD_S_SUCCESS;
 		}
 	}
 	return rc;
 }
 
-u32 vcd_sched_mark_client_eof(struct vcd_sched_clnt_ctx_type *p_sched_cctxt)
+u32 vcd_sched_mark_client_eof(struct vcd_sched_clnt_ctx *sched_cctxt)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_buffer_entry_type *p_buffer = NULL;
-	if (!p_sched_cctxt) {
+	struct vcd_buffer_entry *buffer = NULL;
+	if (!sched_cctxt) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (!list_empty(&p_sched_cctxt->ip_frm_list)) {
-		p_buffer = list_entry(p_sched_cctxt->ip_frm_list.prev,
-			struct vcd_buffer_entry_type, sched_list);
-		p_buffer->frame.n_flags |= VCD_FRAME_FLAG_EOS;
+	} else if (!list_empty(&sched_cctxt->ip_frm_list)) {
+		buffer = list_entry(sched_cctxt->ip_frm_list.prev,
+			struct vcd_buffer_entry, sched_list);
+		buffer->frame.flags |= VCD_FRAME_FLAG_EOS;
 	} else
-		rc = VCD_S_SCHED_QEMPTY;
+		rc = VCD_ERR_QEMPTY;
 	return rc;
 }
 
 u32 vcd_sched_suspend_resume_clnt(
-	struct vcd_clnt_ctxt_type_t *p_cctxt, u32 b_state)
+	struct vcd_clnt_ctxt *cctxt, u32 state)
 {
 	u32 rc = VCD_S_SUCCESS;
-	struct vcd_sched_clnt_ctx_type *p_sched_cctxt;
-	if (!p_cctxt || !p_cctxt->sched_clnt_hdl) {
+	struct vcd_sched_clnt_ctx *sched_cctxt;
+	if (!cctxt || !cctxt->sched_clnt_hdl) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
 	} else {
-		p_sched_cctxt = p_cctxt->sched_clnt_hdl;
-		if (b_state != p_sched_cctxt->b_clnt_active) {
-			p_sched_cctxt->b_clnt_active = b_state;
-			if (b_state)
-				insert_client_in_list(&p_cctxt->p_dev_ctxt->\
-					sched_clnt_list, p_sched_cctxt, false);
+		sched_cctxt = cctxt->sched_clnt_hdl;
+		if (state != sched_cctxt->clnt_active) {
+			sched_cctxt->clnt_active = state;
+			if (state)
+				insert_client_in_list(&cctxt->dev_ctxt->\
+					sched_clnt_list, sched_cctxt, false);
 			else
-				list_del_init(&p_sched_cctxt->list);
+				list_del_init(&sched_cctxt->list);
 		}
 	}
 	return rc;
 }
 
-u32 vcd_sched_get_client_frame(struct list_head *p_sched_clnt_list,
-	struct vcd_clnt_ctxt_type_t **pp_cctxt,
-	struct vcd_buffer_entry_type **pp_buffer)
+u32 vcd_sched_get_client_frame(struct list_head *sched_clnt_list,
+	struct vcd_clnt_ctxt **cctxt,
+	struct vcd_buffer_entry **buffer)
 {
-	u32 rc = VCD_S_SCHED_QEMPTY, round_adjustment = 0;
-	struct vcd_sched_clnt_ctx_type *p_sched_clnt, *p_clnt_nxt;
-	if (!p_sched_clnt_list || !pp_cctxt || !pp_buffer) {
+	u32 rc = VCD_ERR_QEMPTY, round_adjustment = 0;
+	struct vcd_sched_clnt_ctx *sched_clnt, *clnt_nxt;
+	if (!sched_clnt_list || !cctxt || !buffer) {
 		VCD_MSG_ERROR("%s(): Invalid parameter", __func__);
 		rc = VCD_ERR_ILLEGAL_PARM;
-	} else if (!list_empty(p_sched_clnt_list)) {
-		*pp_cctxt = NULL;
-		*pp_buffer = NULL;
-		list_for_each_entry_safe(p_sched_clnt,
-			p_clnt_nxt, p_sched_clnt_list, list) {
-			if (&p_sched_clnt->list == p_sched_clnt_list->next)
-				round_adjustment = p_sched_clnt->n_rounds;
-			if (*pp_cctxt) {
-				if ((*pp_cctxt)->sched_clnt_hdl->n_rounds >=
-					p_sched_clnt->n_rounds)
-					list_move(&(*pp_cctxt)->sched_clnt_hdl\
-						->list, &p_sched_clnt->list);
-				ADJUST_CLIENT_ROUNDS(p_sched_clnt,
+	} else if (!list_empty(sched_clnt_list)) {
+		*cctxt = NULL;
+		*buffer = NULL;
+		list_for_each_entry_safe(sched_clnt,
+			clnt_nxt, sched_clnt_list, list) {
+			if (&sched_clnt->list == sched_clnt_list->next)
+				round_adjustment = sched_clnt->rounds;
+			if (*cctxt) {
+				if ((*cctxt)->sched_clnt_hdl->rounds >=
+					sched_clnt->rounds)
+					list_move(&(*cctxt)->sched_clnt_hdl\
+						->list, &sched_clnt->list);
+				ADJUST_CLIENT_ROUNDS(sched_clnt,
 					round_adjustment);
-			} else if (p_sched_clnt->n_o_tkns &&
-				!list_empty(&p_sched_clnt->ip_frm_list)) {
-				*pp_cctxt = p_sched_clnt->p_clnt_data;
-				p_sched_clnt->n_rounds += p_sched_clnt->r_p_frm;
+			} else if (sched_clnt->tkns &&
+				!list_empty(&sched_clnt->ip_frm_list)) {
+				*cctxt = sched_clnt->clnt_data;
+				sched_clnt->rounds += sched_clnt->round_perfrm;
 			} else
-				ADJUST_CLIENT_ROUNDS(p_sched_clnt,
-					round_adjustment);
+				ADJUST_CLIENT_ROUNDS(sched_clnt,
+						round_adjustment);
 		}
-		if (*pp_cctxt) {
+		if (*cctxt) {
 			rc = vcd_sched_dequeue_buffer(
-				(*pp_cctxt)->sched_clnt_hdl, pp_buffer);
+				(*cctxt)->sched_clnt_hdl, buffer);
 			if (rc == VCD_S_SUCCESS) {
-				(*pp_cctxt)->sched_clnt_hdl->n_o_tkns--;
-				ADJUST_CLIENT_ROUNDS((*pp_cctxt)->\
+				(*cctxt)->sched_clnt_hdl->tkns--;
+				ADJUST_CLIENT_ROUNDS((*cctxt)->\
 					sched_clnt_hdl, round_adjustment);
 			}
 		}
