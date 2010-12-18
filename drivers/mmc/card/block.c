@@ -432,20 +432,6 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		} else {
 			brq.cmd.opcode = writecmd;
 			brq.data.flags |= MMC_DATA_WRITE;
-#if 0
-		if (board_emmc_boot())
-			if (mmc_card_mmc(card)) {
-				if (brq.cmd.arg < 131072) {/* 131072 mean modem_st1 partition*/
-					pr_err("%s: pid %d(tgid %d)(%s)\n", __func__,
-						(unsigned)(current->pid), (unsigned)(current->tgid),
-						current->comm);
-					pr_err("ERROR! Attemp to write radio partition start %d size %d\n"
-						, brq.cmd.arg, blk_rq_sectors(req));
-					BUG();
-					return 0;
-				}
-			}
-#endif
 		}
 
 		mmc_set_data_timeout(&brq.data, card);
