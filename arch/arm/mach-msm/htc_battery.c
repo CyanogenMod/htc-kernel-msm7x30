@@ -416,9 +416,20 @@ static int htc_battery_status_update(u32 curr_level)
 	}
 #else
 	/* we don't check level here for charging over temp RPC call */
+	if (htc_batt_info.rep.charging_source >= CHARGER_BATTERY &&
+		htc_batt_info.rep.charging_source <= CHARGER_AC) {
+		power_supply_changed(
+			&htc_power_supplies[htc_batt_info.rep.charging_source]
+		);
+		if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
+			BATT_LOG("batt:power_supply_changed: %s",
+				charger_tags[htc_batt_info.rep.charging_source]
+			);
+	} else {
 		power_supply_changed(&htc_power_supplies[CHARGER_BATTERY]);
-	if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
-		BATT_LOG("batt:power_supply_changed: battery");
+		if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
+			BATT_LOG("batt:power_supply_changed: unknown");
+	}
 #endif
 	return 0;
 }
@@ -463,12 +474,13 @@ static int htc_cable_status_update(int status)
 #if 1
 	pr_info("batt: %s: %d -> %d\n", __func__, htc_batt_info.rep.charging_source, status);
 	if (status == htc_batt_info.rep.charging_source) {
-	/* When cable overvoltage(5V => 7V) A9 will report the same source, so only sent the uevent */
+		/* When cable overvoltage(5V => 7V) A9 will report the same source, so only sent the uevent */
 		if (status == CHARGER_USB) {
-		power_supply_changed(&htc_power_supplies[CHARGER_USB]);
-		if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
-		BATT_LOG("batt:(htc_cable_status_update)power_supply_changed: OverVoltage");
-	}
+			power_supply_changed(&htc_power_supplies[CHARGER_USB]);
+			if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
+			BATT_LOG("batt:(htc_cable_status_update)power_supply_changed: OverVoltage");
+		}
+
 		mutex_unlock(&htc_batt_info.lock);
 		return 0;
 	}
@@ -499,6 +511,10 @@ static int htc_cable_status_update(int status)
 		power_supply_changed(&htc_power_supplies[CHARGER_BATTERY]);
 		if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
 		BATT_LOG("batt:(htc_cable_status_update)power_supply_changed: battery");
+	} else if (status == CHARGER_USB) {
+		power_supply_changed(&htc_power_supplies[CHARGER_USB]);
+		if (htc_batt_debug_mask & HTC_BATT_DEBUG_UEVT)
+		BATT_LOG("batt:(htc_cable_status_update)power_supply_changed: usb");
 	}
 
 #else
