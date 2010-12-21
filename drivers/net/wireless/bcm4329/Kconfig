@@ -25,3 +25,10 @@ config BCM4329_NVRAM_PATH
 	default "/proc/calibration"
 	---help---
 	  Path to the calibration file.
+
+config BCM4329_ENABLE_CSCAN
+	depends on BCM4329
+	bool "Enable CSCAN"
+	default n
+	---help---
+	  Enable the use of CSCAN methods.

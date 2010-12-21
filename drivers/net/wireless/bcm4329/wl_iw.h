@@ -56,6 +56,9 @@
 #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
 #define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
 
+#ifdef CONFIG_BCM4329_ENABLE_CSCAN
+#define CSCAN
+#endif
 
 typedef struct wl_iw_extra_params {
 	int 	target_channel;
