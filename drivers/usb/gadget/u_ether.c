@@ -20,10 +20,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//#define DEBUG
 /* #define VERBOSE_DEBUG */
 
 #include <linux/kernel.h>
+#include <linux/gfp.h>
 #include <linux/device.h>
 #include <linux/ctype.h>
 #include <linux/etherdevice.h>
@@ -55,10 +55,6 @@
 
 #define UETH__VERSION	"29-May-2008"
 
-/***********************************************************************/
-#define LOG_TAG1                "[ETH] "
-
-/***********************************************************************/
 struct eth_dev {
 	/* lock is held while accessing port_usb
 	 * or updating its backlink port_usb->ioport
@@ -99,8 +95,7 @@ struct eth_dev {
 
 #ifdef CONFIG_USB_GADGET_DUALSPEED
 
-//static unsigned qmult = 5;
-static unsigned qmult = 12;
+static unsigned qmult = 5;
 module_param(qmult, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(qmult, "queue length multiplier at high speed");
 
@@ -247,7 +242,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 
 	skb = alloc_skb(size + NET_IP_ALIGN, gfp_flags);
 	if (skb == NULL) {
-		DBG(dev, LOG_TAG1 "no rx skb\n");
+		DBG(dev, "no rx skb\n");
 		goto enomem;
 	}
 
@@ -267,7 +262,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 enomem:
 		defer_kevent(dev, WORK_RX_MEMORY);
 	if (retval) {
-		DBG(dev, LOG_TAG1 "rx submit --> %d\n", retval);
+		DBG(dev, "rx submit --> %d\n", retval);
 		if (skb)
 			dev_kfree_skb_any(skb);
 		spin_lock_irqsave(&dev->req_lock, flags);
@@ -314,7 +309,7 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 					|| skb2->len > ETH_FRAME_LEN) {
 				dev->net->stats.rx_errors++;
 				dev->net->stats.rx_length_errors++;
-				DBG(dev, LOG_TAG1 "rx length %d\n", skb2->len);
+				DBG(dev, "rx length %d\n", skb2->len);
 				dev_kfree_skb_any(skb2);
 				goto next_frame;
 			}
@@ -326,8 +321,6 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 			 * use skb buffers.
 			 */
 			status = netif_rx(skb2);
-			if (status != NET_RX_SUCCESS)
-				DBG(dev, LOG_TAG1 "%s@%d status=%d", __func__, __LINE__, status);
 next_frame:
 			skb2 = skb_dequeue(&dev->rx_frames);
 		}
@@ -336,12 +329,12 @@ next_frame:
 	/* software-driven interface shutdown */
 	case -ECONNRESET:		/* unlink */
 	case -ESHUTDOWN:		/* disconnect etc */
-		VDBG(dev, LOG_TAG1 "rx shutdown, code %d\n", status);
+		VDBG(dev, "rx shutdown, code %d\n", status);
 		goto quiesce;
 
 	/* for hardware automagic (such as pxa) */
 	case -ECONNABORTED:		/* endpoint reset */
-		DBG(dev, LOG_TAG1 "rx %s reset\n", ep->name);
+		DBG(dev, "rx %s reset\n", ep->name);
 		defer_kevent(dev, WORK_RX_MEMORY);
 quiesce:
 		dev_kfree_skb_any(skb);
@@ -354,7 +347,7 @@ quiesce:
 
 	default:
 		dev->net->stats.rx_errors++;
-		DBG(dev, LOG_TAG1 "rx status %d\n", status);
+		DBG(dev, "rx status %d\n", status);
 		break;
 	}
 
@@ -388,10 +381,7 @@ static int prealloc(struct list_head *list, struct usb_ep *ep, unsigned n)
 	while (i--) {
 		req = usb_ep_alloc_request(ep, GFP_ATOMIC);
 		if (!req)
-		{
-			printk(KERN_ERR "%s@%d: usb_ep_alloc_request fail: %d\n", __func__, __LINE__, i);
 			return list_empty(list) ? -ENOMEM : 0;
-		}
 		list_add(&req->list, list);
 	}
 	return 0;
@@ -420,16 +410,10 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 	spin_lock(&dev->req_lock);
 	status = prealloc(&dev->tx_reqs, link->in_ep, n);
 	if (status < 0)
-	{
-		ERROR(dev, "fail to alloc in_ep\n");
 		goto fail;
-	}
 	status = prealloc(&dev->rx_reqs, link->out_ep, n);
 	if (status < 0)
-	{
-		ERROR(dev, "fail to alloc out_ep\n");
 		goto fail;
-	}
 	goto done;
 fail:
 	DBG(dev, "can't alloc requests\n");
@@ -562,7 +546,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	 * network stack decided to xmit but before we got the spinlock.
 	 */
 	if (list_empty(&dev->tx_reqs)) {
-		DBG(dev, LOG_TAG1 "%s@%d: tx_reqs empty, NETDEV_TX_BUSY\n", __func__, __LINE__);
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 		return NETDEV_TX_BUSY;
 	}
@@ -572,10 +555,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	/* temporarily stop TX queue when the freelist empties */
 	if (list_empty(&dev->tx_reqs))
-	{
-		DBG(dev, LOG_TAG1 "%s@%d: tx_reqs empty, netif_stop_queue\n", __func__, __LINE__);
 		netif_stop_queue(net);
-	}
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 
 	/* no buffer copies needed, unless the network stack did it
@@ -630,10 +610,7 @@ drop:
 		dev->net->stats.tx_dropped++;
 		spin_lock_irqsave(&dev->req_lock, flags);
 		if (list_empty(&dev->tx_reqs))
-		{
-			DBG(dev, LOG_TAG1 "%s@%d: tx_reqs empty, netif_start_queue\n", __func__, __LINE__);
 			netif_start_queue(net);
-		}
 		list_add(&req->list, &dev->tx_reqs);
 		spin_unlock_irqrestore(&dev->req_lock, flags);
 	}
@@ -738,7 +715,7 @@ static u8 __init nibble(unsigned char c)
 	return 0;
 }
 
-static int __init get_ether_addr(const char *str, u8 *dev_addr)
+static int get_ether_addr(const char *str, u8 *dev_addr)
 {
 	if (str) {
 		unsigned	i;
@@ -770,6 +747,10 @@ static const struct net_device_ops eth_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 };
 
+static struct device_type gadget_type = {
+	.name	= "gadget",
+};
+
 /**
  * gether_setup - initialize one ethernet-over-usb link
  * @g: gadget to associated with these links
@@ -783,17 +764,14 @@ static const struct net_device_ops eth_netdev_ops = {
  *
  * Returns negative errno, or zero on success
  */
-int __init gether_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN])
+int gether_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN])
 {
 	struct eth_dev		*dev;
 	struct net_device	*net;
 	int			status;
 
-	if (the_dev) {
-		if (ethaddr)
-			memcpy(ethaddr, the_dev->host_mac, ETH_ALEN);
+	if (the_dev)
 		return -EBUSY;
-	}
 
 	net = alloc_etherdev(sizeof *dev);
 	if (!net)
@@ -835,6 +813,7 @@ int __init gether_setup(struct usb_gadget *g, u8 ethaddr[ETH_ALEN])
 
 	dev->gadget = g;
 	SET_NETDEV_DEV(net, &g->dev);
+	SET_NETDEV_DEVTYPE(net, &gadget_type);
 
 	status = register_netdev(net);
 	if (status < 0) {
@@ -916,7 +895,7 @@ struct net_device *gether_connect(struct gether *link)
 
 	if (result == 0) {
 		dev->zlp = link->is_zlp_ok;
-		DBG(dev, LOG_TAG1 "qlen %d\n", qlen(dev->gadget));
+		DBG(dev, "qlen %d\n", qlen(dev->gadget));
 
 		dev->header_len = link->header_len;
 		dev->unwrap = link->unwrap;
@@ -968,7 +947,6 @@ void gether_disconnect(struct gether *link)
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
 
-	/* WARN_ON(!dev); */
 	if (!dev)
 		return;
 

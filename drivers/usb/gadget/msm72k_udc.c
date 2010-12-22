@@ -157,8 +157,6 @@ static void accessory_detect_work(struct work_struct *w);
 static void dock_detect_work(struct work_struct *w);
 static void dock_detect_init(struct usb_info *ui);
 #endif
-extern int android_switch_function(unsigned func);
-extern int android_show_function(char *buf);
 extern void android_set_serialno(char *serialno);
 
 #define USB_STATE_IDLE    0
@@ -1157,30 +1155,6 @@ static ssize_t show_usb_cable_connect(struct device *dev,
 
 static DEVICE_ATTR(usb_cable_connect, 0444, show_usb_cable_connect, NULL);
 
-static ssize_t show_usb_function_switch(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return android_show_function(buf);
-}
-
-static ssize_t store_usb_function_switch(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	unsigned u;
-	ssize_t  ret;
-
-	u = simple_strtoul(buf, NULL, 10);
-	ret = android_switch_function(u);
-
-	if (ret == 0)
-		return count;
-	else
-		return 0;
-}
-
-static DEVICE_ATTR(usb_function_switch, 0666,
-	show_usb_function_switch, store_usb_function_switch);
-
 static ssize_t show_usb_serial_number(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -1452,11 +1426,6 @@ static void usb_prepare(struct usb_info *ui)
 		&dev_attr_usb_cable_connect);
 	if (ret != 0)
 		printk(KERN_WARNING "dev_attr_usb_cable_connect failed\n");
-
-	ret = device_create_file(&ui->pdev->dev,
-		&dev_attr_usb_function_switch);
-	if (ret != 0)
-		printk(KERN_WARNING "dev_attr_usb_function_switch failed\n");
 
 	ret = device_create_file(&ui->pdev->dev,
 		&dev_attr_usb_serial_number);
