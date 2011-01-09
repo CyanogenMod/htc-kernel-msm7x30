@@ -92,9 +92,12 @@ struct mdp_lcdc_info {
 struct panel_icm_info {
 	bool	icm_mode;
 	bool	icm_doable;
+	bool	clock_enabled;
 	int	panel_update;
 	struct mutex icm_lock;
+	struct mdp_lcdc_info *lcdc;
 	spinlock_t lock;
+	void (*force_leave)(void);
 };
 
 extern int mdp_out_if_register(struct mdp_device *mdp_dev, int interface,

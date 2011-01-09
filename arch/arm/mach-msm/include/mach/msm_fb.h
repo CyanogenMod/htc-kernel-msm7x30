@@ -191,6 +191,10 @@ struct msm_lcdc_panel_ops {
 	int	(*blank)(struct msm_lcdc_panel_ops *);
 	int	(*unblank)(struct msm_lcdc_panel_ops *);
 	int	(*shutdown)(struct msm_lcdc_panel_ops *);
+#ifdef CONFIG_PANEL_SELF_REFRESH
+	int	(*refresh_enable)(struct msm_lcdc_panel_ops *);
+	int	(*refresh_disable)(struct msm_lcdc_panel_ops *);
+#endif
 };
 
 struct msm_lcdc_platform_data {
