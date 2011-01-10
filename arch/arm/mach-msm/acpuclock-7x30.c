@@ -90,15 +90,16 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 6, 1305600 },
 	{ 7, 1401600 },
 	{ 8, 1497600 },
+	{ 9, 1516800 },
 #ifndef CONFIG_JESUS_PHONE
-	{ 9, CPUFREQ_TABLE_END },
+	{ 10, CPUFREQ_TABLE_END },
 #else
 	/* Just an example of some of the insanity I was able to pull off on my
 	   device */
-	{ 9, 1612800 },
-	{ 10, 1708800 },
-	{ 11, 1804800 },
-	{ 12, CPUFREQ_TABLE_END },
+	{ 10, 1612800 },
+	{ 11, 1708800 },
+	{ 12, 1804800 },
+	{ 13, CPUFREQ_TABLE_END },
 #endif
 #else
 	{ 3, 806400 },
@@ -376,7 +377,11 @@ static unsigned int acpuclk_get_current_vdd(void)
 	unsigned int vdd_mv;
 
 	vdd_raw = msm_spm_get_vdd();
-	for (vdd_mv = 850; vdd_mv <= 1350; vdd_mv += 25)
+#ifndef CONFIG_JESUS_PHONE
+	for (vdd_mv = 850; vdd_mv <= 1300; vdd_mv += 25)
+#else
+	for (vdd_mv = 850; vdd_mv <= 1450; vdd_mv += 25)
+#endif
 		if (VDD_RAW(vdd_mv) == vdd_raw)
 			break;
 
@@ -399,7 +404,11 @@ static int acpuclk_update_freq_tbl(unsigned int acpu_khz, unsigned int acpu_vdd)
 		pr_err("%s: acpuclk invalid speed %d\n", __func__, acpu_khz);
 		return -1;
 	}
-	if (acpu_vdd > 1350 || acpu_vdd < 750) {
+#ifndef CONFIG_JESUS_PHONE
+	if (acpu_vdd > 1300 || acpu_vdd < 850) {
+#else
+	if (acpu_vdd > 1450 || acpu_vdd < 850) {
+#endif
 		pr_err("%s: acpuclk vdd out of ranage, %d\n",
 			__func__, acpu_vdd);
 		return -2;
