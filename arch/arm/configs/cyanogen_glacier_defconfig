@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.27
-# Tue Jan  4 16:44:34 2011
+# Mon Jan 10 01:30:39 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1727,8 +1727,7 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 #
 # CONFIG_RAR_REGISTER is not set
 # CONFIG_IIO is not set
-CONFIG_BTPORT=y
-CONFIG_BTPORT_DRV=y
+# CONFIG_BTPORT is not set
 
 #
 # File systems
