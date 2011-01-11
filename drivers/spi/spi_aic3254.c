@@ -133,7 +133,6 @@ static int aic3254_config(CODEC_SPI_CMD *cmds, int size)
 		}
 	}
 
-	hr_msleep(60);
 	return 0;
 }
 
@@ -380,27 +379,30 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		pr_info("%s: rx mode %d, tx mode %d\n",
 			__func__, aic3254_rx_mode, aic3254_tx_mode);
 
-		/* step 1: power off first */
-		if (aic3254_rx_mode != DOWNLINK_OFF) {
-			if (ctl_ops->rx_amp_enable)
-				ctl_ops->rx_amp_enable(0);
-			aic3254_rx_config(DOWNLINK_OFF);
-		}
+		if (ctl_ops->rx_amp_enable)
+			ctl_ops->rx_amp_enable(0);
 
-		/* step 2: config DSP */
+		/* step 1,2: sw reset and config DSP */
 		aic3254_config(&aic3254_minidsp[idx][1], len);
 
-		/* step 3: power on then */
+		/* step 3: switch back to original path */
 		if (aic3254_rx_mode != DOWNLINK_OFF) {
 			aic3254_rx_config(aic3254_rx_mode);
 
 			/* update to current volume */
 			aic3254_config_ex(CODEC_SET_VOLUME_L, ARRAY_SIZE(CODEC_SET_VOLUME_L));
 			aic3254_config_ex(CODEC_SET_VOLUME_R, ARRAY_SIZE(CODEC_SET_VOLUME_R));
-
-			if (ctl_ops->rx_amp_enable)
-				ctl_ops->rx_amp_enable(1);
 		}
+		if (aic3254_tx_mode != UPLINK_OFF) {
+			aic3254_tx_config(aic3254_tx_mode);
+
+			/* update to current volume */
+			aic3254_config_ex(CODEC_SET_VOLUME_L, ARRAY_SIZE(CODEC_SET_VOLUME_L));
+			aic3254_config_ex(CODEC_SET_VOLUME_R, ARRAY_SIZE(CODEC_SET_VOLUME_R));
+		}
+
+		if (ctl_ops->rx_amp_enable)
+			ctl_ops->rx_amp_enable(1);
 
 		pr_info("%s: configure minidsp done\n", __func__);
 		break;
