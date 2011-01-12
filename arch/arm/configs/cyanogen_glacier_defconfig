@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.32.27
-# Mon Jan 10 01:30:39 2011
+# Linux kernel version: 2.6.32.28
+# Mon Jan 10 23:44:18 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1222,7 +1222,7 @@ CONFIG_SPI_QSD=y
 CONFIG_SPI_QSD_NEW=y
 CONFIG_SPI_CRUCIAL_OJ=y
 CONFIG_SPI_TOUCHSCREEN_NTRIG=y
-CONFIG_SPI_AIC3254=y
+# CONFIG_SPI_AIC3254 is not set
 
 #
 # SPI Protocol Masters
