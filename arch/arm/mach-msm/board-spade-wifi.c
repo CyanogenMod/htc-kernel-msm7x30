@@ -148,7 +148,8 @@ int __init spade_wifi_init(void)
 	spade_wifi_update_nvs("sd_oobonly=1\n");
 	spade_wifi_update_nvs("btc_params80=0\n");
 	spade_wifi_update_nvs("btc_params6=30\n");
+	spade_wifi_update_nvs("btc_params70=0x32\n");
 	spade_init_wifi_mem();
 	ret = platform_device_register(&spade_wifi_device);
-        return ret;
+	return ret;
 }
