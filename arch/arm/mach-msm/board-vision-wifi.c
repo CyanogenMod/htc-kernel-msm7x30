@@ -136,6 +136,7 @@ int __init vision_wifi_init(void)
 	vision_wifi_update_nvs("sd_oobonly=1\n");
 	vision_wifi_update_nvs("btc_params80=0\n");
 	vision_wifi_update_nvs("btc_params6=30\n");
+	vision_wifi_update_nvs("btc_params70=0x32\n");
 	vision_init_wifi_mem();
 	ret = platform_device_register(&vision_wifi_device);
 	return ret;
