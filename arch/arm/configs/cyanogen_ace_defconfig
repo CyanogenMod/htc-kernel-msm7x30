@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.32.27
-# Mon Jan 10 01:24:51 2011
+# Linux kernel version: 2.6.32.28
+# Tue Jan 11 18:29:40 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -117,7 +117,8 @@ CONFIG_HAVE_KRETPROBES=y
 # GCOV-based kernel profiling
 #
 # CONFIG_GCOV_KERNEL is not set
-# CONFIG_SLOW_WORK is not set
+CONFIG_SLOW_WORK=y
+# CONFIG_SLOW_WORK_DEBUG is not set
 CONFIG_HAVE_GENERIC_DMA_COHERENT=y
 CONFIG_SLABINFO=y
 CONFIG_RT_MUTEXES=y
@@ -985,7 +986,7 @@ CONFIG_WLAN=y
 # CONFIG_WLAN_PRE80211 is not set
 # CONFIG_WLAN_80211 is not set
 CONFIG_BCM4329=m
-CONFIG_BCM4329_FW_PATH="/system/etc/firmware/fw_bcm4329.bin"
+CONFIG_BCM4329_FW_PATH="/vendor/firmware/fw_bcm4329.bin"
 CONFIG_BCM4329_NVRAM_PATH="/proc/calibration"
 CONFIG_BCM4329_ENABLE_CSCAN=y
 
@@ -1821,7 +1822,13 @@ CONFIG_NETWORK_FILESYSTEMS=y
 # CONFIG_NFS_FS is not set
 # CONFIG_NFSD is not set
 # CONFIG_SMB_FS is not set
-# CONFIG_CIFS is not set
+CONFIG_CIFS=m
+# CONFIG_CIFS_STATS is not set
+CONFIG_CIFS_WEAK_PW_HASH=y
+CONFIG_CIFS_XATTR=y
+CONFIG_CIFS_POSIX=y
+# CONFIG_CIFS_DEBUG2 is not set
+# CONFIG_CIFS_EXPERIMENTAL is not set
 # CONFIG_NCP_FS is not set
 # CONFIG_CODA_FS is not set
 # CONFIG_AFS_FS is not set
@@ -1870,7 +1877,7 @@ CONFIG_NLS_ISO8859_1=y
 # CONFIG_NLS_ISO8859_15 is not set
 # CONFIG_NLS_KOI8_R is not set
 # CONFIG_NLS_KOI8_U is not set
-# CONFIG_NLS_UTF8 is not set
+CONFIG_NLS_UTF8=m
 # CONFIG_DLM is not set
 
 #
