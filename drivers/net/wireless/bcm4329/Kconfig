@@ -32,3 +32,10 @@ config BCM4329_ENABLE_CSCAN
 	default n
 	---help---
 	  Enable the use of CSCAN methods.
+
+config BCM4329_ALLOW_ARP_BROADCAST
+	depends on BCM4329
+	bool "Allow ARP broadcasts"
+	default n
+	---help---
+	  Allow ARP broadcasts to be received while in low power mode

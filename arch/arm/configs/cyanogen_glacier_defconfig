@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.28
-# Mon Jan 10 23:44:18 2011
+# Sun Jan 16 01:30:04 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -985,9 +985,10 @@ CONFIG_WLAN=y
 # CONFIG_WLAN_PRE80211 is not set
 # CONFIG_WLAN_80211 is not set
 CONFIG_BCM4329=m
-CONFIG_BCM4329_FW_PATH="/system/etc/firmware/fw_bcm4329.bin"
+CONFIG_BCM4329_FW_PATH="/system/vendor/firmware/fw_bcm4329_5GHz.bin"
 CONFIG_BCM4329_NVRAM_PATH="/proc/calibration"
 CONFIG_BCM4329_ENABLE_CSCAN=y
+CONFIG_BCM4329_ALLOW_ARP_BROADCAST=y
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers

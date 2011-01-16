@@ -2259,6 +2259,17 @@ dhd_bus_start(dhd_pub_t *dhdp)
 	dhdp->pktfilter_count = 1;
 	/* Setup filter to allow only unicast */
 	dhdp->pktfilter[0] = "100 0 0 0 0x01 0x00";
+#ifdef CONFIG_BCM4329_ALLOW_ARP_BROADCAST
+	dhdp->pktfilter[dhdp->pktfilter_count] =
+		    "101"
+		" " "0"
+		" " "0"
+		" " "0"
+		" " "0x" "ffffffffffff" "000000000000" "ffff" "ffff" "ffff" "ff" "00" "ffff"
+		" " "0x" "ffffffffffff" "000000000000" "0806" "0001" "0800" "06" "04" "0001"
+		;
+	++dhdp->pktfilter_count;
+#endif
 #endif /* EMBEDDED_PLATFORM */
 
 	/* Bus is ready, do any protocol initialization */
