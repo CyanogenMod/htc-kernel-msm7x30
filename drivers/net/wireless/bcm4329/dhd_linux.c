@@ -3,6 +3,7 @@
  * Basically selected code segments from usb-cdc.c and usb-rndis.c
  *
  * Copyright (C) 1999-2010, Broadcom Corporation
+ * Copyright (C) 2011, The CyanogenMod Project
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -43,6 +44,10 @@
 #include <linux/ethtool.h>
 #include <linux/fcntl.h>
 #include <linux/fs.h>
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+#include <linux/if_addr.h>
+#include <linux/inetdevice.h>
+#endif
 
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
@@ -299,6 +304,11 @@ typedef struct dhd_info {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
+
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+	__be32 in_address;
+	int filter_enabled;
+#endif
 } dhd_info_t;
 
 /* Definitions to provide path to the firmware and nvram
@@ -505,9 +515,47 @@ extern int register_pm_notifier(struct notifier_block *nb);
 extern int unregister_pm_notifier(struct notifier_block *nb);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
 
+#define ARP_FILTER_MASK \
+	"ffffffffffff" \
+	"000000000000" \
+	"ffff" \
+	"ffff" \
+	"ffff" \
+	"ff" \
+	"ff" \
+	"ffff" \
+	"000000000000" \
+	"00000000" \
+	"000000000000" \
+	"ffffffff"
+#define ARP_FILTER_PATTERN \
+	"ffffffffffff" \
+	"000000000000" \
+	"0806" \
+	"0001" \
+	"0800" \
+	"06" \
+	"04" \
+	"0001" \
+	"000000000000" \
+	"00000000" \
+	"000000000000" \
+	"????????"
+
 static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 {
 #ifdef PKT_FILTER_SUPPORT
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+	char arp4_filter[] =
+		"101 0 0 0 0x"ARP_FILTER_MASK " 0x"ARP_FILTER_PATTERN;
+
+	char *ipv4_address;
+
+	dhd_info_t *dhdi = (dhd_info_t *)dhd->info;
+
+	dhdi->filter_enabled = FALSE;
+#endif
+
 	DHD_TRACE(("%s: %d\n", __FUNCTION__, value));
 	/* 1 - Enable packet filter, only allow unicast packet to send up */
 	/* 0 - Disable packet filter */
@@ -519,6 +567,16 @@ static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 			dhd_pktfilter_offload_enable(dhd, dhd->pktfilter[i],
 					value, dhd_master_mode);
 		}
+
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+		ipv4_address = strchr(arp4_filter, '?');
+
+		snprintf(ipv4_address, 9, "%08x", be32_to_cpu(dhdi->in_address));
+		dhd_pktfilter_offload_set(dhd, arp4_filter);
+		dhd_pktfilter_offload_enable(dhd, arp4_filter, value, dhd_master_mode);
+
+		dhdi->filter_enabled = value;
+#endif
 	}
 #endif
 }
@@ -2079,6 +2137,10 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25))
 	mutex_init(&dhd->wl_start_lock);
 #endif
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+	dhd->in_address = cpu_to_be32(0);
+	dhd->filter_enabled = FALSE;
+#endif
 	/* Link to info module */
 	dhd->pub.info = dhd;
 
@@ -2170,7 +2232,6 @@ fail:
 
 	return NULL;
 }
-
 
 int
 dhd_bus_start(dhd_pub_t *dhdp)
@@ -2312,6 +2373,46 @@ static struct net_device_ops dhd_ops_virt = {
 };
 #endif
 
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+static int
+dhd_inetaddr_event(struct notifier_block *this, unsigned long event, void *arg)
+{
+	struct in_ifaddr *ifa = (struct in_ifaddr *)arg;
+	struct in_device *in_dev = ifa->ifa_dev;
+	struct net_device *net = in_dev ? in_dev->dev : NULL;
+	dhd_info_t *dhd;
+
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 31))
+	if (!net || net->open != dhd_open) {
+#else
+	if (!net || net->netdev_ops != &dhd_ops_pri) {
+#endif
+		/* Not our device */
+		return NOTIFY_DONE;
+	}
+
+	if (event != NETDEV_UP || (ifa->ifa_flags & IFA_F_SECONDARY)) {
+		/* Interface is down, or not the primary address; ignore */
+		return NOTIFY_DONE;
+	}
+
+	dhd = *(dhd_info_t **)netdev_priv(net);
+
+	dhd_os_proto_block(&dhd->pub);
+	dhd->in_address = ifa->ifa_address;
+	if (dhd->filter_enabled) {
+		dhd_set_packet_filter(dhd->filter_enabled, &dhd->pub);
+	}
+	dhd_os_proto_unblock(&dhd->pub);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block dhd_inetaddr_notifier = {
+	.notifier_call = dhd_inetaddr_event,
+};
+#endif
+
 int
 dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 {
@@ -2397,6 +2498,10 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 #endif /* CONFIG_FIRST_SCAN */
 #endif /* CONFIG_WIRELESS_EXT */
 
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+	register_inetaddr_notifier(&dhd_inetaddr_notifier);
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	up(&dhd_registration_sem);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) */
@@ -2417,6 +2522,10 @@ dhd_bus_detach(dhd_pub_t *dhdp)
 	dhd_info_t *dhd;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
+
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+	unregister_inetaddr_notifier(&dhd_inetaddr_notifier);
+#endif
 
 	if (dhdp) {
 		dhd = (dhd_info_t *)dhdp->info;

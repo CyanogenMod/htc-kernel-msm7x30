@@ -32,3 +32,11 @@ config BCM4329_ENABLE_CSCAN
 	default n
 	---help---
 	  Enable the use of CSCAN methods.
+
+config BCM4329_ALLOW_ARP
+	depends on BCM4329
+	bool "Allow ARP requests"
+	default n
+	---help---
+	  Allow ARP requests to be received by the cpu while in low
+	  power mode.
