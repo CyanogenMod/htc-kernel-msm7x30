@@ -515,6 +515,13 @@ extern int register_pm_notifier(struct notifier_block *nb);
 extern int unregister_pm_notifier(struct notifier_block *nb);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
 
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+static int dhd_inetaddr_event(struct notifier_block *this, unsigned long event, void *arg);
+
+static struct notifier_block dhd_inetaddr_notifier = {
+	.notifier_call = dhd_inetaddr_event,
+};
+
 #define ARP_FILTER_MASK \
 	"ffffffffffff" \
 	"000000000000" \
@@ -541,6 +548,7 @@ extern int unregister_pm_notifier(struct notifier_block *nb);
 	"00000000" \
 	"000000000000" \
 	"????????"
+#endif
 
 static void dhd_set_packet_filter(int value, dhd_pub_t *dhd)
 {
@@ -2215,6 +2223,10 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	register_pm_notifier(&dhd_sleep_pm_notifier);
 #endif /*  (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
 
+#ifdef CONFIG_BCM4329_ALLOW_ARP
+	register_inetaddr_notifier(&dhd_inetaddr_notifier);
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	dhd->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 20;
 	dhd->early_suspend.suspend = dhd_early_suspend;
@@ -2407,10 +2419,6 @@ dhd_inetaddr_event(struct notifier_block *this, unsigned long event, void *arg)
 
 	return NOTIFY_DONE;
 }
-
-static struct notifier_block dhd_inetaddr_notifier = {
-	.notifier_call = dhd_inetaddr_event,
-};
 #endif
 
 int
@@ -2497,10 +2505,6 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 #endif /* SOFTAP */
 #endif /* CONFIG_FIRST_SCAN */
 #endif /* CONFIG_WIRELESS_EXT */
-
-#ifdef CONFIG_BCM4329_ALLOW_ARP
-	register_inetaddr_notifier(&dhd_inetaddr_notifier);
-#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	up(&dhd_registration_sem);
