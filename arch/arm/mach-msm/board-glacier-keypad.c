@@ -75,6 +75,7 @@ static struct gpio_event_direct_entry glacier_keypad_input_map[] = {
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(GLACIER_CAM_STEP2),
 		.code = KEY_CAMERA,
+		.wakeup = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(GLACIER_CAM_STEP1),
