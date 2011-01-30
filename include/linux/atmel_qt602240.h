@@ -320,6 +320,7 @@ struct atmel_i2c_platform_data {
 	int8_t cable_config_T22[17];
 	int8_t cable_config_T28[6];
 	int8_t noise_config[3];
+	uint8_t cal_tchthr[2];
 	uint16_t filter_level[4];
 	uint8_t GCAF_level[5];
 };
