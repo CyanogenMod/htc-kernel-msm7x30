@@ -144,6 +144,7 @@ struct msm_mddi_client_data {
 			     uint32_t reg, unsigned int nr_bytes);
 	uint32_t (*remote_read)(struct msm_mddi_client_data *, uint32_t reg);
 	void (*auto_hibernate)(struct msm_mddi_client_data *, int);
+	void (*send_powerdown)(struct msm_mddi_client_data *);
 	/* custom data that needs to be passed from the board file to a 
 	 * particular client */
 	void *private_client_data;
