@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.28
-# Sun Jan 30 22:16:12 2011
+# Tue Feb  1 22:22:56 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1828,7 +1828,7 @@ CONFIG_NETWORK_FILESYSTEMS=y
 # CONFIG_NFS_FS is not set
 # CONFIG_NFSD is not set
 # CONFIG_SMB_FS is not set
-CONFIG_CIFS=m
+CONFIG_CIFS=y
 # CONFIG_CIFS_STATS is not set
 CONFIG_CIFS_WEAK_PW_HASH=y
 CONFIG_CIFS_XATTR=y
@@ -1883,7 +1883,7 @@ CONFIG_NLS_ISO8859_1=y
 # CONFIG_NLS_ISO8859_15 is not set
 # CONFIG_NLS_KOI8_R is not set
 # CONFIG_NLS_KOI8_U is not set
-CONFIG_NLS_UTF8=m
+CONFIG_NLS_UTF8=y
 # CONFIG_DLM is not set
 
 #
