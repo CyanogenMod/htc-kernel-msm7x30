@@ -1689,6 +1689,7 @@ extern int task_free_unregister(struct notifier_block *n);
 /*
  * Per process flags
  */
+#define PF_KSOFTIRQD	0x00000001	/* I am ksoftirqd */
 #define PF_STARTING	0x00000002	/* being created */
 #define PF_EXITING	0x00000004	/* getting shut down */
 #define PF_EXITPIDONE	0x00000008	/* pi exit done on shut down */
