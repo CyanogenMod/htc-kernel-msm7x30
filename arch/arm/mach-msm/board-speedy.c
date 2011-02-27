@@ -121,6 +121,22 @@ static struct platform_device usb_mass_storage_device = {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_RNDIS
+static struct usb_ether_platform_data rndis_pdata = {
+  /* ethaddr is filled by board_serialno_setup */
+  .vendorID  = 0x18d1,
+  .vendorDescr  = "Google, Inc.",
+};
+
+static struct platform_device rndis_device = {
+  .name  = "rndis",
+  .id  = -1,
+  .dev  = {
+    .platform_data = &rndis_pdata,
+  },
+};
+#endif
+
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x0bb4,
 	.product_id	= 0x0ca5,
@@ -2111,9 +2127,7 @@ static struct platform_device *devices[] __initdata = {
 
 #if defined(CONFIG_MARIMBA_CORE) && \
    (defined(CONFIG_MSM_BT_POWER) || defined(CONFIG_MSM_BT_POWER_MODULE))
-
 	&msm_bt_power_device,
-
 #endif
 
 #ifdef CONFIG_MSM_ROTATOR
@@ -2444,6 +2458,9 @@ static void __init speedy_init(void)
 	android_usb_pdata.serial_number = board_serialno();
 	msm_device_hsusb.dev.platform_data = &msm_hsusb_pdata;
 	platform_device_register(&msm_device_hsusb);
+#ifdef CONFIG_USB_ANDROID_RNDIS
+        platform_device_register(&rndis_device);
+#endif
 	platform_device_register(&usb_mass_storage_device);
 	platform_device_register(&android_usb_device);
 #endif
