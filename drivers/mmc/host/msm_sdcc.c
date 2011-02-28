@@ -58,7 +58,6 @@
 	pr_debug("%s: %s: " fmt "\n", mmc_hostname(host->mmc), __func__ , args)
 
 #define IRQ_DEBUG 0
-#define DISABLE_WIMAX_BUSCLK_PWRSAVE 0
 #define DISABLE_SVLTE_BUSCLK_PWRSAVE 1
 
 #if defined(CONFIG_DEBUG_FS)
@@ -95,8 +94,11 @@ static unsigned long msmsdcc_irqtime;
 
 #ifdef CONFIG_WIMAX
 extern int mmc_wimax_get_status(void);
+extern int mmc_wimax_get_busclk_pwrsave(void);
+extern void mmc_wimax_enable_host_wakeup(int on);
 #else
 static int mmc_wimax_get_status(void) { return 0; }
+static int mmc_wimax_get_busclk_pwrsave(void) { return 0; }
 #endif
 
 #if IRQ_DEBUG == 1
@@ -172,7 +174,7 @@ msmsdcc_disable_clocks(struct msmsdcc_host *host, int deferr)
 
 	if (is_wimax_platform(host->plat) && mmc_wimax_get_status()) {
 		if (host->curr.mrq) {
-			printk("%s [WiMAX] curr.mrq != NULL", __func__);
+			printk("%s [WiMAX] %s curr.mrq != NULL", __func__, mmc_hostname(host->mmc));
 			return;
 		}
 
@@ -201,7 +203,7 @@ msmsdcc_disable_clocks(struct msmsdcc_host *host, int deferr)
 	BUG_ON(host->curr.mrq);
 
 	if (is_wimax_platform(host->plat) && mmc_wimax_get_status()) {
-		if (DISABLE_WIMAX_BUSCLK_PWRSAVE)
+		if (!mmc_wimax_get_busclk_pwrsave())
 			return;
 		else
 			delay = SQN_BUSCLK_TIMEOUT;
@@ -221,6 +223,9 @@ msmsdcc_disable_clocks(struct msmsdcc_host *host, int deferr)
 		if (host->clks_on) {
 #if SDC_CLK_VERBOSE
 			if (is_wimax_platform(host->plat)) {
+#ifdef CONFIG_WIMAX
+				mmc_wimax_enable_host_wakeup(1);
+#endif
 				pr_info("%s: Disable clocks\n", mmc_hostname(host->mmc));
 			}
 #endif
@@ -274,6 +279,10 @@ msmsdcc_enable_clocks(struct msmsdcc_host *host)
 #if SDC_CLK_VERBOSE
 		if (is_wimax_platform(host->plat)) {
 			pr_info("%s: Enable clocks\n", mmc_hostname(host->mmc));
+
+#ifdef CONFIG_WIMAX
+            mmc_wimax_enable_host_wakeup(0);
+#endif
 		}
 #endif
 		rc = clk_enable(host->pclk);
@@ -357,7 +366,7 @@ static void msmsdcc_reset_and_restore(struct msmsdcc_host *host)
 				mmc_hostname(host->mmc), host->clk_rate, ret);
 }
 
-static void
+void
 msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
 	BUG_ON(host->curr.data);
@@ -381,13 +390,15 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 	mmc_request_done(host->mmc, mrq);
 	spin_lock(&host->lock);
 }
+EXPORT_SYMBOL(msmsdcc_request_end);
 
-static void
+void
 msmsdcc_stop_data(struct msmsdcc_host *host)
 {
 	host->curr.data = NULL;
 	host->curr.got_dataend = 0;
 }
+EXPORT_SYMBOL(msmsdcc_stop_data);
 
 uint32_t msmsdcc_fifo_addr(struct msmsdcc_host *host)
 {

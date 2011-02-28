@@ -195,6 +195,10 @@ static void mmc_wait_done(struct mmc_request *mrq)
 	complete(mrq->done_data);
 }
 
+struct msmsdcc_host;
+void msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq);
+void msmsdcc_stop_data(struct msmsdcc_host *host);
+
 /**
  *	mmc_wait_for_req - start a request and wait for completion
  *	@host: MMC host to start command
@@ -206,6 +210,9 @@ static void mmc_wait_done(struct mmc_request *mrq)
  */
 void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 {
+#ifdef CONFIG_WIMAX
+	int ret = 0;
+#endif
 	DECLARE_COMPLETION_ONSTACK(complete);
 
 	mrq->done_data = &complete;
@@ -213,7 +220,20 @@ void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 
 	mmc_start_request(host, mrq);
 
+#ifdef CONFIG_WIMAX
+	ret = wait_for_completion_timeout(&complete, msecs_to_jiffies(5000));
+	if (ret <= 0) {
+		struct msmsdcc_host *msm_host = mmc_priv(host);
+ 		printk("[ERR] %s: %s wait_for_completion_timeout!\n", __func__, mmc_hostname(host));
+		
+		msmsdcc_stop_data(msm_host);
+
+		mrq->cmd->error = -ETIMEDOUT;
+		msmsdcc_request_end(msm_host, mrq); 	
+	}
+#else
 	wait_for_completion(&complete);
+#endif		
 }
 
 EXPORT_SYMBOL(mmc_wait_for_req);
