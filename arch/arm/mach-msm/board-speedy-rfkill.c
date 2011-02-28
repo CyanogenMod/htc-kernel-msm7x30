@@ -34,7 +34,7 @@
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bcm4329";
 
-extern int speedy_wifi_bt_sleep_clk_ctl(int on, int id);
+//extern int speedy_wifi_bt_sleep_clk_ctl(int on, int id);
 
 /* bt initial configuration */
 static uint32_t speedy_bt_init_table[] = {
@@ -213,8 +213,8 @@ static void config_bt_table(uint32_t *table, int len)
 
 static void speedy_config_bt_init(void)
 {
-	speedy_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT);
-	mdelay(2);
+//	speedy_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT);
+//	mdelay(2);
 
 	/* set bt initial configuration*/
 	config_bt_table(speedy_bt_init_table,
@@ -251,8 +251,8 @@ static void speedy_config_bt_init(void)
 
 static void speedy_config_bt_on(void)
 {
-	speedy_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT);
-	mdelay(2);
+//	speedy_wifi_bt_sleep_clk_ctl(CLK_ON, ID_BT);
+//	mdelay(2);
 
 	/* set bt on configuration*/
 	config_bt_table(speedy_bt_on_table,
@@ -306,8 +306,8 @@ static void speedy_config_bt_off(void)
 	gpio_configure(SPEEDY_GPIO_BT_CHIP_WAKE,
 				GPIOF_DRIVE_OUTPUT | GPIOF_OUTPUT_LOW);
 
-	speedy_wifi_bt_sleep_clk_ctl(CLK_OFF, ID_BT);
-	mdelay(2);
+//	speedy_wifi_bt_sleep_clk_ctl(CLK_OFF, ID_BT);
+//	mdelay(2);
 }
 
 static int bluetooth_set_power(void *data, bool blocked)
