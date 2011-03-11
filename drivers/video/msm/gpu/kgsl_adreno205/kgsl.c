@@ -1637,7 +1637,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		result = -EINVAL;
 		goto done;
 	}
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	result = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				vma_size, vma->vm_page_prot);
