@@ -1,28 +1,29 @@
 /* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * modification, are permitted provided that the following conditions are
+ * met:
  *     * Redistributions of source code must retain the above copyright
- *  	 notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *  	 notice, this list of conditions and the following disclaimer in the
- *  	 documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora nor
- *  	 the names of its contributors may be used to endorse or promote
- *  	 products derived from this software without specific prior written
- *  	 permission.
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of Code Aurora Forum, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NON-INFRINGEMENT ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -64,7 +65,7 @@
 /* Command is not implemented by the driver.  */
 #define VDEC_S_BUSY	(VDEC_S_BASE + 13)
 
-#define VDEC_INTF_VER   	1
+#define VDEC_INTF_VER	1
 #define VDEC_MSG_BASE	0x0000000
 /* Codes to identify asynchronous message responses and events that driver
   wants to communicate to the app.*/
@@ -94,10 +95,12 @@
 #define VDEC_BUFFERFLAG_CODECCONFIG	0x00000080
 
 /*Post processing flags bit masks*/
-#define VDEC_EXTRADATA_QP	0x00000001
-#define VDEC_EXTRADATA_SEI	0x00000002
-#define VDEC_EXTRADATA_VUI	0x00000004
-#define VDEC_EXTRADATA_MB_ERROR_MAP 0x00000008
+#define VDEC_EXTRADATA_NONE 0x001
+#define VDEC_EXTRADATA_QP 0x004
+#define VDEC_EXTRADATA_MB_ERROR_MAP 0x008
+#define VDEC_EXTRADATA_SEI 0x010
+#define VDEC_EXTRADATA_VUI 0x020
+#define VDEC_EXTRADATA_VC1 0x040
 
 #define VDEC_CMDBASE	0x800
 #define VDEC_CMD_SET_INTF_VERSION	(VDEC_CMDBASE)
@@ -105,8 +108,8 @@
 #define VDEC_IOCTL_MAGIC 'v'
 
 struct vdec_ioctl_msg {
-	void *inputparam;
-	void *outputparam;
+	void __user *in;
+	void __user *out;
 };
 
 /* CMD params: InputParam:enum vdec_codec
@@ -200,6 +203,21 @@ struct vdec_ioctl_msg {
 #define VDEC_IOCTL_GET_NUMBER_INSTANCES \
 	_IOR(VDEC_IOCTL_MAGIC, 27, struct vdec_ioctl_msg)
 
+#define VDEC_IOCTL_SET_PICTURE_ORDER \
+	_IOW(VDEC_IOCTL_MAGIC, 28, struct vdec_ioctl_msg)
+
+#define VDEC_IOCTL_SET_FRAME_RATE \
+	_IOW(VDEC_IOCTL_MAGIC, 29, struct vdec_ioctl_msg)
+
+#define VDEC_IOCTL_SET_H264_MV_BUFFER \
+	_IOW(VDEC_IOCTL_MAGIC, 30, struct vdec_ioctl_msg)
+
+#define VDEC_IOCTL_FREE_H264_MV_BUFFER \
+	_IOW(VDEC_IOCTL_MAGIC, 31, struct vdec_ioctl_msg)
+
+#define VDEC_IOCTL_GET_MV_BUFFER_SIZE  \
+	_IOR(VDEC_IOCTL_MAGIC, 32, struct vdec_ioctl_msg)
+
 enum vdec_picture {
 	PICTURE_TYPE_I,
 	PICTURE_TYPE_P,
@@ -219,17 +237,17 @@ struct vdec_allocatorproperty {
 	uint32_t mincount;
 	uint32_t maxcount;
 	uint32_t actualcount;
-	uint32_t buffer_size;
+	size_t buffer_size;
 	uint32_t alignment;
 	uint32_t buf_poolid;
 };
 
 struct vdec_bufferpayload {
-	uint8_t *bufferaddr;
-	uint32_t buffer_len;
+	void __user *bufferaddr;
+	size_t buffer_len;
 	int pmem_fd;
-	uint32_t offset;
-	uint32_t mmaped_size;
+	size_t offset;
+	size_t mmaped_size;
 };
 
 struct vdec_setbuffer_cmd {
@@ -462,6 +480,11 @@ enum vdec_output_fromat {
 	VDEC_YUV_FORMAT_TILE_4x2 = 0x2
 };
 
+enum vdec_output_order {
+	VDEC_ORDER_DISPLAY = 0x1,
+	VDEC_ORDER_DECODE = 0x2
+};
+
 struct vdec_picsize {
 	uint32_t frame_width;
 	uint32_t frame_height;
@@ -470,42 +493,42 @@ struct vdec_picsize {
 };
 
 struct vdec_seqheader {
-	uint8_t *ptr_seqheader;
-	uint32_t seq_header_len;
+	void __user *ptr_seqheader;
+	size_t seq_header_len;
 	int pmem_fd;
-	uint32_t pmem_offset;
+	size_t pmem_offset;
 };
 
 struct vdec_mberror {
-	uint8_t *ptr_errormap;
-	uint32_t err_mapsize;
+	void __user *ptr_errormap;
+	size_t err_mapsize;
 };
 
 struct vdec_input_frameinfo {
-	uint8_t *bufferaddr;
-	uint32_t offset;
-	uint32_t datalen;
+	void __user *bufferaddr;
+	size_t offset;
+	size_t datalen;
 	uint32_t flags;
 	int64_t timestamp;
 	void *client_data;
 	int pmem_fd;
-	uint32_t pmem_offset;
+	size_t pmem_offset;
 };
 
 struct vdec_framesize {
-	uint32_t   n_left;
-	uint32_t   n_top;
-	uint32_t   n_right;
-	uint32_t   n_bottom;
+	uint32_t   left;
+	uint32_t   top;
+	uint32_t   right;
+	uint32_t   bottom;
 };
 
 struct vdec_output_frameinfo {
-	uint8_t *phy_addr;
-	uint8_t *bufferaddr;
-	uint32_t offset;
-	uint32_t len;
+	void __user *bufferaddr;
+	size_t offset;
+	size_t len;
 	uint32_t flags;
 	int64_t time_stamp;
+	enum vdec_picture pic_type;
 	void *client_data;
 	void *input_frame_clientdata;
 	struct vdec_framesize framesize;
@@ -520,6 +543,26 @@ struct vdec_msginfo {
 	uint32_t status_code;
 	uint32_t msgcode;
 	union vdec_msgdata msgdata;
-	uint32_t msgdatasize;
+	size_t msgdatasize;
 };
+
+struct vdec_framerate {
+	unsigned long fps_denominator;
+	unsigned long fps_numerator;
+};
+
+struct vdec_h264_mv{
+	size_t size;
+	int count;
+	int pmem_fd;
+	int offset;
+};
+
+struct vdec_mv_buff_size{
+	int width;
+	int height;
+	int size;
+	int alignment;
+};
+
 #endif /* end of macro _VDECDECODER_H_ */

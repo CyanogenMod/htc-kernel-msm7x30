@@ -28,7 +28,7 @@
  */
 #ifndef _VCD_UTIL_H_
 #define _VCD_UTIL_H_
-
+#include "vidc_type.h"
 #include "vcd_api.h"
 
 #if DEBUG
@@ -57,31 +57,12 @@
 	} while	(0)
 
 #define VCD_FAILED_DEVICE_FATAL(rc) \
-	(rc == VCD_ERR_HW_FATAL ? TRUE : FALSE)
+	(rc == VCD_ERR_HW_FATAL ? true : false)
 #define VCD_FAILED_CLIENT_FATAL(rc) \
-	(rc == VCD_ERR_CLIENT_FATAL ? TRUE : FALSE)
+	(rc == VCD_ERR_CLIENT_FATAL ? true : false)
 
 #define VCD_FAILED_FATAL(rc)  \
 	((VCD_FAILED_DEVICE_FATAL(rc) || VCD_FAILED_CLIENT_FATAL(rc)) \
-	? TRUE : FALSE)
-
-
-#define vcd_assert()                     VCD_MSG_FATAL("ASSERT")
-#define vcd_malloc(n_bytes)              kmalloc(n_bytes, GFP_KERNEL)
-#define vcd_free(p_mem)                  kfree(p_mem)
-
-#ifdef NO_IN_KERNEL_PMEM
-	#define VCD_PMEM_malloc(n_bytes)         kmalloc(n_bytes, GFP_KERNEL)
-	#define VCD_PMEM_free(p_mem)             kfree(p_mem)
-	#define VCD_PMEM_get_physical(p_mem)     virt_to_phys(p_mem)
-#else
-	int vcd_pmem_alloc(u32 size, u8 **kernel_vaddr, u8 **phy_addr);
-	int vcd_pmem_free(u8 *kernel_vaddr, u8 *phy_addr);
-#endif
-
-u32 vcd_critical_section_create(u32 **p_cs);
-u32 vcd_critical_section_release(u32 *cs);
-u32 vcd_critical_section_enter(u32 *cs);
-u32 vcd_critical_section_leave(u32 *cs);
+	? true : false)
 
 #endif
