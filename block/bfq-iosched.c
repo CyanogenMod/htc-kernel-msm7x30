@@ -616,7 +616,7 @@ static void bfq_arm_slice_timer(struct bfq_data *bfqd)
 	    bfqq->raising_coeff == 1)
 		sl = min(sl, msecs_to_jiffies(BFQ_MIN_TT));
 	else if (bfqq->raising_coeff > 1)
-		sl = sl * 4;
+		sl = sl * 3;
 	bfqd->last_idling_start = ktime_get();
 	mod_timer(&bfqd->idle_slice_timer, jiffies + sl);
 	bfq_log(bfqd, "arm idle: %lu/%lu ms",
@@ -1089,8 +1089,29 @@ static struct bfq_queue *bfq_select_queue(struct bfq_data *bfqd)
 			bfq_bfqq_budget_left(bfqq)) {
 			reason = BFQ_BFQQ_BUDGET_EXHAUSTED;
 			goto expire;
-		} else
+		} else {
+			/*
+			 * The idle timer may be pending because we may not
+			 * disable disk idling even when a new request arrives
+			 */
+			if (timer_pending(&bfqd->idle_slice_timer)) {
+				/*
+				 * If we get here: 1) at least a new request
+				 * has arrived but we have not disabled the
+				 * timer because the request was too small,
+				 * 2) then the block layer has unplugged the
+				 * device, causing the dispatch to be invoked.
+				 *
+				 * Since the device is unplugged, now the
+				 * requests are probably large enough to
+				 * provide a reasonable throughput.
+				 * So we disable idling.
+				 */
+				bfq_clear_bfqq_wait_request(bfqq);
+				del_timer(&bfqd->idle_slice_timer);
+			}
 			goto keep_queue;
+		}
 	}
 
 	/*
@@ -1657,6 +1678,25 @@ static void bfq_rq_enqueued(struct bfq_data *bfqd, struct bfq_queue *bfqq,
 	bfqq->last_request_pos = blk_rq_pos(rq) + blk_rq_sectors(rq);
 
 	if (bfqq == bfqd->active_queue) {
+		/*
+		 * If there is just this request queued and the request
+		 * is small, just make sure the queue is plugged and exit.
+		 * In this way, if the disk is being idled to wait for a new
+		 * request from the active queue, we avoid unplugging the
+		 * device for this request.
+		 *
+		 * By doing so, we spare the disk to be committed
+		 * to serve just a small request. On the contrary, we wait for
+		 * the block layer to decide when to unplug the device:
+		 * hopefully, new requests will be merged to this
+		 * one quickly, then the device will be unplugged
+		 * and larger requests will be dispatched.
+		 */
+	        if (bfqq->queued[rq_is_sync(rq)] == 1 &&
+		    blk_rq_sectors(rq) < 32) {
+			blk_plug_device(bfqd->queue);
+		        return;
+		}
 		if (bfq_bfqq_wait_request(bfqq)) {
 			/*
 			 * If we are waiting for a request for this queue, let
@@ -1937,7 +1977,6 @@ static void bfq_idle_slice_timer(unsigned long data)
 	 */
 	if (bfqq != NULL) {
 		bfq_log_bfqq(bfqd, bfqq, "slice_timer expired");
-		reason = BFQ_BFQQ_TOO_IDLE;
 		if (bfq_bfqq_budget_timeout(bfqq))
 			/*
 			 * Also here the queue can be safely expired
@@ -1945,10 +1984,21 @@ static void bfq_idle_slice_timer(unsigned long data)
 			 * guarantees
 			 */
 			reason = BFQ_BFQQ_BUDGET_TIMEOUT;
+		else if (bfqq->queued[0] == 0 && bfqq->queued[1] == 0)
+			/*
+			 * The queue may not be empty upon timer expiration,
+			 * because we may not disable the timer when the first
+			 * request of the active queue arrives during
+			 * disk idling
+			 */
+			reason = BFQ_BFQQ_TOO_IDLE;
+		else
+			goto schedule_dispatch;
 
 		bfq_bfqq_expire(bfqd, bfqq, 1, reason);
 	}
 
+schedule_dispatch:
 	bfq_schedule_dispatch(bfqd);
 
 	spin_unlock_irqrestore(bfqd->queue->queue_lock, flags);
@@ -2105,7 +2155,7 @@ static void *bfq_init_queue(struct request_queue *q)
 	bfqd->low_latency = true;
 
 	bfqd->bfq_raising_coeff = 20;
-	bfqd->bfq_raising_max_time = msecs_to_jiffies(8000);
+	bfqd->bfq_raising_max_time = msecs_to_jiffies(7500);
 	bfqd->bfq_raising_min_idle_time = msecs_to_jiffies(2000);
 	bfqd->bfq_raising_max_softrt_rate = 7000;
 
