@@ -331,7 +331,7 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx);
 int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct msmfb_overlay_data *req,
 				struct file **pp_src_file);
-struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype);
+struct mdp4_overlay_pipe *mdp4_overlay_pipe_alloc(int ptype, int usevg);
 void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe);
 void mdp4_overlay_dmap_cfg(struct mdp4_overlay_pipe *pipe, int lcdc);
 void mdp4_overlay_dmap_xy(struct mdp4_overlay_pipe *pipe);

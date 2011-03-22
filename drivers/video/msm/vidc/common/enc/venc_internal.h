@@ -70,7 +70,7 @@ u32 vid_enc_set_get_base_cfg(struct video_client_ctx *client_ctx,
 u32 vid_enc_set_get_inputformat(struct video_client_ctx *client_ctx,
 		u32 *input_format, u32 set_flag);
 
-u32 vid_enc_set_get_codec(struct video_client_ctx *client_ctx, u32 *codec_type,
+u32 vid_enc_set_get_codec(struct video_client_ctx *client_ctx, u32 *codec,
 		u32 set_flag);
 
 u32 vid_enc_set_get_framesize(struct video_client_ctx *client_ctx,
@@ -144,16 +144,24 @@ u32 vid_enc_set_buffer_req(struct video_client_ctx *client_ctx,
 
 u32 vid_enc_set_buffer(struct video_client_ctx *client_ctx,
 		struct venc_bufferpayload *buffer_info,
-		enum venc_buffer_dir buffer_type);
+		enum venc_buffer_dir buffer);
 
 u32 vid_enc_free_buffer(struct video_client_ctx *client_ctx,
 		struct venc_bufferpayload *buffer_info,
-		enum venc_buffer_dir buffer_type);
+		enum venc_buffer_dir buffer);
 
 u32 vid_enc_encode_frame(struct video_client_ctx *client_ctx,
 		struct venc_buffer *input_frame_info);
 
 u32 vid_enc_fill_output_buffer(struct video_client_ctx *client_ctx,
 		struct venc_buffer *output_frame_info);
+
+u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
+		struct venc_recon_addr *venc_recon);
+
+u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx);
+
+u32 vid_enc_get_recon_buffer_size(struct video_client_ctx *client_ctx,
+		struct venc_recon_buff_size *venc_recon_size);
 
 #endif

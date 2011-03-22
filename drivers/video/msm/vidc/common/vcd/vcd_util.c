@@ -79,7 +79,7 @@ u32 vcd_critical_section_leave(u32 *cs)
 int vcd_pmem_alloc(u32 size, u8 **kernel_vaddr, u8 **phy_addr)
 {
 	*phy_addr =
-	    (u8 *) pmem_kalloc(size, PMEM_MEMTYPE_EBI1 | PMEM_ALIGNMENT_4K);
+	    (u8 *) pmem_kalloc(size, PMEM_MEMTYPE | PMEM_ALIGNMENT_4K);
 
 	if (!IS_ERR((void *)*phy_addr)) {
 

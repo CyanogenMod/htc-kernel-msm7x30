@@ -61,30 +61,32 @@ struct video_client_ctx {
 	u32 event_status;
 	u32 seq_header_set;
 	u32 stop_msg;
+	u32 stop_called;
+	u32 stop_sync_cb;
 };
 
 void __iomem *vidc_get_ioaddr(void);
 int vidc_load_firmware(void);
 void vidc_release_firmware(void);
 u32 vidc_lookup_addr_table(struct video_client_ctx *client_ctx,
-	enum buffer_dir buffer_type, u32 search_with_user_vaddr,
+	enum buffer_dir buffer, u32 search_with_user_vaddr,
 	unsigned long *user_vaddr, unsigned long *kernel_vaddr,
 	unsigned long *phy_addr, int *pmem_fd, struct file **file,
 	s32 *buffer_index);
 u32 vidc_insert_addr_table(struct video_client_ctx *client_ctx,
-	enum buffer_dir buffer_type, unsigned long user_vaddr,
+	enum buffer_dir buffer, unsigned long user_vaddr,
 	unsigned long *kernel_vaddr, int pmem_fd,
 	unsigned long buffer_addr_offset,
 	unsigned int max_num_buffers);
 u32 vidc_delete_addr_table(struct video_client_ctx *client_ctx,
-	enum buffer_dir buffer_type, unsigned long user_vaddr,
+	enum buffer_dir buffer, unsigned long user_vaddr,
 	unsigned long *kernel_vaddr);
 
-u32 vidc_timer_create(void (*pf_timer_handler)(void *),
-	void *p_user_data, void **pp_timer_handle);
-void  vidc_timer_release(void *p_timer_handle);
-void  vidc_timer_start(void *p_timer_handle, u32 n_time_out);
-void  vidc_timer_stop(void *p_timer_handle);
+u32 vidc_timer_create(void (*timer_handler)(void *),
+	void *user_data, void **timer_handle);
+void  vidc_timer_release(void *timer_handle);
+void  vidc_timer_start(void *timer_handle, u32 time_out);
+void  vidc_timer_stop(void *timer_handle);
 
 
 #endif

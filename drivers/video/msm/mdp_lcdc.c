@@ -582,7 +582,7 @@ static int mdp_lcdc_probe(struct platform_device *pdev)
 #ifdef CONFIG_MSM_MDP40
 	if (lcdc_pipe == NULL) {
 		ptype = mdp4_overlay_format2type(MDP_RGB_565);
-		pipe = mdp4_overlay_pipe_alloc(ptype);
+		pipe = mdp4_overlay_pipe_alloc(ptype, 0);
 		if (!pipe)
 			goto err_mdp4_overlay_pipe_alloc;
 		pipe->mixer_stage  = MDP4_MIXER_STAGE_BASE;

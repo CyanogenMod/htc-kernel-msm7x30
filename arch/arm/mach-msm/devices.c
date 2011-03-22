@@ -1215,7 +1215,7 @@ static struct resource msm_vidc_720p_resources[] = {
 };
 
 struct platform_device msm_device_vidc_720p = {
-	.name = "msm_vidc_720p",
+	.name = "msm_vidc",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(msm_vidc_720p_resources),
 	.resource = msm_vidc_720p_resources,
