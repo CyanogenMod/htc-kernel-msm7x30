@@ -1,20 +1,30 @@
-/*
- * (C) Copyright Advanced Micro Devices, Inc. 2002, 2007
- * Copyright (c) 2008-2009 QUALCOMM USA, INC.
- * 
- * All source code in this file is licensed under the following license
- * 
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See the GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can find it at http://www.fsf.org
+/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of Code Aurora Forum, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
 #ifndef _MSM_KGSL_H
 #define _MSM_KGSL_H
@@ -22,6 +32,9 @@
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM		1
 #define KGSL_CONTEXT_NO_GMEM_ALLOC	2
+
+/* Memory allocayion flags */
+#define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
 
 /* generic flag values */
 #define KGSL_FLAGS_NORMALMODE  0x00000000
@@ -36,10 +49,22 @@
 
 /* device id */
 enum kgsl_deviceid {
+#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
+	KGSL_DEVICE_YAMATO	= 0x00000000,
+	KGSL_DEVICE_G12		= 0x00000001,
+	KGSL_DEVICE_MAX		= 0x00000002
+#else
 	KGSL_DEVICE_ANY		= 0x00000000,
 	KGSL_DEVICE_YAMATO	= 0x00000001,
 	KGSL_DEVICE_G12		= 0x00000002,
 	KGSL_DEVICE_MAX		= 0x00000002
+#endif
+};
+
+enum kgsl_user_mem_type {
+	KGSL_USER_MEM_TYPE_PMEM		= 0x00000000,
+	KGSL_USER_MEM_TYPE_ASHMEM	= 0x00000001,
+	KGSL_USER_MEM_TYPE_ADDR		= 0x00000002
 };
 
 struct kgsl_devinfo {
@@ -110,6 +135,9 @@ struct kgsl_platform_data {
 	unsigned int max_grp3d_freq;
 	unsigned int min_grp3d_freq;
 	int (*set_grp3d_async)(void);
+	const char *imem_clk_name;
+	const char *grp3d_clk_name;
+	const char *grp2d0_clk_name;
 };
 #endif
 /* ioctls */
@@ -126,9 +154,6 @@ struct kgsl_platform_data {
    struct kgsl_memstore into userspace.
 */
 struct kgsl_device_getproperty {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int type;
 	void  *value;
 	unsigned int sizebytes;
@@ -143,9 +168,6 @@ struct kgsl_device_getproperty {
    GPU register space.
  */
 struct kgsl_device_regread {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int offsetwords;
 	unsigned int value; /* output param */
 };
@@ -158,9 +180,6 @@ struct kgsl_device_regread {
  * timeout is in milliseconds.
  */
 struct kgsl_device_waittimestamp {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int timestamp;
 	unsigned int timeout;
 };
@@ -179,9 +198,6 @@ struct kgsl_device_waittimestamp {
  * the GPU.
  */
 struct kgsl_ringbuffer_issueibcmds {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int drawctxt_id;
 	unsigned int ibaddr;
 	unsigned int sizedwords;
@@ -196,9 +212,6 @@ struct kgsl_ringbuffer_issueibcmds {
  * type should be a value from enum kgsl_timestamp_type
  */
 struct kgsl_cmdstream_readtimestamp {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int type;
 	unsigned int timestamp; /*output param */
 };
@@ -212,9 +225,6 @@ struct kgsl_cmdstream_readtimestamp {
  * type should be a value from enum kgsl_timestamp_type
  */
 struct kgsl_cmdstream_freememontimestamp {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int gpuaddr;
 	unsigned int type;
 	unsigned int timestamp;
@@ -227,9 +237,6 @@ struct kgsl_cmdstream_freememontimestamp {
  * The flags field may contain a mask KGSL_CONTEXT_*  values
  */
 struct kgsl_drawctxt_create {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int flags;
 	unsigned int drawctxt_id; /*output param */
 };
@@ -239,14 +246,27 @@ struct kgsl_drawctxt_create {
 
 /* destroy a draw context */
 struct kgsl_drawctxt_destroy {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int drawctxt_id;
 };
 
 #define IOCTL_KGSL_DRAWCTXT_DESTROY \
 	_IOW(KGSL_IOC_TYPE, 0x14, struct kgsl_drawctxt_destroy)
+
+/* add a block of pmem, fb, ashmem or user allocated address
+ * into the GPU address space */
+struct kgsl_map_user_mem {
+	int fd;
+	unsigned int gpuaddr;   /*output param */
+	unsigned int len;
+	unsigned int offset;
+	unsigned int hostptr;   /*input param */
+	enum kgsl_user_mem_type memtype;
+	unsigned int reserved;	/* May be required to add
+				params for another mem type */
+};
+
+#define IOCTL_KGSL_MAP_USER_MEM \
+	_IOWR(KGSL_IOC_TYPE, 0x15, struct kgsl_map_user_mem)
 
 /* add a block of pmem or fb into the GPU address space */
 struct kgsl_sharedmem_from_pmem {
@@ -300,9 +320,13 @@ struct kgsl_bind_gmem_shadow {
 struct kgsl_sharedmem_from_vmalloc {
 	unsigned int gpuaddr;	/*output param */
 	unsigned int hostptr;
+#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
+	unsigned int flags;
+#else
 	/* If set from user space then will attempt to
 	 * allocate even if low watermark is crossed */
 	int force_no_low_watermark;
+#endif
 };
 
 #define IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC \
@@ -312,9 +336,6 @@ struct kgsl_sharedmem_from_vmalloc {
 	_IOW(KGSL_IOC_TYPE, 0x24, struct kgsl_sharedmem_free)
 
 struct kgsl_drawctxt_set_bin_base_offset {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	unsigned int drawctxt_id;
 	unsigned int offset;
 };
@@ -333,9 +354,6 @@ enum kgsl_cmdwindow_type {
 
 /* write to the command window */
 struct kgsl_cmdwindow_write {
-#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
-	unsigned int device_id;
-#endif
 	enum kgsl_cmdwindow_type target;
 	unsigned int addr;
 	unsigned int data;
@@ -344,4 +362,12 @@ struct kgsl_cmdwindow_write {
 #define IOCTL_KGSL_CMDWINDOW_WRITE \
 	_IOW(KGSL_IOC_TYPE, 0x2e, struct kgsl_cmdwindow_write)
 
+#ifdef __KERNEL__
+#ifdef CONFIG_MSM_KGSL_DRM
+int kgsl_gem_obj_addr(int drm_fd, int handle, unsigned long *start,
+			unsigned long *len);
+#else
+#define kgsl_gem_obj_addr(...) 0
+#endif
+#endif
 #endif /* _MSM_KGSL_H */
