@@ -43,6 +43,7 @@ static DECLARE_WAIT_QUEUE_HEAD(mdp_ppp_waitqueue);
 static unsigned int mdp_irq_mask;
 static unsigned int mdp_dma_timer_enable = 0;
 struct clk *mdp_clk_to_disable_later = 0;
+static unsigned int mdp_dma_user_requested = 0;
 static struct  mdp_blit_req *timeout_req;
 #ifdef CONFIG_FB_MSM_OVERLAY
 extern int mdp4_overlay_get(struct mdp_device *mdp_dev, struct fb_info *info, struct mdp_overlay *req);
@@ -504,20 +505,29 @@ void mdp_dma(struct mdp_device *mdp_dev, uint32_t addr, uint32_t stride,
 
 	spin_lock_irqsave(&mdp->lock, flags);
 	if (locked_enable_mdp_irq(mdp, out_if->dma_mask)) {
+		mdp_dma_user_requested++;
+                if (mdp_dma_user_requested > 2) {
+                        pr_err("%s: really busy? start dma timer\n", __func__);
 		/* something wrong in dma, workaround it */
                 mdp_dma_timer_enable = 1;
+			mdp_dma_user_requested = 0;
+                } else {
 		pr_err("%s: busy\n", __func__);
+			goto done;
 	}
+	} else
+		mdp_dma_user_requested = 0;
 
 	out_if->dma_cb = callback;
 	out_if->dma_start(out_if->priv, addr, stride, width, height, x, y);
 
 	if (mdp_dma_timer_enable) {
+		mdp_writel(mdp, mdp_irq_mask & ~out_if->dma_mask, MDP_INTR_ENABLE);
 		pr_err("%s: start dma timer\n", __func__);
 		mod_timer(&mdp->dma_timer,
-			jiffies + msecs_to_jiffies(17));
+			jiffies + msecs_to_jiffies(30));
 	}
-
+done:
 	spin_unlock_irqrestore(&mdp->lock, flags);
 }
 
