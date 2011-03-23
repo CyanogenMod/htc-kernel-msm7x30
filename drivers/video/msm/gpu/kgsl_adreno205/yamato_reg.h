@@ -1,28 +1,29 @@
 /* Copyright (c) 2002,2007-2009, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * modification, are permitted provided that the following conditions are
+ * met:
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora nor
- *       the names of its contributors may be used to endorse or promote
- *       products derived from this software without specific prior written
- *       permission.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of Code Aurora Forum, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NON-INFRINGEMENT ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 #ifndef _YAMATO_REG_H
@@ -336,10 +337,13 @@ union reg_cp_rb_cntl {
 #define REG_MH_MMU_PT_BASE               0x0042
 #define REG_MH_MMU_TRAN_ERROR            0x0044
 #define REG_MH_MMU_VA_RANGE              0x0041
+#define REG_MH_CLNT_INTF_CTRL_CONFIG1    0x0A54
+#define REG_MH_CLNT_INTF_CTRL_CONFIG2    0x0A55
 
 #define REG_PA_CL_VPORT_XSCALE           0x210F
 #define REG_PA_CL_VPORT_ZOFFSET          0x2114
 #define REG_PA_CL_VPORT_ZSCALE           0x2113
+#define REG_RA_CL_CLIP_CNTL		 0x2204
 #define REG_PA_CL_VTE_CNTL               0x2206
 #define REG_PA_SC_AA_MASK                0x2312
 #define REG_PA_SC_LINE_CNTL              0x2300
@@ -352,9 +356,12 @@ union reg_cp_rb_cntl {
 #define REG_PA_SC_WINDOW_SCISSOR_TL      0x2081
 #define REG_PA_SU_FACE_DATA              0x0C86
 #define REG_PA_SU_POINT_SIZE             0x2280
+#define REG_PA_SU_LINE_CNTL              0x2282
 #define REG_PA_SU_POLY_OFFSET_BACK_OFFSET 0x2383
 #define REG_PA_SU_POLY_OFFSET_FRONT_SCALE 0x2380
 #define REG_PA_SU_SC_MODE_CNTL           0x2205
+
+#define REG_PC_INDEX_OFFSET		0x2102
 
 #define REG_RBBM_CNTL                    0x003B
 #define REG_RBBM_INT_ACK                 0x03B6
@@ -378,6 +385,7 @@ union reg_cp_rb_cntl {
 #define REG_RB_EDRAM_INFO                0x0F02
 #define REG_RB_MODECONTROL               0x2208
 #define REG_RB_SURFACE_INFO              0x2000
+#define REG_RB_SAMPLE_POS		 0x220a
 
 #define REG_SCRATCH_ADDR                 0x01DD
 #define REG_SCRATCH_REG0                 0x0578

@@ -38,6 +38,7 @@
 #include <mach/msm_hsusb.h>
 #include <mach/msm_rpcrouter.h>
 #include <mach/msm_hsusb_hw.h>
+#include <linux/msm_rotator.h>
 #ifdef CONFIG_USB_FUNCTION
 #include <linux/usb/mass_storage_function.h>
 #endif
@@ -1301,12 +1302,40 @@ static struct resource resources_msm_rotator[] = {
 	},
 };
 
+static struct msm_rot_clocks rotator_clocks[] = {
+	{
+		.clk_name = "rotator_clk",
+		.clk_type = ROTATOR_AXICLK_CLK,
+		.clk_rate = 0,
+	},
+	{
+		.clk_name = "rotator_pclk",
+		.clk_type = ROTATOR_PCLK_CLK,
+		.clk_rate = 0,
+	},
+	{
+		.clk_name = "rotator_imem_clk",
+		.clk_type = ROTATOR_IMEMCLK_CLK,
+		.clk_rate = 0,
+	},
+};
+
+static struct msm_rotator_platform_data rotator_pdata = {
+	.number_of_clocks = ARRAY_SIZE(rotator_clocks),
+	.hardware_version_number = 0x1000303,
+	.rotator_clks = rotator_clocks,
+};
+
 struct platform_device msm_rotator_device = {
 	.name		= "msm_rotator",
 	.id		= 0,
 	.num_resources  = ARRAY_SIZE(resources_msm_rotator),
 	.resource       = resources_msm_rotator,
+	.dev = {
+		.platform_data = &rotator_pdata,
+	},
 };
+
 #endif
 
 #ifdef CONFIG_MSM_SSBI
@@ -1444,6 +1473,8 @@ struct clk msm_clocks[] = {
 	CLK_PCOM("mi2s_codec_rx_s_clk", MI2S_CODEC_RX_S_CLK, NULL, 0),
 	CLK_PCOM("mi2s_codec_tx_m_clk", MI2S_CODEC_TX_M_CLK, NULL, 0),
 	CLK_PCOM("mi2s_codec_tx_s_clk", MI2S_CODEC_TX_S_CLK, NULL, 0),
+        CLK_PCOM("mi2s_m_clk", MI2S_HDMI_M_CLK, NULL, 0),
+        CLK_PCOM("mi2s_s_clk", MI2S_HDMI_CLK, NULL, 0),
 	CLK_PCOM("pbus_clk", PBUS_CLK, NULL, USE_MIN),
 	CLK_PCOM("pcm_clk", PCM_CLK, NULL, 0),
 	CLK_PCOM("qup_clk", QUP_I2C_CLK, &qup_device_i2c.dev, 0),

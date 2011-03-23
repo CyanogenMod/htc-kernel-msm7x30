@@ -163,13 +163,13 @@ static struct resource msm_kgsl_resources[] = {
 	},
 #ifdef CONFIG_ARCH_MSM7X30
 	{
-		.name   = "kgsl_g12_reg_memory",
+		.name   = "kgsl_2d0_reg_memory",
 		.start  = MSM_GPU_2D_REG_PHYS, /* Z180 base address */
 		.end    = MSM_GPU_2D_REG_PHYS + MSM_GPU_2D_REG_SIZE - 1,
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.name   = "kgsl_g12_irq",
+		.name   = "kgsl_2d0_irq",
 		.start  = INT_GRP_2D,
 		.end    = INT_GRP_2D,
 		.flags  = IORESOURCE_IRQ,
@@ -191,9 +191,12 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.max_grp2d_freq = 0,
 	.min_grp2d_freq = 0,
 	.set_grp2d_async = NULL, /* HW workaround, run Z180 SYNC @ 192 MHZ */
-	.max_grp3d_freq = 245000000,
+	.max_grp3d_freq = 245760000,
 	.min_grp3d_freq = 192000000,
 	.set_grp3d_async = set_grp3d_async,
+	.imem_clk_name = "imem_clk",
+	.grp3d_clk_name = "grp_clk",
+	.grp2d0_clk_name = "grp_2d_clk",
 };
 #endif
 

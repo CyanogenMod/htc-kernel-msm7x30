@@ -57,6 +57,10 @@ config GPU_MSM_KGSL_ADRENO205
           use hardware accelerated OpenGL ES 2.0 and 1.1 on these
           chips.
 
+config MSM_KGSL_2D
+	bool "Enable the 2D core. Required for OpenVG"
+	default y
+	depends on GPU_MSM_KGSL && GPU_MSM_KGSL_ADRENO205
 
 config MSM_ROTATOR
         tristate "MSM Offline Image Rotator Driver"

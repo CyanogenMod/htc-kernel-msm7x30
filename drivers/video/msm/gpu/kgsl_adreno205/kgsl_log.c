@@ -1,62 +1,22 @@
-/* Copyright (c) 2002,2008-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2008-2010, Code Aurora Forum. All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora Forum nor
- *       the names of its contributors may be used to endorse or promote
- *       products derived from this software without specific prior written
- *       permission.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
- * Alternatively, provided that this notice is retained in full, this software
- * may be relicensed by the recipient under the terms of the GNU General Public
- * License version 2 ("GPL") and only version 2, in which case the provisions of
- * the GPL apply INSTEAD OF those given above.  If the recipient relicenses the
- * software under the GPL, then the identification text in the MODULE_LICENSE
- * macro must be changed to reflect "GPLv2" instead of "Dual BSD/GPL".  Once a
- * recipient changes the license terms to the GPL, subsequent recipients shall
- * not relicense under alternate licensing terms, including the BSD or dual
- * BSD/GPL terms.  In addition, the following license statement immediately
- * below and between the words START and END shall also then apply when this
- * software is relicensed under the GPL:
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * START
- *
- * This program is free software; you can redistribute it and/or modify it under
- * the terms of the GNU General Public License version 2 and only version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * END
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301, USA.
  *
  */
 #include <linux/debugfs.h>
 #include "kgsl_log.h"
-#include "kgsl_ringbuffer.h"
 #include "kgsl_device.h"
 #include "kgsl.h"
 
@@ -135,148 +95,6 @@ static int kgsl_mem_log_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(kgsl_mem_log_fops, kgsl_mem_log_get,
 			kgsl_mem_log_set, "%llu\n");
 
-#ifdef DEBUG
-static ssize_t rb_regs_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static ssize_t rb_regs_read(struct file *file, char __user *buf, size_t count,
-				loff_t *ppos)
-{
-	const int debug_bufmax = 4096;
-	static char buffer[4096];
-	int n = 0;
-	struct kgsl_device *device = NULL;
-	struct kgsl_ringbuffer *rb = NULL;
-	struct kgsl_rb_debug rb_debug;
-
-	device = &kgsl_driver.yamato_device;
-
-	rb = &device->ringbuffer;
-
-	kgsl_ringbuffer_debug(rb, &rb_debug);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"rbbm_status %08x mem_rptr %08x mem_wptr_poll %08x\n",
-			rb_debug.rbbm_status,
-			rb_debug.mem_rptr,
-			rb_debug.mem_wptr_poll);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"rb_base %08x rb_cntl %08x rb_rptr_addr %08x"
-			" rb_rptr %08x rb_rptr_wr %08x\n",
-			rb_debug.cp_rb_base,
-			rb_debug.cp_rb_cntl,
-			rb_debug.cp_rb_rptr_addr,
-			rb_debug.cp_rb_rptr,
-			rb_debug.cp_rb_rptr_wr);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"rb_wptr %08x rb_wptr_delay %08x rb_wptr_base %08x"
-			" ib1_base %08x ib1_bufsz %08x\n",
-			rb_debug.cp_rb_wptr,
-			rb_debug.cp_rb_wptr_delay,
-			rb_debug.cp_rb_wptr_base,
-			rb_debug.cp_ib1_base,
-			rb_debug.cp_ib1_bufsz);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"ib2_base  %08x ib2_bufsz %08x st_base %08x"
-			" st_bufsz %08x cp_me_cntl %08x cp_me_status %08x\n",
-			rb_debug.cp_ib2_base,
-			rb_debug.cp_ib2_bufsz,
-			rb_debug.cp_st_base,
-			rb_debug.cp_st_bufsz,
-			rb_debug.cp_me_cntl,
-			rb_debug.cp_me_status);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"csq_cp_rb %08x csq_cp_ib1 %08x csq_cp_ib2 %08x\n",
-			rb_debug.cp_csq_rb_stat,
-			rb_debug.cp_csq_ib1_stat,
-			rb_debug.cp_csq_ib2_stat);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"cp_debug %08x cp_stat %08x cp_int_status %08x"
-			" cp_int_cntl %08x\n",
-			rb_debug.cp_debug,
-			rb_debug.cp_stat,
-			rb_debug.cp_int_status,
-			rb_debug.cp_int_cntl);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"sop_timestamp: %0d eop_timestamp: %d\n",
-			rb_debug.sop_timestamp,
-			rb_debug.eop_timestamp);
-	n++;
-	buffer[n] = 0;
-	return simple_read_from_buffer(buf, count, ppos, buffer, n);
-}
-
-static const struct file_operations kgsl_rb_regs_fops = {
-	.read = rb_regs_read,
-	.open = rb_regs_open,
-};
-#endif /*DEBUG*/
-
-#ifdef DEBUG
-static ssize_t mmu_regs_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static ssize_t mmu_regs_read(struct file *file, char __user *buf, size_t count,
-				loff_t *ppos)
-{
-	const int debug_bufmax = 4096;
-	static char buffer[4096];
-	int n = 0;
-	struct kgsl_device *device = NULL;
-	struct kgsl_mmu *mmu = NULL;
-	struct kgsl_mmu_debug mmu_debug;
-
-	device = &kgsl_driver.yamato_device;
-
-	mmu = &device->mmu;
-
-	kgsl_mmu_debug(mmu, &mmu_debug);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"config %08x mpu_base %08x mpu_end %08x\n",
-			mmu_debug.config,
-			mmu_debug.mpu_base,
-			mmu_debug.mpu_end);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"va_range %08x pt_base %08x\n",
-			mmu_debug.va_range,
-			mmu_debug.pt_base);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"page_fault %08x trans_error %08x axi_error %08x\n",
-			mmu_debug.page_fault,
-			mmu_debug.trans_error,
-			mmu_debug.axi_error);
-
-	n += scnprintf(buffer + n, debug_bufmax - n,
-			"interrupt_mask %08x interrupt_status %08x\n",
-			mmu_debug.interrupt_mask,
-			mmu_debug.interrupt_status);
-
-	n++;
-	buffer[n] = 0;
-	return simple_read_from_buffer(buf, count, ppos, buffer, n);
-}
-
-static const struct file_operations kgsl_mmu_regs_fops = {
-	.read = mmu_regs_read,
-	.open = mmu_regs_open,
-};
-#endif /*DEBUG*/
-
 #ifdef CONFIG_MSM_KGSL_MMU
 static int kgsl_cache_enable_set(void *data, u64 val)
 {
@@ -312,15 +130,6 @@ int kgsl_debug_init(void)
 				&kgsl_drv_log_fops);
 	debugfs_create_file("log_level_mem", 0644, dent, 0,
 				&kgsl_mem_log_fops);
-#ifdef DEBUG
-	debugfs_create_file("rb_regs", 0444, dent, 0,
-				&kgsl_rb_regs_fops);
-#endif
-
-#ifdef DEBUG
-	debugfs_create_file("mmu_regs", 0444, dent, 0,
-				&kgsl_mmu_regs_fops);
-#endif
 
 #ifdef CONFIG_MSM_KGSL_MMU
     debugfs_create_file("cache_enable", 0644, dent, 0,
