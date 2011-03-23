@@ -120,6 +120,47 @@ struct mdp4_overlay_ctrl {
 
 static struct mdp4_overlay_ctrl *ctrl = &mdp4_overlay_db;
 
+void mdp4_overlay_parameters_check(struct mdp4_overlay_pipe *pipe)
+{
+	uint32_t dst_neww = 0, dst_newh = 0;
+
+	if(pipe == NULL || pipe->mdp == NULL)
+		return;
+
+	if(pipe->dst_x < 0 || pipe->dst_x > pipe->mdp->mdp_dev.width) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dstx=%d", __func__, __LINE__, pipe->dst_x);
+		pipe->dst_x = 0;
+	}
+
+	if(pipe->dst_y < 0 || pipe->dst_y > pipe->mdp->mdp_dev.height) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
+		pipe->dst_y = 0;
+	}
+
+	if(pipe->dst_w < 0 || pipe->dst_w > pipe->mdp->mdp_dev.width) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dstw=%d", __func__, __LINE__, pipe->dst_w);
+		pipe->dst_w = pipe->mdp->mdp_dev.width;
+	}
+
+	if(pipe->dst_y < 0 || pipe->dst_y > pipe->mdp->mdp_dev.height) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
+		pipe->dst_y = pipe->mdp->mdp_dev.height;
+	}
+
+	if(pipe->dst_w + pipe->dst_x > pipe->mdp->mdp_dev.width) {
+		dst_neww = pipe->mdp->mdp_dev.width - pipe->dst_x;
+		printk(KERN_ERR "%s(%d) Incorrect parameter dstx=%d dstw=%d found, change new dstw=%d", __func__, __LINE__,
+			pipe->dst_x, pipe->dst_w, dst_neww);
+		pipe->dst_w = dst_neww;
+	}
+
+	if(pipe->dst_h + pipe->dst_y > pipe->mdp->mdp_dev.height) {
+		dst_newh = pipe->mdp->mdp_dev.height - pipe->dst_y;
+		printk(KERN_ERR "%s(%d) Incorrect parameter dsty=%d dsth=%d found, change new dsth=%d", __func__, __LINE__,
+			pipe->dst_y, pipe->dst_h, dst_newh);
+		pipe->dst_h = dst_newh;
+	}
+}
 
 void mdp4_overlay_dmap_cfg(struct mdp4_overlay_pipe *pipe, int lcdc)
 {
@@ -283,6 +324,8 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	rgb_base = MDP4_RGB_BASE;
 	rgb_base += (MDP4_RGB_OFF * pipe->pipe_num);
 
+	mdp4_overlay_parameters_check(pipe);
+
 	src_size = ((pipe->src_h << 16) | pipe->src_w);
 	src_xy = ((pipe->src_y << 16) | pipe->src_x);
 	dst_size = ((pipe->dst_h << 16) | pipe->dst_w);
@@ -339,6 +382,8 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 
 	vg_base = MDP4_VIDEO_BASE;
 	vg_base += (MDP4_VIDEO_OFF * pipe->pipe_num);
+
+	mdp4_overlay_parameters_check(pipe);
 
 	frame_size = ((pipe->src_height << 16) | pipe->src_width);
 	src_size = ((pipe->src_h << 16) | pipe->src_w);
@@ -1174,6 +1219,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	pipe->dst_y = req->dst_rect.y & 0x07ff;
 	pipe->dst_x = req->dst_rect.x & 0x07ff;
 
+	mdp4_overlay_parameters_check(pipe);
+
 	if (req->flags & MDP_FLIP_LR)
 		pipe->op_mode |= MDP4_OP_FLIP_LR;
 
@@ -1279,7 +1326,7 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 
 	if(req->user_data[OVERLAY_UPDATE_SCREEN] == OVERLAY_UPDATE_SCREEN_EN
 		&& pipe->srcp0_addr) {
-
+		clk_enable(mdp->clk);
 		if (pipe->pipe_type == OVERLAY_TYPE_VG)
 			mdp4_overlay_vg_setup(pipe);	/* video/graphic pipe */
 		else
@@ -1293,6 +1340,7 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 		lcdc = mdp_readl(mdp, 0xc0000);
 		if (lcdc) /* LCDC mode */
 			mdp4_overlay_reg_flush(pipe, 1);
+		clk_enable(mdp->clk);
 	}
 
 
@@ -1312,6 +1360,7 @@ int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx
 	}
 
 	pipe->mdp = mdp;
+	clk_enable(mdp->clk);
 
 	lcdc = mdp_readl(mdp, 0xc0000);
 
@@ -1329,6 +1378,7 @@ int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx
 	}
 #endif
 
+	clk_disable(mdp->clk);
 	return 0;
 }
 
@@ -1411,6 +1461,7 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	pipe->srcp0_addr = addr;
 	pipe->srcp0_ystride = pipe->src_width * pipe->bpp;
 	pipe->mdp = mdp;
+	clk_enable(mdp->clk);
 
 	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
 		if (pipe->frame_format == MDP4_FRAME_FORMAT_VIDEO_SUPERTILE) {
@@ -1440,9 +1491,11 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	if (lcdc) { /* LCDC mode */
 		mdp4_overlay_reg_flush(pipe, 1);
 		if (pipe->mixer_stage != MDP4_MIXER_STAGE_BASE) { /* done */
+			clk_disable(mdp->clk);
 			return 0;
 		}
 	}
+	clk_disable(mdp->clk);
 
 	return 0;
 }
