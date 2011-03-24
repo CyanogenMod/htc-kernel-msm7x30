@@ -64,24 +64,9 @@ static int kgsl_runpending(struct kgsl_device *device)
 	return KGSL_SUCCESS;
 }
 
-static void kgsl_runpending_all(void)
-{
-	struct kgsl_device *device;
-	int i;
-
-	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		device = kgsl_driver.devp[i];
-		if (device != NULL)
-			kgsl_runpending(device);
-	}
-	return;
-}
-
 static void kgsl_clean_cache_all(struct kgsl_file_private *private)
 {
 	struct kgsl_mem_entry *entry = NULL;
-
-	kgsl_runpending_all();
 
 	list_for_each_entry(entry, &private->mem_list, list) {
 		if (KGSL_MEMFLAGS_CACHE_MASK & entry->memdesc.priv) {
@@ -1460,7 +1445,7 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 #ifdef CONFIG_MSM_KGSL_MMU
 	case IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC:
-		kgsl_runpending_all();
+		kgsl_runpending(device);
 		result = kgsl_ioctl_sharedmem_from_vmalloc(
 							dev_priv->process_priv,
 							   (void __user *)arg);
@@ -1475,7 +1460,7 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 #endif
 	case IOCTL_KGSL_SHAREDMEM_FROM_PMEM:
 	case IOCTL_KGSL_MAP_USER_MEM:
-		kgsl_runpending_all();
+		kgsl_runpending(device);
 		result = kgsl_ioctl_map_user_mem(dev_priv->process_priv,
 							(void __user *)arg,
 							cmd);
