@@ -158,7 +158,6 @@ int kgsl_setstate(struct kgsl_device *device, uint32_t flags)
 
 	if (flags && device->ftbl.device_setstate) {
 		status = device->ftbl.device_setstate(device, flags);
-		device->mmu.tlb_flags &= ~flags;
 	} else
 		status = 0;
 
