@@ -47,7 +47,6 @@ void kgsl_g12_cmdstream_close(struct kgsl_device *device);
 
 unsigned int kgsl_g12_cmdstream_readtimestamp(struct kgsl_device *device,
 					enum kgsl_timestamp_type unused);
-void kgsl_g12_cmdstream_memqueue_drain(struct kgsl_g12_device *g12_device);
 int kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 			int drawctxt_index,
 			uint32_t ibaddr,

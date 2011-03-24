@@ -155,11 +155,13 @@ struct kgsl_device {
 	atomic_t open_count;
 
 	struct atomic_notifier_head ts_notifier_list;
+	struct list_head memqueue;
 };
 
 struct kgsl_process_private {
 	unsigned int refcnt;
 	pid_t pid;
+	spinlock_t mem_lock;
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;

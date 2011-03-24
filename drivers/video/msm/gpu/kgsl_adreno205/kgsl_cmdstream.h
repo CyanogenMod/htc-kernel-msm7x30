@@ -65,7 +65,10 @@ uint32_t
 kgsl_cmdstream_readtimestamp(struct kgsl_device *device,
 			     enum kgsl_timestamp_type type);
 
-int
+void kgsl_cmdstream_memqueue_cleanup(struct kgsl_device *device,
+				     struct kgsl_process_private *private);
+
+void
 kgsl_cmdstream_freememontimestamp(struct kgsl_device *device,
 				  struct kgsl_mem_entry *entry,
 				  uint32_t timestamp,

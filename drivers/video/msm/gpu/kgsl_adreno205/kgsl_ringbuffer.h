@@ -166,9 +166,6 @@ struct kgsl_ringbuffer {
 	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
 	uint32_t timestamp;
 
-	/* queue of memfrees pending timestamp elapse */
-	struct list_head memqueue;
-
 	struct kgsl_rbwatchdog watchdog;
 
 #ifdef GSL_STATS_RINGBUFFER

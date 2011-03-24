@@ -133,6 +133,7 @@ void kgsl_g12_cmdstream_close(struct kgsl_device *device)
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 	kgsl_sharedmem_free(&g12_device->ringbuffer.cmdbufdesc);
 	memset(&g12_device->ringbuffer, 0, sizeof(struct kgsl_g12_ringbuffer));
+	kgsl_cmdstream_close(device);
 }
 
 static int room_in_rb(struct kgsl_g12_device *device)

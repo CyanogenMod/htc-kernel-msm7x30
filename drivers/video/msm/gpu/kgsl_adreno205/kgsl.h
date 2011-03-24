@@ -119,7 +119,6 @@ struct kgsl_mem_entry {
 	struct kgsl_memdesc memdesc;
 	struct file *file_ptr;
 	struct list_head list;
-	struct list_head free_list;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
@@ -159,7 +158,7 @@ while (1) { \
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry);
+void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry);
 
 int kgsl_pwrctrl(unsigned int pwrflag);
 void kgsl_timer(unsigned long data);
