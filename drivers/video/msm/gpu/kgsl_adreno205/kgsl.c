@@ -64,6 +64,17 @@ static int kgsl_runpending(struct kgsl_device *device)
 	return KGSL_SUCCESS;
 }
 
+static int kgsl_runpending_unlocked(struct kgsl_device *device)
+{
+	int ret;
+
+	mutex_lock(&kgsl_driver.mutex);
+	ret = kgsl_runpending(device);
+	mutex_unlock(&kgsl_driver.mutex);
+
+	return ret;
+}
+
 static void kgsl_clean_cache_all(struct kgsl_process_private *private)
 {
 	struct kgsl_mem_entry *entry = NULL;
@@ -1353,6 +1364,52 @@ done:
 }
 #endif /*CONFIG_MSM_KGSL_MMU*/
 
+static long
+kgsl_memory_ioctl(struct kgsl_device_private *dev_priv,
+		  unsigned int cmd, unsigned long arg)
+{
+	struct kgsl_device *device = dev_priv->device;
+	int result;
+
+	switch (cmd) {
+#ifdef CONFIG_MSM_KGSL_MMU
+	case IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC:
+		kgsl_runpending_unlocked(device);
+
+		result = kgsl_ioctl_sharedmem_from_vmalloc(
+			dev_priv->process_priv,
+			(void __user *)arg);
+
+		break;
+
+	case IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE:
+		if(kgsl_cache_enable)
+			result = kgsl_ioctl_sharedmem_flush_cache(
+					dev_priv->process_priv,
+					(void __user *)arg);
+		break;
+#endif
+	case IOCTL_KGSL_SHAREDMEM_FROM_PMEM:
+	case IOCTL_KGSL_MAP_USER_MEM:
+		kgsl_runpending_unlocked(device);
+		result = kgsl_ioctl_map_user_mem(dev_priv->process_priv,
+						 (void __user *)arg,
+						 cmd);
+		break;
+
+	case IOCTL_KGSL_SHAREDMEM_FREE:
+		result = kgsl_ioctl_sharedmem_free(dev_priv->process_priv,
+						   (void __user *)arg);
+		break;
+
+	default:
+		result = -EINVAL;
+		break;
+	}
+
+	return result;
+}
+
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	int result = 0;
@@ -1366,6 +1423,17 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	BUG_ON(device != dev_priv->device);
 
 	KGSL_DRV_VDBG("filep %p cmd 0x%08x arg 0x%08lx\n", filep, cmd, arg);
+
+	/* Memory related functions don't always rely on locking hardware,
+	   so it is cleanest to handle them seperately without a lot of
+	   nasty if statements in this function */
+
+	if (cmd == IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC ||
+			cmd == IOCTL_KGSL_SHAREDMEM_FROM_PMEM ||
+			cmd == IOCTL_KGSL_MAP_USER_MEM ||
+			cmd == IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE ||
+			cmd == IOCTL_KGSL_SHAREDMEM_FREE)
+		return kgsl_memory_ioctl(dev_priv, cmd, arg);
 
 	mutex_lock(&kgsl_driver.mutex);
 
@@ -1424,36 +1492,6 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		result =
 		    kgsl_ioctl_drawctxt_destroy(dev_priv, (void __user *)arg);
 		break;
-
-	case IOCTL_KGSL_SHAREDMEM_FREE:
-		result = kgsl_ioctl_sharedmem_free(dev_priv->process_priv,
-							(void __user *)arg);
-		break;
-
-#ifdef CONFIG_MSM_KGSL_MMU
-	case IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC:
-		kgsl_runpending(device);
-		result = kgsl_ioctl_sharedmem_from_vmalloc(
-							dev_priv->process_priv,
-							   (void __user *)arg);
-		break;
-	case IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE:
-		if (kgsl_cache_enable)
-			result =
-			    kgsl_ioctl_sharedmem_flush_cache(
-							dev_priv->process_priv,
-						       (void __user *)arg);
-		break;
-#endif
-	case IOCTL_KGSL_SHAREDMEM_FROM_PMEM:
-	case IOCTL_KGSL_MAP_USER_MEM:
-		kgsl_runpending(device);
-		result = kgsl_ioctl_map_user_mem(dev_priv->process_priv,
-							(void __user *)arg,
-							cmd);
-		break;
-
-
 
 	default:
 		/* call into device specific ioctls */
