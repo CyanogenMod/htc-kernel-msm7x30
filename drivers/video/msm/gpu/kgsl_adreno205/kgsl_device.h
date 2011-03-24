@@ -162,9 +162,6 @@ struct kgsl_process_private {
 	pid_t pid;
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
-	unsigned long vmalloc_size;
-	struct list_head preserve_entry_list;
-	int preserve_list_size;
 	struct list_head list;
 };
 

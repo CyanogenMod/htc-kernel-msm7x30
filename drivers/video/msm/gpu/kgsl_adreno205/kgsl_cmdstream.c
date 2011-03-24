@@ -73,7 +73,7 @@ void kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
 		KGSL_MEM_DBG("ts_processed %d ts_free %d gpuaddr %x)\n",
 			     ts_processed, entry->free_timestamp,
 			     entry->memdesc.gpuaddr);
-		kgsl_remove_mem_entry(entry, true);
+		kgsl_remove_mem_entry(entry);
 	}
 }
 
