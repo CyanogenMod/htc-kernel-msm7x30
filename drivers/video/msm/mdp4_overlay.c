@@ -291,9 +291,7 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	pattern = mdp4_overlay_unpack_pattern(pipe);
 
 #ifdef MDP4_IGC_LUT_ENABLE
-	pipe->op_mode = MDP4_OP_IGC_LUT_EN;
-#else
-	pipe->op_mode = 0;
+	pipe->op_mode |= MDP4_OP_IGC_LUT_EN;
 #endif
 
         /* workaroud for the panel with wrong direction */
@@ -349,10 +347,10 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	pattern = mdp4_overlay_unpack_pattern(pipe);
 
 #ifdef MDP4_IGC_LUT_ENABLE
-	pipe->op_mode = (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR |
+	pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR |
 				MDP4_OP_IGC_LUT_EN);
 #else
-	pipe->op_mode = (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
+	pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
 #endif
 
 	mdp4_scale_setup(pipe);
@@ -1121,12 +1119,14 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -EINVAL;
 	}
 
+#if 0
 	//Current mdp only support the maximum 1/4 downscaling
 	if(req->src_rect.w > req->dst_rect.w * 4 || req->src_rect.h > req->dst_rect.h * 4) {
 		printk(KERN_ERR "mdp_overlay_req2pipe: Don't support this kind of downscalig srcw=%d srch=%d dstw=%d dsth=%d\n",
 		req->src_rect.w, req->src_rect.h, req->dst_rect.w, req->dst_rect.h);
 		return -EINVAL;
 	}
+#endif
 
 	ret = mdp4_overlay_req_check(req->id, req->z_order, mixer);
 	if (ret < 0)
@@ -1174,6 +1174,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	pipe->dst_y = req->dst_rect.y & 0x07ff;
 	pipe->dst_x = req->dst_rect.x & 0x07ff;
 
+	pipe->op_mode = 0;
+
 	if (req->flags & MDP_FLIP_LR)
 		pipe->op_mode |= MDP4_OP_FLIP_LR;
 
@@ -1184,7 +1186,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		pipe->op_mode |= MDP4_OP_DITHER_EN;
 
 	if (req->flags & MDP_DEINTERLACE)
-		pipe->op_mode |= MDP4_OP_DEINT_ODD_REF;
+		pipe->op_mode |= MDP4_OP_DEINT_EN;
 
 	pipe->is_fg = req->is_fg;/* control alpha and color key */
 
