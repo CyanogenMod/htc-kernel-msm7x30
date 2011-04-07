@@ -304,9 +304,9 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 
 		if (pipe->pipe_type == OVERLAY_TYPE_VG) {
 			if (pipe->dst_w <= (pipe->src_w / 4))
-				pipe->op_mode |= MDP4_OP_SCALEY_MN_PHASE;
+				pipe->op_mode |= MDP4_OP_SCALEX_MN_PHASE;
 			else
-				pipe->op_mode |= MDP4_OP_SCALEY_FIR;
+				pipe->op_mode |= MDP4_OP_SCALEX_FIR;
 		}
 
 		pipe->phasex_step = mdp4_scale_phase_step(29,
@@ -335,6 +335,8 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 
 #ifdef MDP4_IGC_LUT_ENABLE
 	pipe->op_mode |= MDP4_OP_IGC_LUT_EN;
+#else
+	pipe->op_mode = 0;
 #endif
 
         /* workaroud for the panel with wrong direction */
@@ -392,10 +394,10 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	pattern = mdp4_overlay_unpack_pattern(pipe);
 
 #ifdef MDP4_IGC_LUT_ENABLE
-	pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR |
+	pipe->op_mode = (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR |
 				MDP4_OP_IGC_LUT_EN);
 #else
-	pipe->op_mode |= (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
+	pipe->op_mode = (MDP4_OP_CSC_EN | MDP4_OP_SRC_DATA_YCBCR);
 #endif
 
 	mdp4_scale_setup(pipe);
@@ -1418,7 +1420,7 @@ uint32_t tile_mem_size(struct mdp4_overlay_pipe *pipe, struct tile_desc *tp)
 	row_num_w = (pipe->src_width + tile_w - 1) / tile_w;
 	row_num_h = (pipe->src_height + tile_h - 1) / tile_h;
 
-	return row_num_w * row_num_h * tile_w * tile_h;
+	return ((row_num_w * row_num_h * tile_w * tile_h) + 8191) & ~8191;
 }
 
 int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct msmfb_overlay_data *req,
