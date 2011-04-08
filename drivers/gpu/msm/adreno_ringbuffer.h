@@ -101,11 +101,11 @@ struct kgsl_ringbuffer {
 
 #define GSL_RB_WRITE(ring, gpuaddr, data) \
 	do { \
-		writel(data, ring); \
+		writel_relaxed(data, ring); \
+		wmb(); \
 		kgsl_cffdump_setmem(gpuaddr, data, 4); \
 		ring++; \
 		gpuaddr += sizeof(uint); \
-		wmb(); \
 	} while (0)
 
 /* timestamp */
@@ -130,8 +130,7 @@ struct kgsl_ringbuffer {
 #define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
-		*(data) = readl(&(rb)->memptrs->rptr); \
-		rmb(); \
+		*(data) = readl_relaxed(&(rb)->memptrs->rptr); \
 	} while (0)
 #else
 #define GSL_RB_CNTL_NO_UPDATE 0x1 /* disable */
@@ -141,15 +140,7 @@ struct kgsl_ringbuffer {
 	} while (0)
 #endif /* GSL_RB_USE_MEMRPTR */
 
-/* wptr polling */
-#ifdef GSL_RB_USE_WPTR_POLLING
-#define GSL_RB_CNTL_POLL_EN 0x1 /* enable */
-#define GSL_RB_UPDATE_WPTR_POLLING(rb) \
-	do { writel((rb)->wptr, &((rb)->memptrs->wptr_poll)); } while (0)
-#else
 #define GSL_RB_CNTL_POLL_EN 0x0 /* disable */
-#define GSL_RB_UPDATE_WPTR_POLLING(rb)
-#endif	/* GSL_RB_USE_WPTR_POLLING */
 
 int kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
