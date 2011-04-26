@@ -1075,12 +1075,12 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 		mutex_lock(&device->mutex);
 		kgsl_sharedmem_readl(&device->memstore, &enableflag,
 			KGSL_DEVICE_MEMSTORE_OFFSET(ts_cmp_enable));
-		rmb();
+		mb();
 
 		if (enableflag) {
 			kgsl_sharedmem_readl(&device->memstore, &ref_ts,
 				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts));
-			rmb();
+			mb();
 			if (timestamp_cmp(ref_ts, timestamp)) {
 				kgsl_sharedmem_writel(&device->memstore,
 				KGSL_DEVICE_MEMSTORE_OFFSET(ref_wait_ts),
