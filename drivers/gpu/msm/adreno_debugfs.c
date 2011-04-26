@@ -218,7 +218,7 @@ static int kgsl_regread_nolock(struct kgsl_device *device,
 
 	reg = (unsigned int *)(device->regspace.mmio_virt_base
 				+ (offsetwords << 2));
-	*value = readl(reg);
+	*value = __raw_readl(reg);
 	return 0;
 }
 
