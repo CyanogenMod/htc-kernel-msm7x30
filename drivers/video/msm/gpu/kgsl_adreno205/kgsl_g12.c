@@ -267,7 +267,7 @@ kgsl_g12_init(struct kgsl_device *device,
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
-	INIT_LIST_HEAD(&device->ringbuffer.memqueue);
+	INIT_LIST_HEAD(&device->memqueue);
 
 	printk(KERN_INFO "kgsl mmu config 0x%x\n", config->mmu_config);
 	if (config->mmu_config) {

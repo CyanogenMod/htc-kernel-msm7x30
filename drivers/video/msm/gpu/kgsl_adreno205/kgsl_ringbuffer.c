@@ -486,8 +486,6 @@ int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
 	rb->timestamp = 0;
 	GSL_RB_INIT_TIMESTAMP(rb);
 
-	INIT_LIST_HEAD(&rb->memqueue);
-
 	/* clear ME_HALT to start micro engine */
 	kgsl_yamato_regwrite(device, REG_CP_ME_CNTL, 0);
 
@@ -555,8 +553,6 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 
 		/* ME_HALT */
 		kgsl_yamato_regwrite(rb->device, REG_CP_ME_CNTL, 0x10000000);
-
-		kgsl_cmdstream_memqueue_drain(rb->device);
 
 		rb->flags &= ~KGSL_FLAGS_STARTED;
 		kgsl_ringbuffer_dump(rb);
@@ -754,7 +750,9 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	link[1] = ibaddr;
 	link[2] = sizedwords;
 
-	kgsl_setstate(device, device->mmu.tlb_flags);
+	kgsl_setstate(device,
+		      kgsl_pt_get_flags(device->mmu.hwpagetable,
+					device->id));
 
 	kgsl_drawctxt_switch(yamato_device,
 			&yamato_device->drawctxt[drawctxt_index], flags);

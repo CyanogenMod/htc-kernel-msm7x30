@@ -46,8 +46,8 @@
 #include <linux/fs.h>
 #ifdef CONFIG_BCM4329_ALLOW_ARP
 #include <linux/if_addr.h>
-#include <linux/inetdevice.h>
 #endif
+#include <linux/inetdevice.h>
 
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
@@ -161,14 +161,21 @@ static int wifi_remove(struct platform_device *pdev)
 	up(&wifi_control_sem);
 	return 0;
 }
+
 static int wifi_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
+#if defined(OOB_INTR_ONLY)
+	bcmsdh_oob_intr_set(0);
+#endif /* (OOB_INTR_ONLY) */
 	return 0;
 }
 static int wifi_resume(struct platform_device *pdev)
 {
 	DHD_TRACE(("##> %s\n", __FUNCTION__));
+#if defined(OOB_INTR_ONLY)
+	bcmsdh_oob_intr_set(1);
+#endif /* (OOB_INTR_ONLY) */
 	return 0;
 }
 
@@ -195,6 +202,12 @@ void wifi_del_dev(void)
 }
 #endif /* defined(CUSTOMER_HW2) && defined(CONFIG_WIFI_CONTROL_FUNC) */
 
+static int dhd_device_event(struct notifier_block *this, unsigned long event,
+				void *ptr);
+
+static struct notifier_block dhd_notifier = {
+	.notifier_call = dhd_device_event
+};
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 #include <linux/suspend.h>
@@ -2070,6 +2083,7 @@ dhd_del_if(dhd_info_t *dhd, int ifidx)
 	up(&dhd->sysioc_sem);
 }
 
+
 dhd_pub_t *
 dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 {
@@ -2233,6 +2247,8 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->early_suspend.resume = dhd_late_resume;
 	register_early_suspend(&dhd->early_suspend);
 #endif
+
+	register_inetaddr_notifier(&dhd_notifier);
 
 	return &dhd->pub;
 
@@ -2421,6 +2437,48 @@ dhd_inetaddr_event(struct notifier_block *this, unsigned long event, void *arg)
 }
 #endif
 
+static int dhd_device_event(struct notifier_block *this, unsigned long event,
+				void *ptr)
+{
+	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+	dhd_info_t *dhd;
+	dhd_pub_t *dhd_pub;
+
+	if (!ifa)
+		return NOTIFY_DONE;
+
+	dhd = *(dhd_info_t **)netdev_priv(ifa->ifa_dev->dev);
+	dhd_pub = &dhd->pub;
+
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 31))
+	if (ifa->ifa_dev->dev->netdev_ops == &dhd_ops_pri) {
+#else
+	if (ifa->ifa_dev->dev->open == &dhd_open) {
+#endif
+		switch (event) {
+		case NETDEV_UP:
+			DHD_TRACE(("%s: [%s] Up IP: 0x%x\n",
+			    __FUNCTION__, ifa->ifa_label, ifa->ifa_address));
+
+			dhd_arp_cleanup(dhd_pub);
+			break;
+
+		case NETDEV_DOWN:
+			DHD_TRACE(("%s: [%s] Down IP: 0x%x\n",
+			    __FUNCTION__, ifa->ifa_label, ifa->ifa_address));
+
+			dhd_arp_cleanup(dhd_pub);
+			break;
+
+		default:
+			DHD_TRACE(("%s: [%s] Event: %lu\n",
+			    __FUNCTION__, ifa->ifa_label, event));
+			break;
+		}
+	}
+	return NOTIFY_DONE;
+}
+
 int
 dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 {
@@ -2494,6 +2552,7 @@ dhd_net_attach(dhd_pub_t *dhdp, int ifidx)
 	       dhd->pub.mac.octet[0], dhd->pub.mac.octet[1], dhd->pub.mac.octet[2],
 	       dhd->pub.mac.octet[3], dhd->pub.mac.octet[4], dhd->pub.mac.octet[5]);
 
+
 #if defined(CONFIG_WIRELESS_EXT)
 #if defined(CONFIG_FIRST_SCAN)
 #ifdef SOFTAP
@@ -2562,6 +2621,8 @@ dhd_detach(dhd_pub_t *dhdp)
 		if (dhd) {
 			dhd_if_t *ifp;
 			int i;
+
+			unregister_inetaddr_notifier(&dhd_notifier);
 
 #if defined(CONFIG_HAS_EARLYSUSPEND)
 			if (dhd->early_suspend.suspend)

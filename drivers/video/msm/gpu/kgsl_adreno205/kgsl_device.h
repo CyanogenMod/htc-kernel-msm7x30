@@ -155,23 +155,22 @@ struct kgsl_device {
 	atomic_t open_count;
 
 	struct atomic_notifier_head ts_notifier_list;
+	struct list_head memqueue;
 };
 
-struct kgsl_file_private {
+struct kgsl_process_private {
 	unsigned int refcnt;
+	pid_t pid;
+	spinlock_t mem_lock;
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
-	unsigned long vmalloc_size;
-	struct list_head preserve_entry_list;
-	int preserve_list_size;
+	struct list_head list;
 };
 
 struct kgsl_device_private {
-	struct list_head list;
 	uint32_t ctxt_id_mask;
-	unsigned long pid;
 	struct kgsl_device *device;
-	struct kgsl_file_private *process_priv;
+	struct kgsl_process_private *process_priv;
 };
 
 struct kgsl_devconfig {

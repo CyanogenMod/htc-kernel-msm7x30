@@ -304,9 +304,9 @@ static void mdp4_scale_setup(struct mdp4_overlay_pipe *pipe)
 
 		if (pipe->pipe_type == OVERLAY_TYPE_VG) {
 			if (pipe->dst_w <= (pipe->src_w / 4))
-				pipe->op_mode |= MDP4_OP_SCALEY_MN_PHASE;
+				pipe->op_mode |= MDP4_OP_SCALEX_MN_PHASE;
 			else
-				pipe->op_mode |= MDP4_OP_SCALEY_FIR;
+				pipe->op_mode |= MDP4_OP_SCALEX_FIR;
 		}
 
 		pipe->phasex_step = mdp4_scale_phase_step(29,
@@ -334,7 +334,7 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	pattern = mdp4_overlay_unpack_pattern(pipe);
 
 #ifdef MDP4_IGC_LUT_ENABLE
-	pipe->op_mode = MDP4_OP_IGC_LUT_EN;
+	pipe->op_mode |= MDP4_OP_IGC_LUT_EN;
 #else
 	pipe->op_mode = 0;
 #endif
@@ -1166,12 +1166,14 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		return -EINVAL;
 	}
 
+#if 0
 	//Current mdp only support the maximum 1/4 downscaling
 	if(req->src_rect.w > req->dst_rect.w * 4 || req->src_rect.h > req->dst_rect.h * 4) {
 		printk(KERN_ERR "mdp_overlay_req2pipe: Don't support this kind of downscalig srcw=%d srch=%d dstw=%d dsth=%d\n",
 		req->src_rect.w, req->src_rect.h, req->dst_rect.w, req->dst_rect.h);
 		return -EINVAL;
 	}
+#endif
 
 	ret = mdp4_overlay_req_check(req->id, req->z_order, mixer);
 	if (ret < 0)
@@ -1219,6 +1221,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	pipe->dst_y = req->dst_rect.y & 0x07ff;
 	pipe->dst_x = req->dst_rect.x & 0x07ff;
 
+	pipe->op_mode = 0;
+
 	mdp4_overlay_parameters_check(pipe);
 
 	if (req->flags & MDP_FLIP_LR)
@@ -1231,7 +1235,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		pipe->op_mode |= MDP4_OP_DITHER_EN;
 
 	if (req->flags & MDP_DEINTERLACE)
-		pipe->op_mode |= MDP4_OP_DEINT_ODD_REF;
+		pipe->op_mode |= MDP4_OP_DEINT_EN;
 
 	pipe->is_fg = req->is_fg;/* control alpha and color key */
 
@@ -1416,7 +1420,7 @@ uint32_t tile_mem_size(struct mdp4_overlay_pipe *pipe, struct tile_desc *tp)
 	row_num_w = (pipe->src_width + tile_w - 1) / tile_w;
 	row_num_h = (pipe->src_height + tile_h - 1) / tile_h;
 
-	return row_num_w * row_num_h * tile_w * tile_h;
+	return ((row_num_w * row_num_h * tile_w * tile_h) + 8191) & ~8191;
 }
 
 int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct msmfb_overlay_data *req,

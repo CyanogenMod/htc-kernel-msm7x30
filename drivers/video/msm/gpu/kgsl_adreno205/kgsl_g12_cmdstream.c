@@ -133,6 +133,7 @@ void kgsl_g12_cmdstream_close(struct kgsl_device *device)
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 	kgsl_sharedmem_free(&g12_device->ringbuffer.cmdbufdesc);
 	memset(&g12_device->ringbuffer, 0, sizeof(struct kgsl_g12_ringbuffer));
+	kgsl_cmdstream_close(device);
 }
 
 static int room_in_rb(struct kgsl_g12_device *device)
@@ -179,8 +180,8 @@ kgsl_g12_cmdstream_issueibcmds(struct kgsl_device_private *dev_priv,
 		cnt = PACKETSIZE_STATESTREAM;
 		ofs = 0;
 	}
-
-	kgsl_g12_setstate(device, device->mmu.tlb_flags);
+	kgsl_g12_setstate(device, kgsl_pt_get_flags(device->mmu.hwpagetable,
+						    device->id));
 
 	result = wait_event_interruptible_timeout(g12_device->wait_timestamp_wq,
 				  room_in_rb(g12_device),

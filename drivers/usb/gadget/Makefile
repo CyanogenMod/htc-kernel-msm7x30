@@ -69,5 +69,6 @@ ifeq ($(CONFIG_USB_ANDROID_LTE_DIAG),y)
 else
   obj-$(CONFIG_USB_ANDROID_DIAG)	+= diag.o
 endif
+obj-$(CONFIG_USB_ANDROID_ACCESSORY)	+= f_accessory.o
 
 obj-$(CONFIG_USB_HUB)	+= smsc251x.o

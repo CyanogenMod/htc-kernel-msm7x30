@@ -103,8 +103,8 @@ struct kgsl_driver {
 
 	struct kgsl_sharedmem shmem;
 
-	/* Global list of device_private struct one per open file descriptor */
-	struct list_head dev_priv_list;
+	/* Global lilst of open processes */
+	struct list_head process_list;
 	/* Global list of pagetables */
 	struct list_head pagetable_list;
 	/* Mutex for accessing the pagetable list */
@@ -119,11 +119,10 @@ struct kgsl_mem_entry {
 	struct kgsl_memdesc memdesc;
 	struct file *file_ptr;
 	struct list_head list;
-	struct list_head free_list;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
-	struct kgsl_file_private *priv;
+	struct kgsl_process_private *priv;
 };
 
 enum kgsl_status {
@@ -159,7 +158,7 @@ while (1) { \
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry, bool preserve);
+void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry);
 
 int kgsl_pwrctrl(unsigned int pwrflag);
 void kgsl_timer(unsigned long data);
