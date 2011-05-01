@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.28
-# Wed Mar 23 15:44:37 2011
+# Tue Apr 26 20:03:18 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -243,6 +243,7 @@ CONFIG_MACH_SPEEDY=y
 # CONFIG_MACH_GLACIER is not set
 CONFIG_GLACIER_OVERLAY_FORCE_UPDATE=y
 # CONFIG_MACH_SPADE is not set
+CONFIG_PANEL_SELF_REFRESH=y
 # CONFIG_MACH_DYNASTY is not set
 # CONFIG_MACH_FLYER is not set
 # CONFIG_MACH_VIVO is not set
