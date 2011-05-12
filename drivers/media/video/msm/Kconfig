@@ -1,0 +1,173 @@
+comment "Qualcomm MSM Camera And Video"
+
+menuconfig MSM_CAMERA
+	bool "Qualcomm MSM camera and video capture support"
+	depends on ARCH_MSM
+	help
+	  Say Y here to enable selecting the video adapters for
+	  Qualcomm msm camera and video encoding
+
+config MSM_CAMERA_V4L2
+	bool "Video For Linux interface to MSM camera"
+	depends on MSM_CAMERA && VIDEO_V4L2 && EXPERIMENTAL
+	default y
+	help
+	  Say Y here to enable the V4L2 interface for the MSM camera.
+	  Not everything works through this interface and it has not
+	  been thoroughly tested.
+
+choice
+        prompt "Qualcomm MSM camera and video capture support"
+	depends on MSM_CAMERA
+        default MSM_CAMERA_LEGACY
+
+        config MSM_CAMERA_LEGACY
+                bool "msm camera legacy"
+
+        config MSM_CAMERA_7X30
+                bool "msm camera 7x30"
+        config MSM_CAMERA_8X60
+                bool "msm camera 8x60"
+
+endchoice
+
+config 720P_CAMERA
+        bool "Qualcomm MSM camera with 720P video support"
+        depends on MSM_CAMERA_LEGACY
+        help
+          720P video support
+
+config MSM_CAMERA_DEBUG
+	bool "Qualcomm MSM camera debugging with printk"
+	depends on MSM_CAMERA
+	help
+	  Enable printk() debug for msm camera
+
+config FLASH_BACKLIGHT_OFF
+	bool "Turn off backlight when flash high"
+	depends on MSM_CAMERA
+	help
+	  Turn off backlight when flash high
+
+comment "Camera Sensor Selection"
+config MT9T013
+	bool "Sensor mt9t013 (BAYER 3M)"
+	depends on MSM_CAMERA
+	---help---
+	  MICRON 3M Bayer Sensor with AutoFocus
+
+config MT9D112
+	bool "Sensor mt9d112 (YUV 2M)"
+	depends on MSM_CAMERA
+	---help---
+	  MICRON 2M YUV Sensor
+
+
+config IMX105
+	bool "Sensor IMX105 8MP MIPI (BAYER 8M)"
+	depends on MSM_CAMERA && ARCH_MSM8X60
+	default n
+	---help---
+	SONY 8M Bayer MIPI Sensor with Autofocus
+
+config MT9P012
+	bool "Sensor mt9p012 (BAYER 5M)"
+	depends on MSM_CAMERA
+	---help---
+	  MICRON 5M Bayer Sensor with Autofocus
+
+config MSM_CAMERA_AF_FOXCONN
+	bool "FOXCONN Module"
+	depends on MT9P012
+	---help---
+	  This driver supports FOXCONN AF module for 5M Bayer sensor
+config S5K3E2FX
+	bool "Sensor s5k3e2fx (Samsung 5M)"
+	depends on MSM_CAMERA
+	---help---
+	  Samsung 5M with Autofocus
+
+config S5K4E1GX
+	bool "Sensor s5k4e1gx (Samsung 5M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Samsung 5M with Autofocus
+
+config S5K4E5YX
+        bool "Sensor s5k4e5yx (Samsung 5M)"
+        depends on MSM_CAMERA
+        default n
+        ---help---
+          Samsung 5M with Autofocus
+
+config S5K6AAFX
+	bool "Sensor s5k6aafx (Samsung 1.3M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Samsung 1.3M without Autofocus
+
+config OV8810
+	bool "Sensor ov8810"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OmniVision 8M Bayer Sensor
+
+config OV9665
+	bool "Sensor ov9665"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OmniVision 3M YUV Sensor
+
+config MSM_CAMERA_FLASH
+	bool "Qualcomm MSM camera flash support"
+	depends on MSM_CAMERA_8X60
+	default y
+	---help---
+	  Enable support for LED flash for msm camera
+
+config S5K3H1GX
+        bool "Sensor s5k3h1gx"
+        depends on MSM_CAMERA
+        default n
+        ---help---
+          Samsung 8M 3H1 MIPI AF Sensor
+
+config S5K3H2YX
+	bool "Sensor s5k3h2yx"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  Samsung 8M 3H2 MIPI AF Sensor
+
+config MSM_GEMINI
+	bool "Qualcomm MSM Gemini Jpeg Engine support"
+	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)
+	default n
+	---help---
+	  Enable support for Gemini Jpeg Engine
+
+config MSM_VPE
+	tristate "Qualcomm MSM Video Pre-processing Engine support"
+	depends on MSM_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60)
+	default y
+	---help---
+	  Enable support for Video Pre-processing Engine
+
+config MT9V113
+	bool "Sensor mt9v113"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  MICRON VGA YUV Sensor
+
+config SP3D
+	bool "Sensor SP3D (Sharp 3D module)"
+	depends on MSM_CAMERA && ARCH_MSM8X60
+	default y
+	---help---
+	SHARP 3D Module
+

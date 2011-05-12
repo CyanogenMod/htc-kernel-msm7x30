@@ -1,0 +1,18 @@
+#
+# BRCM BT Port Driver
+#
+
+menuconfig BTPORT
+	bool "BT port support"
+	default n
+	---help---
+	  Redirect DUN & SPP driver to a fixed device node
+
+if BTPORT
+
+config BTPORT_DRV
+	tristate "BRCM BT Port Support"
+	default n
+	---help---
+
+endif # BTPORT

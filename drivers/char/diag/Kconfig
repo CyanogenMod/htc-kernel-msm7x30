@@ -1,0 +1,31 @@
+menu "Diag Support"
+
+config DIAG_CHAR
+	tristate "char driver interface and diag forwarding to/from ARM9"
+	default n
+	depends on ARCH_MSM
+	help
+	 Char driver interface for diag user space and diag-forwarding to modem ARM and back.
+	 This enables diagchar for maemo usb gadget or android usb gadget based on config selected.
+endmenu
+
+menu "DIAG traffic over USB"
+
+config DIAG_OVER_USB
+	bool "Enable DIAG traffic to go over USB"
+        depends on ARCH_MSM
+	default y
+	help
+	 This feature helps segregate code required for DIAG traffic to go over USB.
+endmenu
+
+menu "Modem less Diag Support"
+
+config DIAG_NO_MODEM
+	bool "Enable DIAG even when no modem is present"
+	depends on USB_ANDROID_DIAG || USB_FUNCTION_DIAG
+	depends on ARCH_MSM
+	default n
+	help
+	 This enables DIAG support even when no modem is present.
+endmenu
