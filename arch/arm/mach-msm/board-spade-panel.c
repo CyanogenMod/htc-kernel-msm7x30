@@ -1149,8 +1149,8 @@ static struct resource resources_msm_fb[] = {
 static struct msm_fb_data spade_lcdc_fb_data = {
 	.xres		= 480,
 	.yres		= 800,
-	.width		= 62,
-	.height		= 106,
+	.width		= 57,
+	.height		= 94,
 	.output_format	= 0,
 };
 
