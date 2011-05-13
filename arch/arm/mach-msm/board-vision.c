@@ -2261,7 +2261,7 @@ static struct bcm_bt_lpm_platform_data bcm_bt_lpm_pdata = {
 	.request_clock_on_locked = msm_hs_request_clock_on_locked,
 };
 
-struct platform_device bcm_bt_lpm_device = {
+struct platform_device vision_bcm_bt_lpm_device = {
 	.name = "bcm_bt_lpm",
 	.id = 0,
 	.dev = {
@@ -2335,7 +2335,7 @@ MODULE_PARM_DESC(bt_fw_version, "BT's fw version");
 static struct platform_device *devices[] __initdata = {
 	&msm_device_uart2,
 #ifdef CONFIG_SERIAL_MSM_HS_PURE_ANDROID
-	&bcm_bt_lpm_device,
+	&vision_bcm_bt_lpm_device,
 #endif
 	&msm_device_smd,
 	&vision_rfkill,
