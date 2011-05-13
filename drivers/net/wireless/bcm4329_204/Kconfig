@@ -1,3 +1,5 @@
+if !BCM4329_PURE_ANDROID
+
 config BCM4329
 	tristate "Broadcom 4329 wireless cards support"
 	depends on MMC
@@ -32,3 +34,5 @@ config BCM4329_NVRAM_PATH
 	default "/proc/calibration"
 	---help---
 	  Path to the calibration file.
+
+endif # !BCM4329_PURE_ANDROID
