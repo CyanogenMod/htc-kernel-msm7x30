@@ -1315,6 +1315,8 @@ config MSM_CPU_FREQ_SCREEN_ON
 
 endif # MSM_CPU_FREQ_SCREEN
 
+if PERFLOCK
+
 config MSM_CPU_FREQ_ONDEMAND_MAX
 	int "Max"
 	default 384000
@@ -1322,6 +1324,8 @@ config MSM_CPU_FREQ_ONDEMAND_MAX
 config MSM_CPU_FREQ_ONDEMAND_MIN
 	int "Min"
 	default 245760
+
+endif # PERFLOCK
 
 config MSM_HW3D
 	tristate "MSM Hardware 3D Register Driver"
@@ -1677,6 +1681,17 @@ config ACPUCLOCK_LIMIT_768MHZ
 	default n
 	help
 		Support to limit the CPU frequency at 768MHz.
+
+config ACPUCLOCK_OVERCLOCKING
+	bool "Enable support for CPU overclocking"
+	default n
+	depends on CPU_FREQ && !PERFLOCK
+	depends on ARCH_MSM7X30
+
+config JESUS_PHONE
+        bool "Enable support for unstable CPU frequencies"
+        default n
+        depends on ACPUCLOCK_OVERCLOCKING
 
 config HTC_SMEM_MSMC1C2_DEBUG
 	bool "MSMC1/MSMC2 shared memory debug"
