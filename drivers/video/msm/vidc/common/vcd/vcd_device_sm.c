@@ -41,8 +41,6 @@ void vcd_do_device_state_transition(struct vcd_drv_ctxt *drv_ctxt,
 	if (!drv_ctxt || to_state >= VCD_DEVICE_STATE_MAX) {
 		VCD_MSG_ERROR("Bad parameters. drv_ctxt=%p, to_state=%d",
 				  drv_ctxt, to_state);
-		if (!drv_ctxt)
-			return;
 	}
 
 	state_ctxt = &drv_ctxt->dev_state;
@@ -344,7 +342,7 @@ void vcd_handle_device_err_fatal(struct vcd_dev_ctxt *dev_ctxt,
 		cctxt = cctxt->next;
 		if (tmp_clnt != trig_clnt)
 			vcd_clnt_handle_device_err_fatal(tmp_clnt,
-				VCD_EVT_IND_HWERRFATAL);
+				tmp_clnt->status.last_evt);
 	}
 	dev_ctxt->pending_cmd = VCD_CMD_DEVICE_RESET;
 	if (!dev_ctxt->cctxt_list_head)
@@ -669,8 +667,7 @@ static u32 vcd_term_cmn
 	}
 
 	--dev_ctxt->refs;
-	if (driver_handle >= 1 && driver_handle <= VCD_DRIVER_INSTANCE_MAX)
-		dev_ctxt->driver_ids[driver_handle - 1] = false;
+	dev_ctxt->driver_ids[driver_handle - 1] = false;
 
 	VCD_MSG_HIGH("Driver_id %d terminated. No of driver instances = %d",
 			 driver_handle - 1, dev_ctxt->refs);
@@ -754,6 +751,7 @@ static u32 vcd_open_cmn
 	cctxt->decoding = decoding;
 	cctxt->callback = callback;
 	cctxt->client_data = client_data;
+	cctxt->status.last_evt = VCD_EVT_RESP_OPEN;
 	INIT_LIST_HEAD(&cctxt->in_buf_pool.queue);
 	INIT_LIST_HEAD(&cctxt->out_buf_pool.queue);
 	client = dev_ctxt->cctxt_list_head;
@@ -933,10 +931,7 @@ static u32 vcd_set_dev_pwr_in_ready
 		{
 			if (dev_ctxt->pwr_state == VCD_PWR_STATE_SLEEP)
 				vcd_resume_all_sessions(dev_ctxt);
-
-
 			dev_ctxt->pwr_state = VCD_PWR_STATE_ON;
-
 			break;
 		}
 

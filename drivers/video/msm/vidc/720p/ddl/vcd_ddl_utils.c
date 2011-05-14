@@ -54,7 +54,7 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 		kmalloc((sz + guard_bytes), GFP_KERNEL);
 
 	if (!buff_addr->virtual_base_addr) {
-		ERR("ERROR %s:%u kamlloc fails to allocate"
+		ERR("\n ERROR %s:%u kamlloc fails to allocate"
 			" sz + guard_bytes = %u\n", __func__, __LINE__,
 			(sz + guard_bytes));
 		return;
@@ -88,10 +88,6 @@ void ddl_pmem_alloc(struct ddl_buf_addr *buff_addr, size_t sz, u32 align)
 	u32 guard_bytes, align_mask;
 	s32 physical_addr;
 	u32 align_offset;
-
-	DBG("\n%s() IN : phy_addr(%p) ker_addr(%p) size(%u)",
-		__func__, buff_addr->physical_base_addr,
-		buff_addr->virtual_base_addr, (u32)sz);
 
 	DBG("\n%s() IN : phy_addr(%p) ker_addr(%p) size(%u)",
 		__func__, buff_addr->physical_base_addr,
@@ -159,7 +155,7 @@ void ddl_pmem_free(struct ddl_buf_addr buff_addr)
 
 	if ((buff_addr.physical_base_addr) &&
 		pmem_kfree((s32) buff_addr.physical_base_addr)) {
-		ERR("%s(): Error in Freeing ddl_pmem_free "
+		ERR("\n %s(): Error in Freeing ddl_pmem_free "
 		"Physical Address %p", __func__,
 		buff_addr.physical_base_addr);
 	}
@@ -178,7 +174,7 @@ void ddl_get_core_start_time(u8 codec)
 	else if (codec == 1)
 		ddl_t1 = &ddl_enc_t1;
 
-	if (!ddl_t1) {
+	if (!*ddl_t1) {
 		struct timeval ddl_tv;
 		do_gettimeofday(&ddl_tv);
 		*ddl_t1 = (ddl_tv.tv_sec * 1000) + (ddl_tv.tv_usec / 1000);
@@ -201,7 +197,7 @@ void ddl_calc_core_time(u8 codec)
 		ddl_count = &ddl_enc_count;
 	}
 
-	if (ddl_t1 && ddl_ttotal && ddl_count) {
+	if (*ddl_t1) {
 		int ddl_t2;
 		struct timeval ddl_tv;
 		do_gettimeofday(&ddl_tv);
@@ -218,12 +214,12 @@ void ddl_calc_core_time(u8 codec)
 void ddl_reset_time_variables(u8 codec)
 {
 	if (!codec) {
-		DBG("Reset Decoder time variables");
+		DBG("\n Reset Decoder time variables");
 		ddl_dec_t1 = 0;
 		ddl_dec_ttotal = 0;
 		ddl_dec_count = 0;
 	} else if (codec == 1) {
-		DBG("Reset Encoder time variables ");
+		DBG("\n Reset Encoder time variables ");
 		ddl_enc_t1 = 0;
 		ddl_enc_ttotal = 0;
 		ddl_enc_count = 0;

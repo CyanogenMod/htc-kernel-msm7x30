@@ -30,7 +30,8 @@ void vcd_clnt_handle_device_err_fatal(struct vcd_clnt_ctxt *cctxt,
 		vcd_destroy_client_context(cctxt);
 		return;
 	}
-
+	if (event == VCD_EVT_RESP_BASE)
+		event = VCD_EVT_IND_HWERRFATAL;
 	if (cctxt->clnt_state.state != VCD_CLIENT_STATE_INVALID) {
 		cctxt->callback(event, VCD_ERR_HW_FATAL, NULL, 0,
 			cctxt, cctxt->client_data);
@@ -373,7 +374,8 @@ static u32 vcd_flush_in_invalid(struct vcd_clnt_ctxt *cctxt,
 			cctxt->status.mask |= (mode & VCD_FLUSH_ALL);
 			vcd_send_flush_done(cctxt, VCD_S_SUCCESS);
 		}
-	}
+	} else
+		cctxt->status.mask |= (mode & VCD_FLUSH_ALL);
 	return rc;
 }
 
@@ -444,28 +446,29 @@ static u32  vcd_stop_inopen(struct vcd_clnt_ctxt *cctxt)
 static u32 vcd_stop_in_run(struct vcd_clnt_ctxt *cctxt)
 {
 	u32 rc = VCD_S_SUCCESS;
-
 	VCD_MSG_LOW("vcd_stop_in_run:");
-
 	rc = vcd_stop_cmn(cctxt);
-
 	if (!VCD_FAILED(rc) &&
 		(cctxt->status.mask & VCD_FIRST_IP_RCVD)) {
 		rc = vcd_power_event(cctxt->dev_ctxt,
 				     cctxt, VCD_EVT_PWR_CLNT_LAST_FRAME);
 	}
-
 	return rc;
 }
 
 static u32 vcd_stop_in_eos(struct vcd_clnt_ctxt *cctxt)
 {
 	u32 rc = VCD_S_SUCCESS;
-
 	VCD_MSG_LOW("vcd_stop_in_eos:");
-
-	cctxt->status.mask |= VCD_STOP_PENDING;
-
+	if (cctxt->status.mask & VCD_EOS_WAIT_OP_BUF) {
+		rc = vcd_stop_cmn(cctxt);
+		if (!VCD_FAILED(rc)) {
+			rc = vcd_power_event(cctxt->dev_ctxt,
+				cctxt, VCD_EVT_PWR_CLNT_LAST_FRAME);
+			cctxt->status.mask &= ~VCD_EOS_WAIT_OP_BUF;
+		}
+	} else
+		cctxt->status.mask |= VCD_STOP_PENDING;
 	return rc;
 }
 
@@ -487,32 +490,23 @@ static u32 vcd_set_property_cmn
      struct vcd_property_hdr *prop_hdr, void *prop_val)
 {
 	u32 rc;
-
 	VCD_MSG_LOW("vcd_set_property_cmn in %d:", cctxt->clnt_state.state);
 	VCD_MSG_LOW("property Id = %d", prop_hdr->prop_id);
-
 	if (!prop_hdr->sz || !prop_hdr->prop_id) {
 		VCD_MSG_MED("Bad parameters");
-
 		return VCD_ERR_ILLEGAL_PARM;
 	}
 
 	rc = ddl_set_property(cctxt->ddl_handle, prop_hdr, prop_val);
-
 	VCD_FAILED_RETURN(rc, "Failed: ddl_set_property");
-
 	switch (prop_hdr->prop_id) {
-
 	case VCD_I_LIVE:
 		{
 			struct vcd_property_live *live =
 			    (struct vcd_property_live *)prop_val;
-
 			cctxt->live = live->live;
-
 			break;
 		}
-
 	case VCD_I_FRAME_RATE:
 		{
 			if (cctxt->sched_clnt_hdl) {
@@ -520,10 +514,8 @@ static u32 vcd_set_property_cmn
 					(struct vcd_property_frame_rate *)
 					prop_val);
 			}
-
 			break;
 		}
-
 	case VCD_I_FRAME_SIZE:
 		{
 			if (cctxt->sched_clnt_hdl) {
@@ -531,17 +523,20 @@ static u32 vcd_set_property_cmn
 					(struct vcd_property_frame_size *)
 					prop_val);
 			}
-
 			break;
 		}
-
+	case VCD_I_INTRA_PERIOD:
+	   {
+		  struct vcd_property_i_period *iperiod =
+			 (struct vcd_property_i_period *)prop_val;
+		  cctxt->bframe = iperiod->b_frames;
+		  break;
+	   }
 	default:
 		{
 			break;
 		}
-
 	}
-
 	return rc;
 }
 
@@ -598,33 +593,22 @@ static u32 vcd_set_buffer_requirements_cmn
 
 	if (buf_pool->validated > 0) {
 		VCD_MSG_ERROR("Need to free allocated buffers");
-
 		return VCD_ERR_ILLEGAL_OP;
 	}
 
 	first_frm_recvd &= cctxt->status.mask;
 	if (first_frm_recvd) {
 		VCD_MSG_ERROR("VCD SetBufReq called when data path is active");
-
 		return VCD_ERR_BAD_STATE;
 	}
-
 	Prop_hdr.sz = sizeof(*buffer_req);
-
 	rc = ddl_set_property(cctxt->ddl_handle, &Prop_hdr, buffer_req);
-
 	VCD_FAILED_RETURN(rc, "Failed: ddl_set_property");
-
 	if (buf_pool->entries) {
 		VCD_MSG_MED("Resetting buffer requirements");
-
 		vcd_free_buffer_pool_entries(buf_pool);
 	}
-
-	rc = vcd_alloc_buffer_pool_entries(buf_pool, buffer_req);
-
 	return rc;
-
 }
 
 static u32 vcd_get_buffer_requirements_cmn
@@ -1110,6 +1094,9 @@ static void vcd_clnt_cb_in_flushing
 		if (frm_trans_end && !cctxt->status.frame_submitted) {
 			VCD_MSG_HIGH
 			    ("All pending frames recvd from DDL");
+			if (cctxt->status.mask & VCD_FLUSH_INPUT)
+				vcd_flush_bframe_buffers(cctxt,
+							VCD_FLUSH_INPUT);
 			if (cctxt->status.mask & VCD_FLUSH_OUTPUT)
 				vcd_flush_output_buffers(cctxt);
 			vcd_send_flush_done(cctxt, VCD_S_SUCCESS);
@@ -1181,8 +1168,6 @@ static void vcd_clnt_cb_in_stopping
 			(void) vcd_handle_ind_output_reconfig(cctxt,
 				payload, status);
 
-			vcd_mark_frame_channel(cctxt->dev_ctxt);
-
 			frm_trans_end = true;
 			payload = NULL;
 
@@ -1220,18 +1205,18 @@ static void vcd_clnt_cb_in_stopping
 			frm_trans_end = true;
 		}
 		if (frm_trans_end && !cctxt->status.frame_submitted) {
-
 				VCD_MSG_HIGH
-				    ("All pending frames recvd from DDL");
+					("All pending frames recvd from DDL");
+				vcd_flush_bframe_buffers(cctxt,
+							VCD_FLUSH_INPUT);
 				vcd_flush_output_buffers(cctxt);
 				cctxt->status.mask &= ~VCD_FLUSH_ALL;
 				vcd_release_all_clnt_frm_transc(cctxt);
 				VCD_MSG_HIGH
-				    ("All buffers flushed. Enqueuing stop cmd");
+				("All buffers flushed. Enqueuing stop cmd");
 				vcd_client_cmd_flush_and_en_q(cctxt,
 						VCD_CMD_CODEC_STOP);
 		}
-
 	}
 }
 
@@ -1363,10 +1348,27 @@ static void  vcd_clnt_cb_in_invalid(
 			break;
 		}
 	case VCD_EVT_RESP_INPUT_DONE:
-	case VCD_EVT_RESP_OUTPUT_DONE:
 	case VCD_EVT_RESP_OUTPUT_REQ:
+		{
+			if (cctxt->status.frame_submitted)
+				cctxt->status.frame_submitted--;
+			if (payload && ((struct ddl_frame_data_tag *)
+							payload)->frm_trans_end)
+				vcd_mark_frame_channel(cctxt->dev_ctxt);
+			break;
+		}
+	case VCD_EVT_RESP_OUTPUT_DONE:
+		{
+			if (payload && ((struct ddl_frame_data_tag *)
+							payload)->frm_trans_end)
+				vcd_mark_frame_channel(cctxt->dev_ctxt);
+			break;
+		}
 	case VCD_EVT_RESP_TRANSACTION_PENDING:
 		{
+			if (cctxt->status.frame_submitted)
+				cctxt->status.frame_submitted--;
+			vcd_mark_frame_channel(cctxt->dev_ctxt);
 			break;
 		}
 	case VCD_EVT_IND_HWERRFATAL:
@@ -1376,6 +1378,20 @@ static void  vcd_clnt_cb_in_invalid(
 					(struct vcd_transc *)client_data,
 					status);
 
+			break;
+		}
+	case VCD_EVT_RESP_EOS_DONE:
+		{
+			vcd_mark_frame_channel(cctxt->dev_ctxt);
+			break;
+		}
+	case VCD_EVT_IND_OUTPUT_RECONFIG:
+		{
+			if (cctxt->status.frame_submitted > 0)
+				cctxt->status.frame_submitted--;
+			else
+				cctxt->status.frame_delayed--;
+			vcd_mark_frame_channel(cctxt->dev_ctxt);
 			break;
 		}
 	default:
@@ -1397,6 +1413,7 @@ static void vcd_clnt_enter_starting
     (struct vcd_clnt_ctxt *cctxt, s32 state_event) {
 	VCD_MSG_MED("Entering CLIENT_STATE_STARTING on api %d",
 		    state_event);
+	cctxt->status.last_evt = VCD_EVT_RESP_START;
 }
 
 static void vcd_clnt_enter_run
@@ -1414,6 +1431,7 @@ static void vcd_clnt_enter_stopping
     (struct vcd_clnt_ctxt *cctxt, s32 state_event) {
 	VCD_MSG_MED("Entering CLIENT_STATE_STOPPING on api %d",
 		    state_event);
+	cctxt->status.last_evt = VCD_EVT_RESP_STOP;
 }
 
 static void vcd_clnt_enter_eos(struct vcd_clnt_ctxt *cctxt,
@@ -1431,6 +1449,7 @@ static void vcd_clnt_enter_pausing
     (struct vcd_clnt_ctxt *cctxt, s32 state_event) {
 	VCD_MSG_MED("Entering CLIENT_STATE_PAUSING on api %d",
 		    state_event);
+	cctxt->status.last_evt = VCD_EVT_RESP_PAUSE;
 }
 
 static void vcd_clnt_enter_paused
@@ -1447,6 +1466,8 @@ static void  vcd_clnt_enter_invalid(struct vcd_clnt_ctxt *cctxt,
 		state_event);
 	cctxt->ddl_hdl_valid = false;
 	cctxt->status.mask &= ~(VCD_FIRST_IP_RCVD | VCD_FIRST_OP_RCVD);
+	if (cctxt->sched_clnt_hdl)
+		vcd_sched_suspend_resume_clnt(cctxt, false);
 }
 
 static void vcd_clnt_exit_open
@@ -1459,6 +1480,7 @@ static void vcd_clnt_exit_starting
     (struct vcd_clnt_ctxt *cctxt, s32 state_event) {
 	VCD_MSG_MED("Exiting CLIENT_STATE_STARTING on api %d",
 		    state_event);
+	cctxt->status.last_evt = VCD_EVT_RESP_BASE;
 }
 
 static void vcd_clnt_exit_run
@@ -1476,6 +1498,7 @@ static void vcd_clnt_exit_stopping
     (struct vcd_clnt_ctxt *cctxt, s32 state_event) {
 	VCD_MSG_MED("Exiting CLIENT_STATE_STOPPING on api %d",
 		    state_event);
+	cctxt->status.last_evt = VCD_EVT_RESP_BASE;
 }
 
 static void vcd_clnt_exit_eos
@@ -1493,6 +1516,7 @@ static void vcd_clnt_exit_pausing
     (struct vcd_clnt_ctxt *cctxt, s32 state_event) {
 	VCD_MSG_MED("Exiting CLIENT_STATE_PAUSING on api %d",
 		    state_event);
+	cctxt->status.last_evt = VCD_EVT_RESP_BASE;
 }
 
 static void vcd_clnt_exit_paused
@@ -1516,8 +1540,6 @@ void vcd_do_client_state_transition(struct vcd_clnt_ctxt *cctxt,
 	if (!cctxt || to_state >= VCD_CLIENT_STATE_MAX) {
 		VCD_MSG_ERROR("Bad parameters. cctxt=%p, to_state=%d",
 			      cctxt, to_state);
-		if (!cctxt)
-			return;
 	}
 
 	state_ctxt = &cctxt->clnt_state;
@@ -1585,7 +1607,7 @@ static const struct vcd_clnt_state_table vcd_clnt_table_starting = {
 	 NULL,
 	 NULL,
 	 NULL,
-	 vcd_get_property_cmn,
+	 NULL,
 	 NULL,
 	 NULL,
 	 NULL,
@@ -1709,7 +1731,7 @@ static const struct vcd_clnt_state_table vcd_clnt_table_pausing = {
 	 NULL,
 	 NULL,
 	 NULL,
-	 NULL,
+	 vcd_set_property_cmn,
 	 vcd_get_property_cmn,
 	 NULL,
 	 vcd_get_buffer_requirements_cmn,

@@ -55,6 +55,12 @@
 #define VCD_I_POST_FILTER    (VCD_START_BASE + 0x17)
 #define VCD_I_PROGRESSIVE_ONLY (VCD_START_BASE + 0x18)
 #define VCD_I_OUTPUT_ORDER (VCD_START_BASE + 0x19)
+#define VCD_I_RECON_BUFFERS   (VCD_START_BASE + 0x1A)
+#define VCD_I_FREE_RECON_BUFFERS   (VCD_START_BASE + 0x1B)
+#define VCD_I_GET_RECON_BUFFER_SIZE   (VCD_START_BASE + 0x1C)
+#define VCD_I_H264_MV_BUFFER   (VCD_START_BASE + 0x1D)
+#define VCD_I_FREE_H264_MV_BUFFER (VCD_START_BASE + 0x1E)
+#define VCD_I_GET_H264_MV_SIZE (VCD_START_BASE + 0x1F)
 
 #define VCD_START_REQ      (VCD_START_BASE + 0x1000)
 #define VCD_I_REQ_IFRAME   (VCD_START_REQ + 0x1)
@@ -106,11 +112,6 @@ struct vcd_property_frame_size {
 #define VCD_METADATA_VC1            0x040
 #define VCD_METADATA_PASSTHROUGH    0x080
 #define VCD_METADATA_ENC_SLICE      0x100
-
-#define VCD_OMX_DATANONE      0x00000000
-#define VCD_OMX_CONCEALMB     0x7F000006
-#define VCD_OMX_SEI           0x7F000007
-#define VCD_OMX_VUI           0x7F000008
 
 struct vcd_property_meta_data_enable {
 	u32 meta_data_enable_flag;
@@ -192,7 +193,10 @@ enum vcd_codec_level {
    VCD_LEVEL_H264_3p1      = 0x19,
    VCD_LEVEL_H264_3p2      = 0x1A,
    VCD_LEVEL_H264_4        = 0x1B,
-   VCD_LEVEL_H264_X        = 0x1C,
+   VCD_LEVEL_H264_4p1      = 0x1C,
+   VCD_LEVEL_H264_4p2      = 0x1D,
+   VCD_LEVEL_H264_5        = 0x1E,
+   VCD_LEVEL_H264_5p1      = 0x1F,
    VCD_LEVEL_H263_10       = 0x20,
    VCD_LEVEL_H263_20       = 0x21,
    VCD_LEVEL_H263_30       = 0x22,
@@ -207,15 +211,17 @@ enum vcd_codec_level {
    VCD_LEVEL_MPEG2_HIGH_14 = 0x32,
    VCD_LEVEL_MPEG2_HIGH    = 0x33,
    VCD_LEVEL_MPEG2_X       = 0x34,
-   VCD_LEVEL_VC1_LOW       = 0x40,
-   VCD_LEVEL_VC1_MEDIUM    = 0x41,
-   VCD_LEVEL_VC1_HIGH      = 0x42,
-   VCD_LEVEL_VC1_0         = 0x43,
-   VCD_LEVEL_VC1_1         = 0x44,
-   VCD_LEVEL_VC1_2         = 0x45,
-   VCD_LEVEL_VC1_3         = 0x46,
-   VCD_LEVEL_VC1_4         = 0x47,
-   VCD_LEVEL_VC1_X         = 0x48
+   VCD_LEVEL_VC1_S_LOW     = 0x40,
+   VCD_LEVEL_VC1_S_MEDIUM  = 0x41,
+   VCD_LEVEL_VC1_M_LOW     = 0x42,
+   VCD_LEVEL_VC1_M_MEDIUM  = 0x43,
+   VCD_LEVEL_VC1_M_HIGH    = 0x44,
+   VCD_LEVEL_VC1_A_0       = 0x45,
+   VCD_LEVEL_VC1_A_1       = 0x46,
+   VCD_LEVEL_VC1_A_2       = 0x47,
+   VCD_LEVEL_VC1_A_3       = 0x48,
+   VCD_LEVEL_VC1_A_4       = 0x49,
+   VCD_LEVEL_VC1_X         = 0x4A
 };
 
 struct vcd_property_level {
@@ -319,6 +325,31 @@ struct vcd_property_dec_output_buffer {
 enum vcd_output_order {
    VCD_DEC_ORDER_DISPLAY  = 0x0,
    VCD_DEC_ORDER_DECODE   = 0x1
+};
+
+struct vcd_property_enc_recon_buffer{
+	u8 *kernel_virtual_addr;
+	u8 *physical_addr;
+	u32 buffer_size;
+	u32 ysize;
+	int pmem_fd;
+	u32 offset;
+};
+
+struct vcd_property_h264_mv_buffer{
+	u8 *kernel_virtual_addr;
+	u8 *physical_addr;
+	u32 size;
+	u32 count;
+	int pmem_fd;
+	u32 offset;
+};
+
+struct vcd_property_buffer_size{
+	int width;
+	int height;
+	int size;
+	int alignment;
 };
 
 #endif

@@ -131,7 +131,7 @@ void ddl_set_default_meta_data_hdr(struct ddl_client_context *ddl)
 	hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_DATANONE);
 	hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
 	hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
-	hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_OMX_DATANONE;
+	hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_DATANONE;
 
 	if (ddl->decoding) {
 		hdr_entry =
@@ -144,17 +144,17 @@ void ddl_set_default_meta_data_hdr(struct ddl_client_context *ddl)
 		    ddl_metadata_hdr_entry(ddl, VCD_METADATA_CONCEALMB);
 		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
 		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
-		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_OMX_CONCEALMB;
+		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_CONCEALMB;
 
 		hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_SEI);
 		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
 		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
-		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_OMX_SEI;
+		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_SEI;
 
 		hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_VUI);
 		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
 		hdr_entry[DDL_METADATA_HDR_PORT_INDEX] = 1;
-		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_OMX_VUI;
+		hdr_entry[DDL_METADATA_HDR_TYPE_INDEX] = VCD_METADATA_VUI;
 
 		hdr_entry = ddl_metadata_hdr_entry(ddl, VCD_METADATA_VC1);
 		hdr_entry[DDL_METADATA_HDR_VERSION_INDEX] = 0x00000101;
@@ -204,9 +204,7 @@ static u32 ddl_supported_metadata_flag(struct ddl_client_context *ddl)
 void ddl_set_default_metadata_flag(struct ddl_client_context *ddl)
 {
 	if (ddl->decoding)
-		ddl->codec_data.decoder.meta_data_enable_flag |=
-		(VCD_METADATA_QCOMFILLER | VCD_METADATA_CONCEALMB |
-		 VCD_METADATA_SEI | VCD_METADATA_VUI);
+		ddl->codec_data.decoder.meta_data_enable_flag = 0;
 	else
 		ddl->codec_data.encoder.meta_data_enable_flag = 0;
 }
@@ -337,39 +335,19 @@ u32 ddl_set_metadata_params(struct ddl_client_context *ddl,
 		    property_hdr->sz &&
 		    DDLCLIENT_STATE_IS(ddl, DDL_CLIENT_OPEN) &&
 					codec) {
-			if (!meta_data_enable->meta_data_enable_flag) {
-				*meta_data_enable_flag = 0;
+			u32 flag = ddl_supported_metadata_flag(ddl);
+			flag &= (meta_data_enable->meta_data_enable_flag);
+			if (flag)
+				flag |= DDL_METADATA_MANDATORY;
+			if (flag != *meta_data_enable_flag) {
+				*meta_data_enable_flag = flag;
 				if (ddl->decoding) {
 					ddl_set_default_decoder_buffer_req
-					    (&ddl->codec_data.decoder, true);
+						(&ddl->codec_data.decoder,
+						 true);
 				} else {
 					ddl_set_default_encoder_buffer_req
-					    (&ddl->codec_data.encoder);
-				}
-
-			} else {
-				u32 flag = ddl_supported_metadata_flag(ddl);
-				flag &=
-					(meta_data_enable->
-					 meta_data_enable_flag);
-				if (flag) {
-					flag |= DDL_METADATA_MANDATORY;
-					if (flag !=
-						*meta_data_enable_flag) {
-						*meta_data_enable_flag =
-						    flag;
-
-				if (ddl->decoding) {
-					ddl_set_default_decoder_buffer_req
-						(&ddl->codec_data.
-						decoder, true);
-				} else {
-					ddl_set_default_encoder_buffer_req
-						(&ddl->codec_data.
-						 encoder);
-				}
-
-					}
+						(&ddl->codec_data.encoder);
 				}
 			}
 			vcd_status = VCD_S_SUCCESS;
@@ -516,7 +494,7 @@ void ddl_decode_set_metadata_output(struct ddl_decoder_data *decoder)
 
 	decoder->meta_data_offset = ddl_get_yuv_buffer_size(
 		&decoder->client_frame_size, &decoder->buf_format,
-		(!decoder->progressive_only));
+		(!decoder->progressive_only), decoder->codec.codec);
 
 	buffer = decoder->meta_data_input.align_virtual_addr;
 

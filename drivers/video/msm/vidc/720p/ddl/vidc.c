@@ -96,7 +96,7 @@ u32 vidc_720p_do_sw_reset(void)
 	VIDC_IO_IN(REG_193553, &fw_start);
 
 	if (!fw_start) {
-		DBG("VIDC-SW-RESET-FAILS!");
+		DBG("\n VIDC-SW-RESET-FAILS!");
 		return false;
 	}
 	return true;
@@ -108,7 +108,7 @@ u32 vidc_720p_reset_is_success()
 	VIDC_IO_IN(REG_352831, &stagecounter);
 	stagecounter &= 0xff;
 	if (stagecounter != 0xe5) {
-		DBG("VIDC-CPU_RESET-FAILS!");
+		DBG("\n VIDC-CPU_RESET-FAILS!");
 		VIDC_IO_OUT(REG_224135, 0);
 		msleep(10);
 		return false;

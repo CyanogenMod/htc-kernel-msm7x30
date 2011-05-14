@@ -229,7 +229,8 @@ static u32 ddl_header_done_callback(struct ddl_context *ddl_context)
 	ddl_getdec_profilelevel(decoder, seq_hdr_info.profile,
 		seq_hdr_info.level);
 	ddl_calculate_stride(&decoder->frame_size,
-			!decoder->progressive_only);
+			!decoder->progressive_only,
+			decoder->codec.codec);
 	if (seq_hdr_info.crop_exists)	{
 		decoder->frame_size.width -=
 		(seq_hdr_info.crop_right_offset
@@ -966,49 +967,61 @@ static void ddl_get_vc1_dec_level(
 		switch (level) {
 		case VIDC_720P_VC1_LEVEL0:
 			{
-				*codec_level = VCD_LEVEL_VC1_0;
+				*codec_level = VCD_LEVEL_VC1_A_0;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL1:
 			{
-				*codec_level = VCD_LEVEL_VC1_1;
+				*codec_level = VCD_LEVEL_VC1_A_1;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL2:
 			{
-				*codec_level = VCD_LEVEL_VC1_2;
+				*codec_level = VCD_LEVEL_VC1_A_2;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL3:
 			{
-				*codec_level = VCD_LEVEL_VC1_3;
+				*codec_level = VCD_LEVEL_VC1_A_3;
 				break;
 			}
 		case VIDC_720P_VC1_LEVEL4:
 			{
-				*codec_level = VCD_LEVEL_VC1_4;
+				*codec_level = VCD_LEVEL_VC1_A_4;
 				break;
 			}
 		}
 		return;
-	}
-
-	/* now determine the Main and Simple profile level */
-	switch (level) {
-	case VIDC_720P_VC1_LEVEL_LOW:
-		{
-			*codec_level = VCD_LEVEL_VC1_LOW;
-			break;
+	} else if (vc1_profile == VCD_PROFILE_VC1_MAIN) {
+		switch (level) {
+		case VIDC_720P_VC1_LEVEL_LOW:
+			{
+				*codec_level = VCD_LEVEL_VC1_M_LOW;
+				break;
+			}
+		case VIDC_720P_VC1_LEVEL_MED:
+			{
+				*codec_level = VCD_LEVEL_VC1_M_MEDIUM;
+				break;
+			}
+		case VIDC_720P_VC1_LEVEL_HIGH:
+			{
+				*codec_level = VCD_LEVEL_VC1_M_HIGH;
+				break;
+			}
 		}
-	case VIDC_720P_VC1_LEVEL_MED:
-		{
-			*codec_level = VCD_LEVEL_VC1_MEDIUM;
-			break;
-		}
-	case VIDC_720P_VC1_LEVEL_HIGH:
-		{
-			*codec_level = VCD_LEVEL_VC1_HIGH;
-			break;
+	} else if (vc1_profile == VCD_PROFILE_VC1_SIMPLE) {
+		switch (level) {
+		case VIDC_720P_VC1_LEVEL_LOW:
+			{
+				*codec_level = VCD_LEVEL_VC1_S_LOW;
+				break;
+			}
+		case VIDC_720P_VC1_LEVEL_MED:
+			{
+				*codec_level = VCD_LEVEL_VC1_S_MEDIUM;
+				break;
+			}
 		}
 	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,7 +345,7 @@ static void ddl_encode_set_profile_level(struct ddl_client_context *ddl)
 		}
 	case VCD_PROFILE_H264_BASELINE:
 		{
-			profile = VIDC_720P_PROFILE_H264_BASELINE;
+			profile = VIDC_720P_PROFILE_H264_CPB;
 			break;
 		}
 	case VCD_PROFILE_H264_MAIN:
@@ -739,8 +739,8 @@ void ddl_encode_frame_run(struct ddl_client_context *ddl)
 
 	y_addr = (u32) ddl->input_frame.vcd_frm.physical +
 	    ddl->input_frame.vcd_frm.offset;
-	c_addr = (y_addr + (encoder->frame_size.height *
-				encoder->frame_size.width));
+	c_addr = (y_addr + (encoder->frame_size.scan_lines *
+				encoder->frame_size.stride));
 	ddl_move_client_state(ddl, DDL_CLIENT_WAIT_FOR_FRAME_DONE);
 	ddl_move_command_state(ddl->ddl_context, DDL_CMD_ENCODE_FRAME);
 
@@ -824,17 +824,12 @@ u32 ddl_decode_set_buffers(struct ddl_client_context *ddl)
 	}
 	decoder->ref_buffer.align_physical_addr = NULL;
 	if (ref_buf_no) {
-		size_t sz, yuv_size, align_bytes;
-		yuv_size = ddl_get_yuv_buffer_size(&decoder->
-			client_frame_size, &decoder->buf_format,
-			(!decoder->progressive_only));
-		sz = yuv_size * ref_buf_no;
-		if (decoder->buf_format.buffer_format ==
-			VCD_BUFFER_FORMAT_NV12)
-			align_bytes = DDL_LINEAR_BUFFER_ALIGN_BYTES;
-		else
-			align_bytes = DDL_TILE_BUFFER_ALIGN_BYTES;
-
+		size_t sz, align_bytes;
+		sz = decoder->dp_buf.dec_pic_buffers[0].vcd_frm.alloc_len;
+		sz *= ref_buf_no;
+		align_bytes = decoder->client_output_buf_req.align;
+		if (decoder->ref_buffer.virtual_base_addr)
+			ddl_pmem_free(decoder->ref_buffer);
 		ddl_pmem_alloc(&decoder->ref_buffer, sz, align_bytes);
 		if (!decoder->ref_buffer.virtual_base_addr) {
 			ddl_pmem_free(decoder->dpb_comv_buffer);

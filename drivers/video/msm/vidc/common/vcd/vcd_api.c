@@ -132,7 +132,7 @@ u32 vcd_close(void *handle)
 	}
 
 	drv_ctxt = vcd_get_drv_context();
-
+	mutex_lock(&drv_ctxt->dev_mutex);
 	if (drv_ctxt->dev_state.state_table->ev_hdlr.close) {
 		rc = drv_ctxt->dev_state.state_table->ev_hdlr.
 		    close(drv_ctxt, cctxt);
@@ -142,7 +142,7 @@ u32 vcd_close(void *handle)
 
 		rc = VCD_ERR_BAD_STATE;
 	}
-
+	mutex_unlock(&drv_ctxt->dev_mutex);
 	return rc;
 
 }

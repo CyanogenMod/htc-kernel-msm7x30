@@ -26,35 +26,20 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _VCD_DDL_UTILS_H_
-#define _VCD_DDL_UTILS_H_
+#ifndef _VIDEO_720P_RESOURCE_TRACKER_API_H_
+#define _VIDEO_720P_RESOURCE_TRACKER_API_H_
 
-#include "vcd_ddl_core.h"
-#include "vcd_ddl.h"
+#include "vcd_core.h"
 
-#define DDL_INLINE
-
-#define DDL_ALIGN_SIZE(sz, guard_bytes, align_mask) \
-  (((u32)(sz) + guard_bytes) & align_mask)
-
-#define DDL_MALLOC(x)  kmalloc(x, GFP_KERNEL)
-#define DDL_FREE(x)   { if ((x)) kfree((x)); (x) = NULL; }
-
-void ddl_pmem_alloc(struct ddl_buf_addr *, u32, u32);
-
-void ddl_pmem_free(struct ddl_buf_addr);
-
-void ddl_get_core_start_time(u8 codec);
-
-void ddl_calc_core_time(u8 codec);
-
-void ddl_reset_time_variables(u8 codec);
-
-#define DDL_ASSERT(x)
-#define DDL_MEMSET(src, value, len) memset((src), (value), (len))
-#define DDL_MEMCPY(dest, src, len)  memcpy((dest), (src), (len))
-
-#define DDL_ADDR_IS_ALIGNED(addr, align_bytes) \
-(!((u32)(addr) & ((align_bytes) - 1)))
+void res_trk_init(struct device *device, u32 irq);
+u32 res_trk_power_up(void);
+u32 res_trk_power_down(void);
+u32 res_trk_enable_clocks(void);
+u32 res_trk_disable_clocks(void);
+u32 res_trk_get_max_perf_level(u32 *pn_max_perf_lvl);
+u32 res_trk_set_perf_level(u32 req_perf_lvl, u32 *pn_set_perf_lvl,
+	struct vcd_dev_ctxt *dev_ctxt);
+u32 res_trk_get_curr_perf_level(u32 *pn_perf_lvl);
+u32 res_trk_download_firmware(void);
 
 #endif

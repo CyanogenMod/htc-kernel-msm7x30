@@ -796,7 +796,7 @@ u32 vid_enc_set_get_intraperiod(struct video_client_ctx *client_ctx,
 
 	if (set_flag) {
 		period.p_frames = intraperiod->num_pframes;
-		period.b_frames = 0;
+		period.b_frames = intraperiod->num_bframes;
 		vcd_status = vcd_set_property(client_ctx->vcd_handle,
 				&vcd_property_hdr, &period);
 
@@ -1211,6 +1211,9 @@ u32 vid_enc_set_get_ratectrlcfg(struct video_client_ctx *client_ctx,
 		case VEN_RC_VBR_VFR:
 			control.rate_control = VCD_RATE_CONTROL_VBR_VFR;
 			break;
+		case VEN_RC_CBR_CFR:
+			control.rate_control = VCD_RATE_CONTROL_CBR_CFR;
+			break;
 		default:
 			status = false;
 			break;
@@ -1246,6 +1249,9 @@ u32 vid_enc_set_get_ratectrlcfg(struct video_client_ctx *client_ctx,
 				break;
 			case VCD_RATE_CONTROL_VBR_VFR:
 				ratectrlcfg->rcmode = VEN_RC_VBR_VFR;
+				break;
+			case VCD_RATE_CONTROL_CBR_CFR:
+				ratectrlcfg->rcmode = VEN_RC_CBR_CFR;
 				break;
 			default:
 				status = false;
@@ -1689,4 +1695,93 @@ u32 vid_enc_fill_output_buffer(struct video_client_ctx *client_ctx,
 		ERR("%s(): kernel_vaddr not found\n", __func__);
 		return false;
 	}
+}
+u32 vid_enc_set_recon_buffers(struct video_client_ctx *client_ctx,
+		struct venc_recon_addr *venc_recon)
+{
+	u32 vcd_status = VCD_ERR_FAIL;
+	u32 len;
+	struct file *file;
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_enc_recon_buffer control;
+
+	control.buffer_size = venc_recon->buffer_size;
+	control.kernel_virtual_addr = NULL;
+	control.physical_addr = NULL;
+	control.pmem_fd = venc_recon->pmem_fd;
+	control.offset = venc_recon->offset;
+
+	if (get_pmem_file(control.pmem_fd, (unsigned long *)
+		(&(control.physical_addr)), (unsigned long *)
+		(&control.kernel_virtual_addr),
+		(unsigned long *) (&len), &file)) {
+			ERR("%s(): get_pmem_file failed\n", __func__);
+			return false;
+		}
+		put_pmem_file(file);
+		DBG("Virt: %p, Phys %p, fd: %d", control.kernel_virtual_addr,
+			control.physical_addr, control.pmem_fd);
+
+		vcd_property_hdr.prop_id = VCD_I_RECON_BUFFERS;
+		vcd_property_hdr.sz =
+			sizeof(struct vcd_property_enc_recon_buffer);
+
+		vcd_status = vcd_set_property(client_ctx->vcd_handle,
+						&vcd_property_hdr, &control);
+		if (!vcd_status) {
+			DBG("vcd_set_property returned success\n");
+			return true;
+		} else {
+			ERR("%s(): vid_enc_set_recon_buffers failed = %u\n",
+					__func__, vcd_status);
+			return false;
+		}
+}
+
+u32 vid_enc_free_recon_buffers(struct video_client_ctx *client_ctx)
+{
+	u32 vcd_status = VCD_ERR_FAIL;
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_enc_recon_buffer control;
+
+	vcd_property_hdr.prop_id = VCD_I_FREE_RECON_BUFFERS;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+						&vcd_property_hdr, &control);
+	return true;
+}
+
+u32 vid_enc_get_recon_buffer_size(struct video_client_ctx *client_ctx,
+		struct venc_recon_buff_size *venc_recon_size)
+{
+	u32 vcd_status = VCD_ERR_FAIL;
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_buffer_size control;
+
+	control.width = venc_recon_size->width;
+	control.height = venc_recon_size->height;
+
+	vcd_property_hdr.prop_id = VCD_I_GET_RECON_BUFFER_SIZE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
+
+	vcd_status = vcd_get_property(client_ctx->vcd_handle,
+					&vcd_property_hdr, &control);
+
+	venc_recon_size->width = control.width;
+	venc_recon_size->height = control.height;
+	venc_recon_size->size = control.size;
+	venc_recon_size->alignment = control.alignment;
+	DBG("W: %d, H: %d, S: %d, A: %d", venc_recon_size->width,
+			venc_recon_size->height, venc_recon_size->size,
+			venc_recon_size->alignment);
+
+	if (!vcd_status) {
+		DBG("vcd_set_property returned success\n");
+		return true;
+		} else {
+			ERR("%s(): vid_enc_get_recon_buffer_size failed = %u\n",
+				__func__, vcd_status);
+			return false;
+		}
 }

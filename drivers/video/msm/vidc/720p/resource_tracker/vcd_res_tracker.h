@@ -51,8 +51,8 @@ struct res_trk_context {
 
 #if DEBUG
 
-#define VCDRES_MSG_LOW(xx_fmt...)	printk(KERN_INFO "[VID] * " xx_fmt)
-#define VCDRES_MSG_MED(xx_fmt...)	printk(KERN_INFO "[VID] * " xx_fmt)
+#define VCDRES_MSG_LOW(xx_fmt...)	printk(KERN_INFO "\n\t* " xx_fmt)
+#define VCDRES_MSG_MED(xx_fmt...)	printk(KERN_INFO "\n  * " xx_fmt)
 
 #else
 
@@ -61,8 +61,8 @@ struct res_trk_context {
 
 #endif
 
-#define VCDRES_MSG_HIGH(xx_fmt...)	printk(KERN_WARNING "[VID] " xx_fmt)
-#define VCDRES_MSG_ERROR(xx_fmt...)	printk(KERN_ERR "[VID] err: " xx_fmt)
-#define VCDRES_MSG_FATAL(xx_fmt...)	printk(KERN_ERR "[VID] <FATAL> " xx_fmt)
+#define VCDRES_MSG_HIGH(xx_fmt...)	printk(KERN_WARNING "\n" xx_fmt)
+#define VCDRES_MSG_ERROR(xx_fmt...)	printk(KERN_ERR "\n err: " xx_fmt)
+#define VCDRES_MSG_FATAL(xx_fmt...)	printk(KERN_ERR "\n<FATAL> " xx_fmt)
 
 #endif

@@ -2193,6 +2193,7 @@ VIDC_REG_1137_METADATA_DISPLAY_INDEX_SHFT          0
 #define VIDC_720P_PROFILE_H264_BASELINE 0
 #define VIDC_720P_PROFILE_H264_MAIN     1
 #define VIDC_720P_PROFILE_H264_HIGH     2
+#define VIDC_720P_PROFILE_H264_CPB      3
 #define VIDC_720P_PROFILE_H263_BASELINE 0
 
 #define VIDC_720P_PROFILE_VC1_SP        0
@@ -2655,25 +2656,25 @@ void vidcput_debug_reglog(void);
 #define VIDC_LOGERR_STRING(str) \
 do { \
 	VIDC_STR_LOGBUFFER(str); \
-	VIDC_MSG1("\n[VID] <%s>", str); \
+	VIDC_MSG1("\n<%s>", str); \
 } while (0)
 
 #define VIDC_LOG_STRING(str) \
 do { \
 	VIDC_STR_LOGBUFFER(str); \
-	VIDC_MSG1("\n[VID] <%s>", str); \
+	VIDC_MSG1("\n<%s>", str); \
 } while (0)
 
 #define VIDC_LOG1(str, arg1) \
 do { \
 	VIDC_LONG_LOGBUFFER(str, arg1); \
-	VIDC_MSG2("\n[VID] <%s=0x%08x>", str, arg1); \
+	VIDC_MSG2("\n<%s=0x%08x>", str, arg1); \
 } while (0)
 
 #define VIDC_IO_OUT(reg,  val) \
 do { \
 	VIDC_LOG_WRITE(reg, (u32)val);  \
-	VIDC_MSG2("\n[VID] (0x%08x:"#reg"=0x%08x)",  \
+	VIDC_MSG2("\n(0x%08x:"#reg"=0x%08x)",  \
 	(u32)(VIDC_##reg##_ADDR - DDL_720P_REG_BASE),  (u32)val); \
 	mb(); \
 	VIDC_720P_OUT(reg, val);  \
@@ -2682,7 +2683,7 @@ do { \
 #define VIDC_IO_OUTI(reg,  index,  val) \
 do { \
 	VIDC_LOG_WRITEI(reg, index, (u32)val); \
-	VIDC_MSG2("\n[VID] (0x%08x:"#reg"=0x%08x)",  \
+	VIDC_MSG2("\n(0x%08x:"#reg"=0x%08x)",  \
 	(u32)(VIDC_##reg##_ADDR(index)-DDL_720P_REG_BASE),  (u32)val); \
 	mb(); \
 	VIDC_720P_OUTI(reg, index, val);  \
@@ -2691,7 +2692,7 @@ do { \
 #define VIDC_IO_OUTF(reg,  field,  val) \
 do { \
 	VIDC_LOG_WRITEF(reg, field, val); \
-	VIDC_MSG3("\n[VID] (0x%08x:"#reg":0x%x:=0x%08x)",  \
+	VIDC_MSG3("\n(0x%08x:"#reg":0x%x:=0x%08x)",  \
 	(u32)(VIDC_##reg##_ADDR - DDL_720P_REG_BASE),  \
 	VIDC_##reg##_##field##_BMSK,  (u32)val); \
 	mb(); \
@@ -2703,7 +2704,7 @@ do { \
 	mb(); \
 	*pval = (u32) VIDC_720P_IN(reg); \
 	VIDC_LOG_READ(reg, pval); \
-	VIDC_MSG2("\n[VID] (0x%08x:"#reg"==0x%08x)",  \
+	VIDC_MSG2("\n(0x%08x:"#reg"==0x%08x)",  \
 	(u32)(VIDC_##reg##_ADDR - DDL_720P_REG_BASE), (u32) *pval);  \
 } while (0)
 
@@ -2712,7 +2713,7 @@ do { \
 	mb(); \
 	*pval = VIDC_720P_INF(reg, mask); \
 	VIDC_LOG_READ(reg, pval); \
-	VIDC_MSG2("\n[VID] (0x%08x:"#reg"==0x%08x)",  \
+	VIDC_MSG2("\n(0x%08x:"#reg"==0x%08x)",  \
 	(u32)(VIDC_##reg##_ADDR - DDL_720P_REG_BASE),  *pval); \
 } while (0)
 

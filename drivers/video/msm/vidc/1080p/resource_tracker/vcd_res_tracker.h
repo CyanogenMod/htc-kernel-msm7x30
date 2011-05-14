@@ -26,35 +26,43 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _VCD_DDL_UTILS_H_
-#define _VCD_DDL_UTILS_H_
+#ifndef _VIDEO_720P_RESOURCE_TRACKER_H_
+#define _VIDEO_720P_RESOURCE_TRACKER_H_
 
-#include "vcd_ddl_core.h"
-#include "vcd_ddl.h"
+#include "vcd_res_tracker_api.h"
 
-#define DDL_INLINE
+#define RESTRK_1080P_VGA_PERF_LEVEL    36000
+#define RESTRK_1080P_720P_PERF_LEVEL   108000
+#define RESTRK_1080P_1080P_PERF_LEVEL  244800
 
-#define DDL_ALIGN_SIZE(sz, guard_bytes, align_mask) \
-  (((u32)(sz) + guard_bytes) & align_mask)
+#define RESTRK_1080P_MIN_PERF_LEVEL RESTRK_1080P_VGA_PERF_LEVEL
+#define RESTRK_1080P_MAX_PERF_LEVEL RESTRK_1080P_1080P_PERF_LEVEL
 
-#define DDL_MALLOC(x)  kmalloc(x, GFP_KERNEL)
-#define DDL_FREE(x)   { if ((x)) kfree((x)); (x) = NULL; }
+struct res_trk_context {
+	struct device *device;
+	u32 irq_num;
+	struct mutex lock;
+	struct clk *vcodec_clk;
+	unsigned long vcodec_clk_rate;
+	unsigned int clock_enabled;
+	unsigned int rail_enabled;
+	unsigned int perf_level;
+};
 
-void ddl_pmem_alloc(struct ddl_buf_addr *, u32, u32);
+#if DEBUG
 
-void ddl_pmem_free(struct ddl_buf_addr);
+#define VCDRES_MSG_LOW(xx_fmt...)	printk(KERN_INFO "\n\t* " xx_fmt)
+#define VCDRES_MSG_MED(xx_fmt...)	printk(KERN_INFO "\n  * " xx_fmt)
 
-void ddl_get_core_start_time(u8 codec);
+#else
 
-void ddl_calc_core_time(u8 codec);
+#define VCDRES_MSG_LOW(xx_fmt...)
+#define VCDRES_MSG_MED(xx_fmt...)
 
-void ddl_reset_time_variables(u8 codec);
+#endif
 
-#define DDL_ASSERT(x)
-#define DDL_MEMSET(src, value, len) memset((src), (value), (len))
-#define DDL_MEMCPY(dest, src, len)  memcpy((dest), (src), (len))
-
-#define DDL_ADDR_IS_ALIGNED(addr, align_bytes) \
-(!((u32)(addr) & ((align_bytes) - 1)))
+#define VCDRES_MSG_HIGH(xx_fmt...)	printk(KERN_WARNING "\n" xx_fmt)
+#define VCDRES_MSG_ERROR(xx_fmt...)	printk(KERN_ERR "\n err: " xx_fmt)
+#define VCDRES_MSG_FATAL(xx_fmt...)	printk(KERN_ERR "\n<FATAL> " xx_fmt)
 
 #endif

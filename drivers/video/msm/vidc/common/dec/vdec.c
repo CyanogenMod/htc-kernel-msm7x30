@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,13 +42,13 @@
 
 
 #if DEBUG
-#define DBG(x...) printk(KERN_DEBUG "[VID] " x)
+#define DBG(x...) printk(KERN_DEBUG x)
 #else
 #define DBG(x...)
 #endif
 
-#define INFO(x...) printk(KERN_INFO "[VID] " x)
-#define ERR(x...) printk(KERN_ERR "[VID] " x)
+#define INFO(x...) printk(KERN_INFO x)
+#define ERR(x...) printk(KERN_ERR x)
 
 #define VID_DEC_NAME		"msm_vidc_dec"
 
@@ -79,6 +79,7 @@ u32 vid_dec_get_status(u32 status)
 	u32 vdec_status;
 
 	switch (status) {
+	case VCD_ERR_SEQHDR_PARSE_FAIL:
 	case VCD_ERR_BITSTREAM_ERR:
 	case VCD_S_SUCCESS:
 		vdec_status = VDEC_S_SUCCESS;
@@ -195,6 +196,7 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 	int pmem_fd;
 	struct file *file;
 	s32 buffer_index = -1;
+	enum vdec_picture pic_type;
 
 	if (!client_ctx || !vcd_frame_data) {
 		ERR("vid_dec_input_frame_done() NULL pointer\n");
@@ -257,6 +259,25 @@ static void vid_dec_output_frame_done(struct video_client_ctx *client_ctx,
 			vcd_frame_data->dec_op_prop.disp_frm.right;
 		vdec_msg->vdec_msg_info.msgdata.output_frame.framesize.top =
 			vcd_frame_data->dec_op_prop.disp_frm.top;
+		/* Decoded picture type */
+		switch (vcd_frame_data->frame) {
+		case VCD_FRAME_I:
+			pic_type = PICTURE_TYPE_I;
+			break;
+		case VCD_FRAME_P:
+			pic_type = PICTURE_TYPE_P;
+			break;
+		case VCD_FRAME_B:
+			pic_type = PICTURE_TYPE_B;
+			break;
+		case VCD_FRAME_NOTCODED:
+			pic_type = PICTURE_TYPE_SKIP;
+			break;
+		default:
+			pic_type = PICTURE_TYPE_UNKNOWN;
+		}
+		vdec_msg->vdec_msg_info.msgdata.output_frame.pic_type =
+			pic_type;
 		vdec_msg->vdec_msg_info.msgdatasize =
 		    sizeof(struct vdec_output_frameinfo);
 	} else {
@@ -290,44 +311,44 @@ static void vid_dec_lean_event(struct video_client_ctx *client_ctx,
 
 	switch (event) {
 	case VCD_EVT_IND_OUTPUT_RECONFIG:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_EVT_CONFIG_CHANGED"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_EVT_CONFIG_CHANGED"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_EVT_CONFIG_CHANGED;
 		break;
 	case VCD_EVT_IND_RESOURCES_LOST:
-		INFO("msm_vidc_dec: Sending VDEC_EVT_RESOURCES_LOST"
+		INFO("\n msm_vidc_dec: Sending VDEC_EVT_RESOURCES_LOST"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode = VDEC_EVT_RESOURCES_LOST;
 		break;
 	case VCD_EVT_RESP_FLUSH_INPUT_DONE:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_RESP_FLUSH_INPUT_DONE"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_RESP_FLUSH_INPUT_DONE"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode =
 		    VDEC_MSG_RESP_FLUSH_INPUT_DONE;
 		break;
 	case VCD_EVT_RESP_FLUSH_OUTPUT_DONE:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_RESP_FLUSH_OUTPUT_DONE"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_RESP_FLUSH_OUTPUT_DONE"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode =
 		    VDEC_MSG_RESP_FLUSH_OUTPUT_DONE;
 		break;
 	case VCD_EVT_IND_HWERRFATAL:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_EVT_HW_ERROR"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_EVT_HW_ERROR"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_EVT_HW_ERROR;
 		break;
 	case VCD_EVT_RESP_START:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_RESP_START_DONE"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_RESP_START_DONE"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_RESP_START_DONE;
 		break;
 	case VCD_EVT_RESP_STOP:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_RESP_STOP_DONE"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_RESP_STOP_DONE"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_RESP_STOP_DONE;
 		break;
 	case VCD_EVT_RESP_PAUSE:
-		INFO("msm_vidc_dec: Sending VDEC_MSG_RESP_PAUSE_DONE"
+		INFO("\n msm_vidc_dec: Sending VDEC_MSG_RESP_PAUSE_DONE"
 			 " to client");
 		vdec_msg->vdec_msg_info.msgcode = VDEC_MSG_RESP_PAUSE_DONE;
 		break;
@@ -593,6 +614,143 @@ static u32 vid_dec_set_picture_order(struct video_client_ctx *client_ctx,
 	return ret;
 }
 
+static u32 vid_dec_set_frame_rate(struct video_client_ctx *client_ctx,
+					struct vdec_framerate *frame_rate)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_frame_rate vcd_frame_rate;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	if (!client_ctx || !frame_rate)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_FRAME_RATE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_frame_rate);
+	vcd_frame_rate.fps_numerator = frame_rate->fps_numerator;
+	vcd_frame_rate.fps_denominator = frame_rate->fps_denominator;
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &vcd_frame_rate);
+
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_set_extradata(struct video_client_ctx *client_ctx,
+					u32 *extradata_flag)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_meta_data_enable vcd_meta_data;
+	u32 vcd_status = VCD_ERR_FAIL;
+	if (!client_ctx || !extradata_flag)
+		return false;
+	vcd_property_hdr.prop_id = VCD_I_METADATA_ENABLE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_meta_data_enable);
+	vcd_meta_data.meta_data_enable_flag = *extradata_flag;
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &vcd_meta_data);
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_set_h264_mv_buffers(struct video_client_ctx *client_ctx,
+					struct vdec_h264_mv *mv_data)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_h264_mv_buffer vcd_h264_mv_buffer;
+	u32 vcd_status = VCD_ERR_FAIL;
+	u32 len;
+	struct file *file;
+
+	if (!client_ctx || !mv_data)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_H264_MV_BUFFER;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_h264_mv_buffer);
+
+	memset(&vcd_h264_mv_buffer, 0,
+		   sizeof(struct vcd_property_h264_mv_buffer));
+	vcd_h264_mv_buffer.size = mv_data->size;
+	vcd_h264_mv_buffer.count = mv_data->count;
+	vcd_h264_mv_buffer.pmem_fd = mv_data->pmem_fd;
+	vcd_h264_mv_buffer.offset = mv_data->offset;
+
+	if (get_pmem_file(vcd_h264_mv_buffer.pmem_fd,
+		(unsigned long *) (&(vcd_h264_mv_buffer.physical_addr)),
+		(unsigned long *) (&vcd_h264_mv_buffer.kernel_virtual_addr),
+		(unsigned long *) (&len), &file)) {
+		ERR("%s(): get_pmem_file failed\n", __func__);
+		return false;
+	}
+	put_pmem_file(file);
+
+	DBG("Virt: %p, Phys %p, fd: %d\n", vcd_h264_mv_buffer.
+		kernel_virtual_addr, vcd_h264_mv_buffer.physical_addr,
+		vcd_h264_mv_buffer.pmem_fd);
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &vcd_h264_mv_buffer);
+
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_get_h264_mv_buffer_size(struct video_client_ctx *client_ctx,
+					struct vdec_mv_buff_size *mv_buff)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_buffer_size h264_mv_buffer_size;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	if (!client_ctx || !mv_buff)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_GET_H264_MV_SIZE;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
+
+	h264_mv_buffer_size.width = mv_buff->width;
+	h264_mv_buffer_size.height = mv_buff->height;
+
+	vcd_status = vcd_get_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &h264_mv_buffer_size);
+
+	mv_buff->width = h264_mv_buffer_size.width;
+	mv_buff->height = h264_mv_buffer_size.height;
+	mv_buff->size = h264_mv_buffer_size.size;
+	mv_buff->alignment = h264_mv_buffer_size.alignment;
+
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
+static u32 vid_dec_free_h264_mv_buffers(struct video_client_ctx *client_ctx)
+{
+	struct vcd_property_hdr vcd_property_hdr;
+	struct vcd_property_buffer_size h264_mv_buffer_size;
+	u32 vcd_status = VCD_ERR_FAIL;
+
+	if (!client_ctx)
+		return false;
+
+	vcd_property_hdr.prop_id = VCD_I_FREE_H264_MV_BUFFER;
+	vcd_property_hdr.sz = sizeof(struct vcd_property_buffer_size);
+
+	vcd_status = vcd_set_property(client_ctx->vcd_handle,
+				      &vcd_property_hdr, &h264_mv_buffer_size);
+	if (vcd_status)
+		return false;
+	else
+		return true;
+}
+
 static u32 vid_dec_get_buffer_req(struct video_client_ctx *client_ctx,
 				  struct vdec_allocatorproperty *vdec_buf_req)
 {
@@ -702,16 +860,16 @@ static u32 vid_dec_pause_resume(struct video_client_ctx *client_ctx, u32 pause)
   u32 vcd_status;
 
 	if (!client_ctx) {
-		ERR("%s(): Invalid client_ctx", __func__);
+		ERR("\n %s(): Invalid client_ctx", __func__);
 		return false;
 	}
 
 	if (pause) {
-		INFO("msm_vidc_dec: PAUSE command from client = %p\n",
+		INFO("\n msm_vidc_dec: PAUSE command from client = %p\n",
 			 client_ctx);
 		vcd_status = vcd_pause(client_ctx->vcd_handle);
 	} else{
-		INFO("msm_vidc_dec: RESUME command from client = %p\n",
+		INFO("\n msm_vidc_dec: RESUME command from client = %p\n",
 			 client_ctx);
 		vcd_status = vcd_resume(client_ctx->vcd_handle);
 	}
@@ -728,15 +886,15 @@ static u32 vid_dec_start_stop(struct video_client_ctx *client_ctx, u32 start)
 	struct vid_dec_msg *vdec_msg = NULL;
 	u32 vcd_status;
 
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	if (!client_ctx) {
-		ERR("Invalid client_ctx");
+		ERR("\n Invalid client_ctx");
 		return false;
 	}
 
 	if (start) {
 		if (client_ctx->seq_header_set) {
-			INFO("%s(): Seq Hdr set: Send START_DONE to client",
+			INFO("\n %s(): Seq Hdr set: Send START_DONE to client",
 				 __func__);
 			vdec_msg = kzalloc(sizeof(*vdec_msg), GFP_KERNEL);
 			if (!vdec_msg) {
@@ -758,7 +916,7 @@ static u32 vid_dec_start_stop(struct video_client_ctx *client_ctx, u32 start)
 			    client_ctx);
 
 		} else {
-			INFO("%s(): Calling decode_start()", __func__);
+			INFO("\n %s(): Calling decode_start()", __func__);
 			vcd_status =
 			    vcd_decode_start(client_ctx->vcd_handle, NULL);
 
@@ -769,7 +927,7 @@ static u32 vid_dec_start_stop(struct video_client_ctx *client_ctx, u32 start)
 			}
 		}
 	} else {
-		INFO("%s(): Calling vcd_stop()", __func__);
+		INFO("\n %s(): Calling vcd_stop()", __func__);
 		mutex_lock(&vid_dec_device_p->lock);
 		vcd_status = VCD_ERR_FAIL;
 		if (!client_ctx->stop_called) {
@@ -887,10 +1045,10 @@ static u32 vid_dec_flush(struct video_client_ctx *client_ctx,
 {
 	u32 vcd_status = VCD_ERR_FAIL;
 
-	INFO("msm_vidc_dec: %s() called with dir = %u", __func__,
+	INFO("\n msm_vidc_dec: %s() called with dir = %u", __func__,
 		 flush_dir);
 	if (!client_ctx) {
-		ERR("Invalid client_ctx");
+		ERR("\n Invalid client_ctx");
 		return false;
 	}
 
@@ -941,20 +1099,17 @@ static u32 vid_dec_msg_pending(struct video_client_ctx *client_ctx)
 	return !islist_empty;
 }
 
-static u32 vid_dec_get_next_msg(struct video_client_ctx *client_ctx,
+static int vid_dec_get_next_msg(struct video_client_ctx *client_ctx,
 				struct vdec_msginfo *vdec_msg_info)
 {
 	int rc;
 	struct vid_dec_msg *vid_dec_msg = NULL;
 
-	if (!client_ctx) {
-		ERR("%s(): !client_ctx\n", __func__);
+	if (!client_ctx)
 		return false;
-	}
 
 	rc = wait_event_interruptible(client_ctx->msg_wait,
 				      vid_dec_msg_pending(client_ctx));
-
 	if (rc < 0) {
 		DBG("rc = %d, stop_msg = %u\n", rc, client_ctx->stop_msg);
 		return rc;
@@ -974,7 +1129,7 @@ static u32 vid_dec_get_next_msg(struct video_client_ctx *client_ctx,
 		kfree(vid_dec_msg);
 	}
 	mutex_unlock(&client_ctx->msg_queue_lock);
-	return true;
+	return 0;
 }
 
 static int vid_dec_ioctl(struct inode *inode, struct file *file,
@@ -1236,14 +1391,11 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
 			return -EFAULT;
 		result = vid_dec_get_next_msg(client_ctx, &vdec_msg_info);
-
+		if (result)
+			return result;
 		if (copy_to_user(vdec_msg.out, &vdec_msg_info,
 					sizeof(vdec_msg_info)))
 			return -EFAULT;
-
-                 if (result)
-			return result;
-
 		break;
 	}
 	case VDEC_IOCTL_STOP_NEXT_MSG:
@@ -1344,6 +1496,78 @@ static int vid_dec_ioctl(struct inode *inode, struct file *file,
 			return -EIO;
 		break;
 	}
+	case VDEC_IOCTL_SET_FRAME_RATE:
+	{
+		struct vdec_framerate frame_rate;
+		DBG("VDEC_IOCTL_SET_FRAME_RATE\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&frame_rate, vdec_msg.in,
+						   sizeof(frame_rate)))
+			return -EFAULT;
+		result = vid_dec_set_frame_rate(client_ctx, &frame_rate);
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_SET_EXTRADATA:
+	{
+		u32 extradata_flag;
+		DBG("VDEC_IOCTL_SET_EXTRADATA\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&extradata_flag, vdec_msg.in,
+						   sizeof(u32)))
+			return -EFAULT;
+		result = vid_dec_set_extradata(client_ctx, &extradata_flag);
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_SET_H264_MV_BUFFER:
+	{
+		struct vdec_h264_mv mv_data;
+		DBG("VDEC_IOCTL_SET_H264_MV_BUFFER\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&mv_data, vdec_msg.in,
+						   sizeof(mv_data)))
+			return -EFAULT;
+		result = vid_dec_set_h264_mv_buffers(client_ctx, &mv_data);
+
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_FREE_H264_MV_BUFFER:
+	{
+		DBG("VDEC_IOCTL_FREE_H264_MV_BUFFER\n");
+		result = vid_dec_free_h264_mv_buffers(client_ctx);
+		if (!result)
+			return -EIO;
+		break;
+	}
+	case VDEC_IOCTL_GET_MV_BUFFER_SIZE:
+	{
+		struct vdec_mv_buff_size mv_buff;
+		DBG("VDEC_IOCTL_GET_MV_BUFFER_SIZE\n");
+		if (copy_from_user(&vdec_msg, arg, sizeof(vdec_msg)))
+			return -EFAULT;
+		if (copy_from_user(&mv_buff, vdec_msg.out,
+						   sizeof(mv_buff)))
+			return -EFAULT;
+		result = vid_dec_get_h264_mv_buffer_size(client_ctx, &mv_buff);
+		if (result) {
+			DBG(" Returning W: %d, H: %d, S: %d, A: %d",
+				mv_buff.width, mv_buff.height,
+				mv_buff.size, mv_buff.alignment);
+			if (copy_to_user(vdec_msg.out, &mv_buff,
+					sizeof(mv_buff)))
+				return -EFAULT;
+		} else
+			return -EIO;
+		break;
+	}
 	default:
 		ERR("%s(): Unsupported ioctl\n", __func__);
 		return -ENOTTY;
@@ -1358,9 +1582,9 @@ static u32 vid_dec_close_client(struct video_client_ctx *client_ctx)
 	struct vid_dec_msg *vdec_msg;
 	u32 vcd_status;
 
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	if (!client_ctx || (!client_ctx->vcd_handle)) {
-		ERR("Invalid client_ctx");
+		ERR("\n Invalid client_ctx");
 		return false;
 	}
 
@@ -1404,7 +1628,7 @@ static int vid_dec_open(struct inode *inode, struct file *file)
 	u32 vcd_status = VCD_ERR_FAIL;
 	u8 client_count = 0;
 
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	mutex_lock(&vid_dec_device_p->lock);
 
 	client_count = vcd_get_num_of_clients();
@@ -1461,13 +1685,13 @@ static int vid_dec_release(struct inode *inode, struct file *file)
 {
 	struct video_client_ctx *client_ctx = file->private_data;
 
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	vid_dec_close_client(client_ctx);
 	vidc_release_firmware();
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
 #endif
-	INFO("msm_vidc_dec: Return from %s()", __func__);
+	INFO("\n msm_vidc_dec: Return from %s()", __func__);
 	return 0;
 }
 
@@ -1502,7 +1726,7 @@ static int vid_dec_vcd_init(void)
 	u32 i;
 
 	/* init_timer(&hw_timer); */
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	vid_dec_device_p->num_clients = 0;
 
 	for (i = 0; i < VIDC_MAX_NUM_CLIENTS; i++) {
@@ -1544,7 +1768,7 @@ static int __init vid_dec_init(void)
 	int rc = 0;
 	struct device *class_devp;
 
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	vid_dec_device_p = kzalloc(sizeof(struct vid_dec_dev), GFP_KERNEL);
 	if (!vid_dec_device_p) {
 		ERR("%s Unable to allocate memory for vid_dec_dev\n",
@@ -1605,13 +1829,13 @@ error_vid_dec_alloc_chrdev_region:
 
 static void __exit vid_dec_exit(void)
 {
-	INFO("msm_vidc_dec: Inside %s()", __func__);
+	INFO("\n msm_vidc_dec: Inside %s()", __func__);
 	cdev_del(&(vid_dec_device_p->cdev));
 	device_destroy(vid_dec_class, vid_dec_dev_num);
 	class_destroy(vid_dec_class);
 	unregister_chrdev_region(vid_dec_dev_num, 1);
 	kfree(vid_dec_device_p);
-	INFO("msm_vidc_dec: Return from %s()", __func__);
+	INFO("\n msm_vidc_dec: Return from %s()", __func__);
 }
 
 MODULE_LICENSE("GPL v2");

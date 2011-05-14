@@ -528,10 +528,10 @@ struct vdec_output_frameinfo {
 	size_t len;
 	uint32_t flags;
 	int64_t time_stamp;
+	enum vdec_picture pic_type;
 	void *client_data;
 	void *input_frame_clientdata;
 	struct vdec_framesize framesize;
-	enum vdec_picture pic_type;
 };
 
 union vdec_msgdata {

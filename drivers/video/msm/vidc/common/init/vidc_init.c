@@ -41,15 +41,15 @@
 #include "vcd_res_tracker_api.h"
 
 #if DEBUG
-#define DBG(x...) printk(KERN_DEBUG "[VID] " x)
+#define DBG(x...) printk(KERN_DEBUG x)
 #else
 #define DBG(x...)
 #endif
 
 #define VIDC_NAME "msm_vidc_reg"
 
-#define ERR(x...) printk(KERN_ERR "[VID] " x)
-#define HW_TIME_OUT 10
+#define ERR(x...) printk(KERN_ERR x)
+
 static struct vidc_dev *vidc_device_p;
 static dev_t vidc_dev_num;
 static struct class *vidc_class;
@@ -112,7 +112,7 @@ static void vidc_work_handler(struct work_struct *work)
 
 static DECLARE_WORK(vidc_work, vidc_work_handler);
 
-static int vidc_720p_probe(struct platform_device *pdev)
+static int __devinit vidc_720p_probe(struct platform_device *pdev)
 {
 	struct resource *resource;
 	DBG("Enter %s()\n", __func__);
@@ -549,7 +549,7 @@ void  vidc_timer_start(void *timer_handle, u32 time_out)
 	struct vidc_timer *hw_timer = (struct vidc_timer *)timer_handle;
 	DBG("%s(): start timer\n ", __func__);
 	if (hw_timer) {
-		hw_timer->hw_timeout.expires = jiffies + HW_TIME_OUT*HZ;
+		hw_timer->hw_timeout.expires = jiffies + 1*HZ;
 		add_timer(&hw_timer->hw_timeout);
 	}
 }

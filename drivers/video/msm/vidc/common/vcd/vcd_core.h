@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -193,6 +193,7 @@ struct vcd_clnt_ctxt {
 
 	u32 live;
 	u32 decoding;
+	u32 bframe;
 
 	struct vcd_property_frame_rate frm_rate;
 	u32 frm_p_units;
