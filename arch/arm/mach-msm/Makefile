@@ -186,8 +186,12 @@ obj-$(CONFIG_MACH_BRAVOC) += board-bravoc-wifi.o htc_awb_cal.o
 obj-$(CONFIG_MACH_BRAVOC) += board-bravoc-microp.o
 
 # MSM7x30 boards
+ifndef CONFIG_MACH_SPADE
 obj-$(CONFIG_ARCH_MSM7X30) += panel-samsungwvga-tl2796a.o panel-samsungwvga-s6e63m0.o panel-sonywvga-s6d16a0x21-7x30.o
 obj-$(CONFIG_ARCH_MSM7X30) += htc_wifi_nvs.o htc_awb_cal.o
+else
+obj-$(CONFIG_ARCH_MSM7X30) += htc_wifi_nvs.o
+endif
 obj-$(CONFIG_MACH_VISION)+= board-vision.o
 obj-$(CONFIG_MACH_VISION)+= board-vision-keypad.o
 obj-$(CONFIG_MACH_VISION)+= board-vision-microp.o
