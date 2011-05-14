@@ -254,12 +254,6 @@ typedef struct wl_join_params {
 
 #define WLC_CNTRY_BUF_SZ	4		
 
-typedef struct wl_country {
-	char country_abbrev[WLC_CNTRY_BUF_SZ];
-	int32 rev;
-	char ccode[WLC_CNTRY_BUF_SZ];
-} wl_country_t;
-
 typedef enum sup_auth_status {
 	
 	WLC_SUP_DISCONNECTED = 0,
