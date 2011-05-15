@@ -741,6 +741,9 @@ uint32_t mddi_remote_read(struct msm_mddi_client_data *cdata, uint32_t reg)
 
 	do {
 		init_completion(&ri.done);
+		if (mddi->type == MSM_MDP_MDDI_TYPE_II)
+			mddi_set_auto_hibernate(&mddi->client_data, 0);
+		mddi_writel(MDDI_CMD_SEND_RTD, CMD);
 		mddi->reg_read = &ri;
 		mddi_writel(mddi->reg_read_addr, PRI_PTR);
 
@@ -753,10 +756,14 @@ uint32_t mddi_remote_read(struct msm_mddi_client_data *cdata, uint32_t reg)
 		/* while((s & MDDI_STAT_PRI_LINK_LIST_DONE) == 0){ */
 		/*	s = mddi_readl(STAT); */
 		/* } */
-
-		/* Enable Periodic Reverse Encapsulation. */
-		mddi_writel(MDDI_CMD_PERIODIC_REV_ENCAP | 1, CMD);
-		mddi_wait_interrupt(mddi, MDDI_INT_NO_CMD_PKTS_PEND);
+		if (mddi->type == MSM_MDP_MDDI_TYPE_II) {
+			mddi_writel(MDDI_CMD_SEND_REV_ENCAP, CMD);
+			mddi_wait_interrupt(mddi, MDDI_INT_REV_DATA_AVAIL);
+		} else {
+			/* Enable Periodic Reverse Encapsulation. */
+			mddi_writel(MDDI_CMD_PERIODIC_REV_ENCAP | 1, CMD);
+			mddi_wait_interrupt(mddi, MDDI_INT_NO_CMD_PKTS_PEND);
+		}
 		if (wait_for_completion_timeout(&ri.done, HZ/10) == 0 &&
 		    !ri.done.done) {
 			PR_DISP_INFO("mddi_remote_read(%x) timeout "
@@ -784,6 +791,8 @@ uint32_t mddi_remote_read(struct msm_mddi_client_data *cdata, uint32_t reg)
 		       "MDDI_CMD_SEND_RTD: int %x, stat %x, rtd val %x "
 		       "curr_rev_ptr %x\n", mddi_readl(INT), mddi_readl(STAT),
 		       mddi_readl(RTD_VAL), mddi_readl(CURR_REV_PTR));
+		if (mddi->type == MSM_MDP_MDDI_TYPE_II)
+			mddi_set_auto_hibernate(&mddi->client_data, 1);
 	} while (retry_count-- > 0);
 	/* Disable Periodic Reverse Encapsulation. */
 	mddi_writel(MDDI_CMD_PERIODIC_REV_ENCAP | 0, CMD);
