@@ -104,7 +104,7 @@ obj-$(CONFIG_ADAPTEC_STARFIRE) += starfire.o
 obj-$(CONFIG_RIONET) += rionet.o
 obj-$(CONFIG_SH_ETH) += sh_eth.o
 obj-$(CONFIG_STMMAC_ETH) += stmmac/
-obj-$(CONFIG_KINETO_GAN) += kineto_gan.o
+obj-$(CONFIG_GAN_ETH) += gan-eth.o
 
 #
 # end link order section

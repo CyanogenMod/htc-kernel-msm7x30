@@ -3350,11 +3350,12 @@ config VMXNET3
          To compile this driver as a module, choose M here: the
          module will be called vmxnet3.
 
-config KINETO_GAN
-        tristate "Kineto GAN virtual network interface"
-        depends on ARM
+config GAN_ETH
+        tristate "Kineto GAN compatibility"
+        depends on INET
         default n
         help
-          Virtual ethernet interface for Kineto GAN transport.
+          A virutual ethernet device that adds/removes IP/UDP headers,
+          as required by Kineto GAN.
 
 endif # NETDEVICES
