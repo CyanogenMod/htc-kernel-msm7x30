@@ -137,6 +137,7 @@ int __init speedy_wifi_init(void)
 	speedy_wifi_update_nvs("sd_oobonly=1\n");
 	speedy_wifi_update_nvs("btc_params80=0\n");
 	speedy_wifi_update_nvs("btc_params6=30\n");
+        speedy_wifi_update_nvs("btc_params70=0x32\n");
 	speedy_init_wifi_mem();
 	ret = platform_device_register(&speedy_wifi_device);
 	return ret;
