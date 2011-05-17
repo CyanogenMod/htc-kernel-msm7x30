@@ -875,13 +875,7 @@ config USB_ANDROID_ADB
 	  Provides adb function for android gadget driver.
 
 config USB_ANDROID_DIAG
-	boolean "USB HTC Diag Function"
-	depends on USB_ANDROID
-	help
-	  Qualcomm diagnostics interface support.
-
-config USB_ANDROID_QCT_DIAG
-	boolean "USB MSM Diag Function"
+	boolean "USB MSM7K Diag Function"
 	depends on USB_ANDROID
 	help
 	  Qualcomm diagnostics interface support.
@@ -904,20 +898,23 @@ config USB_ANDROID_RNDIS
 	help
 	  Provides RNDIS ethernet function for android gadget driver.
 
-config USB_ANDROID_SERIAL
-	boolean "Android gadget Serial function"
-	depends on USB_ANDROID
-	help
+config USB_ANDROID_RNDIS_WCEIS
+        boolean "Use Windows Internet Sharing Class/SubClass/Protocol"
+        depends on USB_ANDROID_RNDIS
+        help
+         Causes the driver to look like a Windows-compatible Internet
+         Sharing device, so Windows auto-detects it.
 
-config USB_ANDROID_PROJECTOR
-	boolean "Android gadget Projector function"
-	depends on USB_ANDROID
-	help
+         If you enable this option, the device is no longer CDC ethernet
+         compatible.
 
-config USB_ANDROID_ECM
-	boolean "Android gadget ECM function"
+
+config USB_ANDROID_ACCESSORY
+	boolean "Android USB accessory function"
 	depends on USB_ANDROID
 	help
+	  Provides Android USB Accessory support for android gadget driver.
+
 config USB_CDC_COMPOSITE
 	tristate "CDC Composite Device (Ethernet and ACM)"
 	depends on NET
@@ -1026,12 +1023,13 @@ config DOCK_ACCESSORY_DETECT
 	default n
 
 config USB_BYPASS_VBUS_NOTIFY
-        boolean "USB BYPASS VBUS NOTIFY"
-        depends on USB_ANDROID
-        default n
+	boolean "USB BYPASS VBUS NOTIFY"
+	depends on USB_ANDROID
+	default n
 
 config USB_HUB
 	boolean "USB HUB driver"
 	depends on USB_ANDROID
 	default n
+
 endif # USB_GADGET

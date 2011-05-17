@@ -25,7 +25,6 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/etherdevice.h>
-#include <linux/usb/android_composite.h>
 
 #include "u_ether.h"
 
@@ -456,25 +455,6 @@ static int ecm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_ecm		*ecm = func_to_ecm(f);
 	struct usb_composite_dev *cdev = f->config->cdev;
-	struct usb_descriptor_header **desc;
-	struct usb_interface_descriptor *data_intf, *control_intf;
-
-	printk(KERN_INFO "%s: intf %d, alt %d\n", __func__, intf, alt);
-	if (cdev->gadget->speed == USB_SPEED_HIGH)
-		desc = f->hs_descriptors;
-	else
-		desc = f->descriptors;
-	control_intf = (struct usb_interface_descriptor *)*desc;
-	data_intf = (struct usb_interface_descriptor *)*(desc+6);
-
-	ecm_union_desc.bMasterInterface0 = control_intf->bInterfaceNumber;
-	ecm->ctrl_id = control_intf->bInterfaceNumber;
-	ecm_control_intf.bInterfaceNumber = control_intf->bInterfaceNumber;
-
-	ecm_union_desc.bSlaveInterface0 = data_intf->bInterfaceNumber;
-	ecm->data_id = data_intf->bInterfaceNumber;
-	ecm_data_nop_intf.bInterfaceNumber = data_intf->bInterfaceNumber;
-	ecm_data_intf.bInterfaceNumber = data_intf->bInterfaceNumber;
 
 	/* Control interface has only altsetting 0 */
 	if (intf == ecm->ctrl_id) {
@@ -840,7 +820,6 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 	ecm->port.func.get_alt = ecm_get_alt;
 	ecm->port.func.setup = ecm_setup;
 	ecm->port.func.disable = ecm_disable;
-	ecm->port.func.hidden = 1;
 
 	status = usb_add_function(c, &ecm->port.func);
 	if (status) {
@@ -849,25 +828,3 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 	}
 	return status;
 }
-static u8 ethaddr[ETH_ALEN] = { 11, 22, 33, 44, 55, 66 };
-
-int ecm_function_bind_config(struct usb_configuration *c)
-{
-	int ret = gether_setup(c->cdev->gadget, ethaddr);
-	/*if (ret == 0)*/
-		ret = ecm_bind_config(c, ethaddr);
-	return ret;
-}
-
-static struct android_usb_function ecm_function = {
-	.name = "cdc_ethernet",
-	.bind_config = ecm_function_bind_config,
-};
-
-static int __init init(void)
-{
-	printk(KERN_INFO "f_ecm init\n");
-	android_register_function(&ecm_function);
-	return 0;
-}
-module_init(init);

@@ -164,9 +164,6 @@ static void dock_isr_work(struct work_struct *w);
 static void dock_detect_work(struct work_struct *w);
 static void dock_detect_init(struct usb_info *ui);
 #endif
-extern int android_switch_function(unsigned func);
-extern int android_show_function(char *buf);
-extern void android_set_serialno(char *serialno);
 
 #define USB_STATE_IDLE    0
 #define USB_STATE_ONLINE  1
@@ -1191,119 +1188,6 @@ static ssize_t show_usb_cable_connect(struct device *dev,
 
 static DEVICE_ATTR(usb_cable_connect, 0444, show_usb_cable_connect, NULL);
 
-static ssize_t show_usb_function_switch(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return android_show_function(buf);
-}
-
-static ssize_t store_usb_function_switch(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	unsigned u;
-	ssize_t  ret;
-
-	u = simple_strtoul(buf, NULL, 10);
-	ret = android_switch_function(u);
-
-	if (ret == 0)
-		return count;
-	else
-		return 0;
-}
-
-static DEVICE_ATTR(usb_function_switch, 0664,
-	show_usb_function_switch, store_usb_function_switch);
-
-static ssize_t show_usb_serial_number(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	unsigned length;
-	struct msm_hsusb_platform_data *pdata = dev->platform_data;
-
-	length = sprintf(buf, "%s", pdata->serial_number);
-	return length;
-}
-
-static ssize_t store_usb_serial_number(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct msm_hsusb_platform_data *pdata = dev->platform_data;
-	char *serialno = "000000000000";
-
-	if (buf[0] == '0' || buf[0] == '1') {
-		memset(mfg_df_serialno, 0x0, sizeof(mfg_df_serialno));
-		if (buf[0] == '0') {
-			strncpy(mfg_df_serialno, serialno, strlen(serialno));
-			use_mfg_serialno = 1;
-			android_set_serialno(mfg_df_serialno);
-		} else {
-			strncpy(mfg_df_serialno, pdata->serial_number,
-				strlen(pdata->serial_number));
-			use_mfg_serialno = 0;
-			android_set_serialno(pdata->serial_number);
-		}
-		/* reset_device */
-		msm_hsusb_request_reset();
-	}
-
-	return count;
-}
-
-static DEVICE_ATTR(usb_serial_number, 0644,
-	show_usb_serial_number, store_usb_serial_number);
-
-static ssize_t show_dummy_usb_serial_number(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	unsigned length;
-	struct msm_hsusb_platform_data *pdata = dev->platform_data;
-
-	if (use_mfg_serialno)
-		length = sprintf(buf, "%s", mfg_df_serialno); /* dummy */
-	else
-		length = sprintf(buf, "%s", pdata->serial_number); /* Real */
-	return length;
-}
-
-static ssize_t store_dummy_usb_serial_number(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	int data_buff_size = (sizeof(mfg_df_serialno) > strlen(buf))?
-		strlen(buf):sizeof(mfg_df_serialno);
-	int loop_i;
-
-	/* avoid overflow, mfg_df_serialno[16] always is 0x0 */
-	if (data_buff_size == 16)
-		data_buff_size--;
-
-	for (loop_i = 0; loop_i < data_buff_size; loop_i++)	{
-		if (buf[loop_i] >= 0x30 && buf[loop_i] <= 0x39) /* 0-9 */
-			continue;
-		else if (buf[loop_i] >= 0x41 && buf[loop_i] <= 0x5A) /* A-Z */
-			continue;
-		if (buf[loop_i] == 0x0A) /* Line Feed */
-			continue;
-		else {
-			USB_WARNING("%s(): get invaild char (0x%2.2X)\n",
-				__func__, buf[loop_i]);
-			return -EINVAL;
-		}
-	}
-
-	use_mfg_serialno = 1;
-	memset(mfg_df_serialno, 0x0, sizeof(mfg_df_serialno));
-	strncpy(mfg_df_serialno, buf, data_buff_size);
-	android_set_serialno(mfg_df_serialno);
-	/*device_reset */
-	msm_hsusb_request_reset();
-
-	return count;
-}
-
-static DEVICE_ATTR(dummy_usb_serial_number, 0644,
-	show_dummy_usb_serial_number, store_dummy_usb_serial_number);
-
 static ssize_t show_USB_ID_status(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
@@ -1493,21 +1377,6 @@ static void usb_prepare(struct usb_info *ui)
 		&dev_attr_usb_cable_connect);
 	if (ret != 0)
 		USB_WARNING("dev_attr_usb_cable_connect failed\n");
-
-	ret = device_create_file(&ui->pdev->dev,
-		&dev_attr_usb_function_switch);
-	if (ret != 0)
-		USB_WARNING("dev_attr_usb_function_switch failed\n");
-
-	ret = device_create_file(&ui->pdev->dev,
-		&dev_attr_usb_serial_number);
-	if (ret != 0)
-		USB_WARNING("dev_attr_usb_serial_number failed\n");
-
-	ret = device_create_file(&ui->pdev->dev,
-		&dev_attr_dummy_usb_serial_number);
-	if (ret != 0)
-		USB_WARNING("dev_attr_dummy_usb_serial_number failed\n");
 
 	ret = device_create_file(&ui->pdev->dev,
 		&dev_attr_USB_ID_status);

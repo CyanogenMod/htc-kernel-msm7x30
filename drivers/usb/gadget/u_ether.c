@@ -95,7 +95,7 @@ struct eth_dev {
 
 #ifdef CONFIG_USB_GADGET_DUALSPEED
 
-static unsigned qmult = 10;
+static unsigned qmult = 5;
 module_param(qmult, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(qmult, "queue length multiplier at high speed");
 
@@ -337,8 +337,7 @@ next_frame:
 		DBG(dev, "rx %s reset\n", ep->name);
 		defer_kevent(dev, WORK_RX_MEMORY);
 quiesce:
-		if (skb)
-			dev_kfree_skb_any(skb);
+		dev_kfree_skb_any(skb);
 		goto clean;
 
 	/* data overrun */
