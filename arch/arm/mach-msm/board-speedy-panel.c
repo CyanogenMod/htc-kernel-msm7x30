@@ -48,6 +48,8 @@ extern int panel_type;
 #define	PANEL_SPEEDY_SHARP	3
 #define PANEL_SPEEDY_SHARP_CUT2        (PANEL_SPEEDY_SHARP | DRIVER_IC_CUT2)
 
+static struct clk *axi_clk;
+
 static struct vreg *V_LCMIO_1V8, *V_LCM_2V85;
 static struct cabc_t {
 	struct led_classdev lcd_backlight;
@@ -363,6 +365,8 @@ speedy_mddi_init(struct msm_mddi_bridge_platform_data *bridge_data,
 				client_data->send_powerdown(client_data);
 		}
 	}
+	if(axi_clk)
+		clk_set_rate(axi_clk, 0);
 
 	return 0;
 }
@@ -425,6 +429,9 @@ mddi_novatec_power(struct msm_mddi_client_data *client_data, int on)
 {
 	if (panel_type == 0) {
 		if (on) {
+			if(axi_clk)
+				clk_set_rate(axi_clk, 192000000);
+
 			vreg_enable(V_LCM_2V85);
 			vreg_enable(V_LCMIO_1V8);
 			hr_msleep(20);
@@ -441,6 +448,9 @@ mddi_novatec_power(struct msm_mddi_client_data *client_data, int on)
 		}
 	} else {
 		if (on) {
+			if(axi_clk)
+				clk_set_rate(axi_clk, 192000000);
+
 			vreg_enable(V_LCM_2V85);
 			hr_msleep(3);
 			vreg_disable(V_LCM_2V85);
@@ -511,31 +521,6 @@ int __init speedy_init_panel(unsigned int sys_rev)
 
 	B(KERN_INFO "%s: enter.\n", __func__);
 
-	msm_device_mdp.dev.platform_data = &mdp_pdata;
-	rc = platform_device_register(&msm_device_mdp);
-	if (rc)
-		return rc;
-
-	if (panel_type == 0) {
-		mddi_pdata.clk_rate = 384000000;
-		mddi_pdata.type = MSM_MDP_MDDI_TYPE_I;
-	} else {
-		if (panel_type & DRIVER_IC_CUT2)
-			mddi_pdata.clk_rate = 384000000;
-		else
-			mddi_pdata.clk_rate = 256000000;
-		mddi_pdata.type = MSM_MDP_MDDI_TYPE_II;
-	}
-
-	msm_device_mddi0.dev.platform_data = &mddi_pdata;
-	rc = platform_device_register(&msm_device_mddi0);
-	if (rc)
-		return rc;
-
-	rc = platform_driver_register(&speedy_backlight_driver);
-	if (rc)
-		return rc;
-
 	/* lcd panel power */
 	/* 2.85V -- LDO20 */
 	V_LCM_2V85 = vreg_get(NULL, "gp13");
@@ -555,6 +540,37 @@ int __init speedy_init_panel(unsigned int sys_rev)
 		       __func__, PTR_ERR(V_LCMIO_1V8));
 		return -1;
 	}
+
+	msm_device_mdp.dev.platform_data = &mdp_pdata;
+	rc = platform_device_register(&msm_device_mdp);
+	if (rc)
+		return rc;
+
+	if (panel_type == 0) {
+		mddi_pdata.clk_rate = 384000000;
+		mddi_pdata.type = MSM_MDP_MDDI_TYPE_I;
+	} else {
+		if (panel_type & DRIVER_IC_CUT2)
+			mddi_pdata.clk_rate = 384000000;
+		else
+			mddi_pdata.clk_rate = 256000000;
+		mddi_pdata.type = MSM_MDP_MDDI_TYPE_II;
+	}
+
+	axi_clk = clk_get(NULL, "ebi1_clk");
+	if (IS_ERR(axi_clk)) {
+		pr_err("%s: failed to get axi clock\n", __func__);
+		return PTR_ERR(axi_clk);
+	}
+
+	msm_device_mddi0.dev.platform_data = &mddi_pdata;
+	rc = platform_device_register(&msm_device_mddi0);
+	if (rc)
+		return rc;
+
+	rc = platform_driver_register(&speedy_backlight_driver);
+	if (rc)
+		return rc;
 
 	return 0;
 }
