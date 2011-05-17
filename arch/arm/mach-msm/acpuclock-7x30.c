@@ -95,8 +95,7 @@ static struct cpufreq_frequency_table freq_table[] = {
         { 0, 245760 },
         { 1, 368640 },
         { 2, 768000 },
-#if defined(CONFIG_MACH_SPADE) || defined(CONFIG_MACH_GLACIER)
-        { 3, 1017600 },
+        { 3, 806400 },
         { 4, 1113600 },
         { 5, 1209600 },
         { 6, 1305600 },
@@ -112,26 +111,6 @@ static struct cpufreq_frequency_table freq_table[] = {
         { 11, 1708800 },
         { 12, 1804800 },
         { 13, CPUFREQ_TABLE_END },
-#endif
-#else
-        { 3, 806400 },
-        { 4, 1017600 },
-        { 5, 1113600 },
-        { 6, 1209600 },
-        { 7, 1305600 },
-        { 8, 1401600 },
-        { 9, 1497600 },
-        { 10, 1516800 },
-#ifndef CONFIG_JESUS_PHONE
-        { 11, CPUFREQ_TABLE_END },
-#else
-        /* Just an example of some of the insanity I was able to pull off on my
-           device */
-        { 11, 1612800 },
-        { 12, 1708800 },
-        { 13, 1804800 },
-        { 14, CPUFREQ_TABLE_END },
-#endif
 #endif
 
 #else
@@ -163,12 +142,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
         /* Make sure any freq based from PLL_2 is a multiple of 19200! 
            Voltage tables are being very conservative and are not designed to
            be an undervolt of any sort. */
-#if defined(CONFIG_MACH_SPADE) || defined(CONFIG_MACH_GLACIER)
-        { 1017600, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1100) },
-#else
         { 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100) },
-        { 1017600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
-#endif
         { 1113600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
         { 1209600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
         { 1305600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
@@ -598,8 +572,13 @@ void __init pll2_fixup(void)
 	u8 pll2_l;
 
 	pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
+#ifdef CONFIG_ACPUCLOCK_OVERCLOCKING
+	speed = &acpu_freq_tbl[8];
+	cpu_freq = &freq_table[3];
+#else
 	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
 	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
+#endif
 
 	if (speed->acpu_clk_khz != 806400 || cpu_freq->frequency != 806400) {
 		pr_err("Frequency table fixups for PLL2 rate failed.\n");
@@ -656,7 +635,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	drv_state.wfi_ramp_down = 1;
 	drv_state.pwrc_ramp_down = 1;
-#if !defined(CONFIG_ACPUCLOCK_LIMIT_768MHZ) && !defined(CONFIG_ACPUCLOCK_OVERCLOCKING)
+#ifndef CONFIG_ACPUCLOCK_LIMIT_768MHZ
 	pll2_fixup();
 #endif
 	acpuclk_init();
