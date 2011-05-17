@@ -148,6 +148,7 @@ int __init glacier_wifi_init(void)
 	glacier_wifi_update_nvs("sd_oobonly=1\n");
 	glacier_wifi_update_nvs("btc_params80=0\n");
 	glacier_wifi_update_nvs("btc_params6=30\n");
+	glacier_wifi_update_nvs("btc_params70=0x32\n");
 	glacier_init_wifi_mem();
 	ret = platform_device_register(&glacier_wifi_device);
 	return ret;
