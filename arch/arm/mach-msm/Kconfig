@@ -1483,6 +1483,13 @@ config ARCH_MSM_FLASHLIGHT
         help
           The flashlight driver is for MSM series.
 
+config ARCH_MSM_FLASHLIGHT_DEATH_RAY
+	bool "Enable high-brightness (death ray) mode"
+	depends on ARCH_MSM_FLASHLIGHT
+	default n
+	help
+	  Enables a high-brightness mode for the flash LED. Dangerous
+
 config VIRTUAL_KPANIC_SRC
 	depends on VIRTUAL_KPANIC_PARTITION
 	string "Partition to steal from"
