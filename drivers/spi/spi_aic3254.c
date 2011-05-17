@@ -450,7 +450,7 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 	case AIC3254_CONFIG_TX:
 		/* TX */
 		pr_aud_info("%s: enable tx\n", __func__);
-		if (en) {
+		if (en && idx != UPLINK_OFF) {
 			if (ctl_ops->tx_amp_enable)
 				ctl_ops->tx_amp_enable(0);
 
@@ -462,12 +462,15 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		} else {
 			aic3254_tx_config(UPLINK_OFF);
 			aic3254_tx_mode = UPLINK_OFF;
+			if (ctl_ops->tx_amp_enable)
+				ctl_ops->tx_amp_enable(0);
+			aic3254_powerdown();
 		}
 		break;
 	case AIC3254_CONFIG_RX:
 		/* RX */
 		pr_aud_info("%s: enable rx\n", __func__);
-		if (en) {
+		if (en && idx != DOWNLINK_OFF) {
 			if (ctl_ops->rx_amp_enable)
 				ctl_ops->rx_amp_enable(0);
 
@@ -479,6 +482,9 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		} else {
 			aic3254_rx_config(DOWNLINK_OFF);
 			aic3254_rx_mode = DOWNLINK_OFF;
+			if (ctl_ops->rx_amp_enable)
+				ctl_ops->rx_amp_enable(0);
+			aic3254_powerdown();
 		}
 		break;
 	case AIC3254_CONFIG_MEDIA:
