@@ -462,6 +462,7 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		} else {
 			aic3254_tx_config(UPLINK_OFF);
 			aic3254_tx_mode = UPLINK_OFF;
+			aic3254_powerdown();
 		}
 		break;
 	case AIC3254_CONFIG_RX:
@@ -479,6 +480,7 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		} else {
 			aic3254_rx_config(DOWNLINK_OFF);
 			aic3254_rx_mode = DOWNLINK_OFF;
+			aic3254_powerdown();
 		}
 		break;
 	case AIC3254_CONFIG_MEDIA:
