@@ -17,6 +17,7 @@
  */
 #include <linux/firmware.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 
 #include "kgsl.h"
 #include "adreno.h"

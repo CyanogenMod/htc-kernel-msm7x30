@@ -20,6 +20,8 @@
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
+
 #include "kgsl.h"
 #include "kgsl_mmu.h"
 #include "adreno_ringbuffer.h"

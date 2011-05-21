@@ -17,6 +17,7 @@
  */
 #include <linux/delay.h>
 #include <linux/uaccess.h>
+#include <linux/sched.h>
 
 #include <linux/vmalloc.h>
 
