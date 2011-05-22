@@ -737,11 +737,19 @@ static struct platform_driver glacier_backlight_driver = {
 };
 
 static struct msm_mdp_platform_data mdp_pdata_sharp = {
-	.overrides = MSM_MDP_PANEL_FLIP_UD | MSM_MDP_PANEL_FLIP_LR,
+	.overrides = MSM_MDP_PANEL_FLIP_UD | MSM_MDP_PANEL_FLIP_LR
+#ifdef CONFIG_GLACIER_OVERLAY_FORCE_UPDATE
+	 | MSM_MDP_FORCE_UPDATE
+#endif
+	,
 };
 
 static struct msm_mdp_platform_data mdp_pdata_common = {
-	.overrides = MSM_MDP4_MDDI_DMA_SWITCH,
+	.overrides = MSM_MDP4_MDDI_DMA_SWITCH
+#ifdef CONFIG_GLACIER_OVERLAY_FORCE_UPDATE
+	 | MSM_MDP_FORCE_UPDATE
+#endif
+	,
 };
 
 int __init glacier_init_panel(void)

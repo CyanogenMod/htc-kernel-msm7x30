@@ -35,6 +35,8 @@ struct mdp_device;
 #define MSM_MDP_DMA_PACK_ALIGN_LSB		(1 << 4)
 #define MSM_MDP_RGB_PANEL_SELE_REFRESH		(1 << 5)
 #define MSM_MDP_ABL_ENABLE			(1 << 6)
+#define MSM_MDP_FORCE_UPDATE			(1 << 7)
+
 
 /* mddi type */
 #define MSM_MDP_MDDI_TYPE_I	 0

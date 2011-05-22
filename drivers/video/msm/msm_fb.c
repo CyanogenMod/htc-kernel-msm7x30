@@ -805,6 +805,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	int	ret;
 	struct msmfb_overlay_data req;
 	struct file *p_src_file = 0;
+	struct msmfb_info *msmfb = info->par;
 
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
@@ -814,6 +815,13 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	}
 
 	ret = mdp->overlay_play(mdp, info, &req, &p_src_file);
+
+	if (ret == 0 && (mdp->overrides & MSM_MDP_FORCE_UPDATE)
+			&& msmfb->sleeping == AWAKE) {
+		msmfb_pan_update(info,
+			0, 0, info->var.xres, info->var.yres,
+			info->var.yoffset, 1);
+	}
 
 	if (p_src_file)
 		put_pmem_file(p_src_file);
