@@ -142,6 +142,7 @@ int __init vivo_wifi_init(void)
 	vivo_wifi_update_nvs("sd_oobonly=1\n");
 	vivo_wifi_update_nvs("btc_params80=0\n");
 	vivo_wifi_update_nvs("btc_params6=30\n");
+	vivo_wifi_update_nvs("btc_params70=0x32\n");
 	vivo_init_wifi_mem();
 	ret = platform_device_register(&vivo_wifi_device);
 	return ret;
