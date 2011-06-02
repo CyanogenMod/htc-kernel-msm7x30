@@ -1453,6 +1453,33 @@ static ssize_t ps_kadc_store(struct device *dev,
 
 static DEVICE_ATTR(ps_kadc, 0664, ps_kadc_show, ps_kadc_store);
 
+static ssize_t ps_polling_ignore_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct isl29028_info *lpi = lp_info;
+
+	ret = sprintf(buf, "%x\n", lpi->enable_polling_ignore);
+
+	return ret;
+}
+
+static ssize_t ps_polling_ignore_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int param1;
+	struct isl29028_info *lpi = lp_info;
+
+	sscanf(buf, "%x", &param1);
+
+	lpi->enable_polling_ignore = !!param1;
+
+	return count;
+}
+
+static DEVICE_ATTR(ps_polling_ignore, 0666, ps_polling_ignore_show, ps_polling_ignore_store);
+
 static ssize_t ps_led_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -2089,6 +2116,11 @@ static int isl29028_probe(struct i2c_client *client,
 
 	/* register the attributes */
 	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_kadc);
+	if (ret)
+		goto err_create_ps_device;
+
+	/* register the attributes */
+	ret = device_create_file(lpi->ps_dev, &dev_attr_ps_polling_ignore);
 	if (ret)
 		goto err_create_ps_device;
 
