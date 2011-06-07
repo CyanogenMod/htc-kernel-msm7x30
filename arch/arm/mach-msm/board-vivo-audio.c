@@ -21,10 +21,10 @@
 #include <mach/gpio.h>
 #include <mach/dal.h>
 #include "board-vivo.h"
-#include <mach/qdsp5v2/snddev_icodec.h>
-#include <mach/qdsp5v2/snddev_ecodec.h>
-#include <mach/qdsp5v2/audio_def.h>
-#include <mach/qdsp5v2/voice.h>
+#include <mach/qdsp5v2_1x/snddev_icodec.h>
+#include <mach/qdsp5v2_1x/snddev_ecodec.h>
+#include <mach/qdsp5v2_1x/audio_def.h>
+#include <mach/qdsp5v2_1x/voice.h>
 #include <mach/htc_acoustic_7x30.h>
 #include <mach/htc_acdb_7x30.h>
 #include <linux/spi/spi_aic3254.h>
@@ -327,6 +327,7 @@ void vivo_get_acoustic_tables(struct acoustic_tables *tb)
 	}
 }
 
+/*
 static struct q5v2audio_icodec_ops iops = {
 	.support_aic3254 = vivo_support_aic3254,
 };
@@ -363,6 +364,7 @@ static struct acoustic_ops acoustic = {
 	.enable_back_mic =  vivo_back_mic_enable,
 	.get_acoustic_tables = vivo_get_acoustic_tables
 };
+*/
 
 static struct aic3254_ctl_ops cops = {
 	.rx_amp_enable = vivo_rx_amp_enable,
