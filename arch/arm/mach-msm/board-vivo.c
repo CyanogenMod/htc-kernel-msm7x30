@@ -2593,7 +2593,7 @@ static void __init vivo_init(void)
 	i2c_register_board_info(4 /* QUP ID */, msm_camera_boardinfo,
 				ARRAY_SIZE(msm_camera_boardinfo));
 
-	msm_init_pmic_vibrator();
+	msm_init_pmic_vibrator(3000);
 
 #ifdef CONFIG_USB_ANDROID
 	vivo_add_usb_devices();
