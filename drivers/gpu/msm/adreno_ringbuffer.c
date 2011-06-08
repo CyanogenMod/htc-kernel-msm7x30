@@ -863,6 +863,13 @@ int kgsl_ringbuffer_extract(struct kgsl_ringbuffer *rb,
 			rmb();
 			BUG_ON((copy_rb_contents == 0) &&
 				(value == cur_context));
+			/*
+			 * If we were copying the commands and got to this point
+			 * then we need to remove the 3 commands that appear
+			 * before KGSL_CONTEXT_TO_MEM_IDENTIFIER
+			 */
+			if (temp_idx)
+				temp_idx -= 3;
 			/* if context switches to a context that did not cause
 			 * hang then start saving the rb contents as those
 			 * commands can be executed */
@@ -879,10 +886,6 @@ int kgsl_ringbuffer_extract(struct kgsl_ringbuffer *rb,
 				temp_rb_buffer[temp_idx++] = val1;
 				temp_rb_buffer[temp_idx++] = value;
 			} else {
-				/* if temp_idx is not 0 then we do not need to
-				 * copy extra dwords indicating a kernel cmd */
-				if (temp_idx)
-					temp_idx -= 3;
 				copy_rb_contents = 0;
 			}
 		} else if (copy_rb_contents)
