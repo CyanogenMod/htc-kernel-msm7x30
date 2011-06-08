@@ -47,10 +47,6 @@ struct synaptics_ts_data {
 	uint32_t raw_base;
 	uint32_t raw_ref;
 	uint64_t timestamp;
-	uint16_t *filter_level;
-	uint8_t grip_suppression;
-	uint8_t grip_b_suppression;
-	uint8_t ambiguous_state;
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -195,7 +191,7 @@ static int synaptics_init_panel(struct synaptics_ts_data *ts)
 		ret = i2c_smbus_write_byte_data(ts->client,
 			ts->page_table[2].value + 0x48, ts->sensitivity_adjust); /* Set Sensitivity */
 		if (ret < 0)
-			printk(KERN_ERR "TOUCH_ERR: i2c_smbus_write_byte_data failed for Sensitivity Set\n");
+			printk(KERN_ERR "i2c_smbus_write_byte_data failed for Sensitivity Set\n");
 	}
 
 	/* Position Threshold */
@@ -235,18 +231,18 @@ static void synaptics_ts_work_func(struct work_struct *work)
 	ret = i2c_transfer(ts->client->adapter, msg, 2);
 	if (ret < 0 || ((buf[0] & 0x0F))) {
 		if (ret < 0)
-			printk(KERN_ERR "TOUCH_ERR: synaptics_ts_work_func: i2c_transfer failed\n");
+			printk(KERN_ERR "synaptics_ts_work_func: i2c_transfer failed\n");
 		else
-			printk(KERN_INFO "TOUCH_ERR: synaptics_ts_work_func: Status ERROR: %d\n", buf[0] & 0x0F);
+			printk(KERN_ERR "synaptics_ts_work_func: Status ERROR: %d\n", buf[0] & 0x0F);
 		/* reset touch control */
 		if (ts->power) {
 			ret = ts->power(0);
 			if (ret < 0)
-				printk(KERN_ERR "TOUCH_ERR: synaptics_ts_work_func power off failed\n");
+				printk(KERN_ERR "synaptics_ts_resume power off failed\n");
 			msleep(10);
 			ret = ts->power(1);
 			if (ret < 0)
-				printk(KERN_ERR "synaptics_ts_work_func power on failed\n");
+				printk(KERN_ERR	"synaptics_ts_resume power on failed\n");
 		} else {
 			i2c_smbus_write_byte_data(ts->client, ts->page_table[7].value, 0x01);
 			msleep(250);
@@ -270,33 +266,24 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				printk(" %2x", buf[i]);
 			printk("\n");
 		}
-		for (loop_i = 0; loop_i < ts->finger_support; loop_i++) {
+		for (loop_i = 0; loop_i < ts->finger_support; loop_i++)
 			if (buf[1 + (ts->finger_support + 3) / 4] >> (loop_i * 2) & 0x03) {
 				finger_pressed |= 1 << loop_i;
 				finger_count++;
-			} else if (ts->grip_suppression & BIT(loop_i)) {
-				ts->grip_suppression &= ~BIT(loop_i);
-				ts->grip_b_suppression &= ~BIT(loop_i);
 			}
-		}
-		if (ts->finger_pressed != finger_pressed
-			&& (ts->pre_finger_data[0][0] < 2 || ts->filter_level[0])) {
+		if (ts->finger_pressed != finger_pressed && ts->pre_finger_data[0][0] < 2) {
 			finger_press_changed = ts->finger_pressed ^ finger_pressed;
 			finger_release_changed = finger_press_changed & (~finger_pressed);
 			finger_press_changed &= finger_pressed;
 			ts->finger_pressed = finger_pressed;
 		}
-		if (finger_pressed == 0 ||
-			((ts->grip_suppression | ts->grip_b_suppression) == finger_pressed && finger_release_changed)) {
+		if (finger_pressed == 0) {
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 #else
 			input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE, 0);
 			input_report_abs(ts->input_dev, ABS_MT_POSITION, 1 << 31);
 #endif
-			ts->ambiguous_state = 0;
-			ts->grip_b_suppression = 0;
-
 			if (ts->debug_log_level & 0x2)
 				printk(KERN_INFO "Finger leave\n");
 		}
@@ -316,8 +303,6 @@ static void synaptics_ts_work_func(struct work_struct *work)
 					pos_mask <<= 4;
 				}
 				finger_data[loop_i][2] = (buf[base+3] >> 4 & 0x0F) + (buf[base+3] & 0x0F);
-				if (((buf[base+3] >> 4 & 0x0F) - (buf[base+3] & 0x0F)) >= 10)
-					ts->grip_b_suppression |= BIT(loop_i);
 				finger_data[loop_i][3] = buf[base+4];
 				if (ts->flags & SYNAPTICS_SWAP_XY)
 					swap(finger_data[loop_i][0], finger_data[loop_i][1]);
@@ -325,26 +310,7 @@ static void synaptics_ts_work_func(struct work_struct *work)
 					printk(KERN_INFO "E%d@%d, %d\n", loop_i + 1,
 					finger_data[loop_i][0], finger_data[loop_i][1]);
 				}
-
-				if (ts->filter_level[0] &&
-					((finger_press_changed | ts->grip_suppression) & BIT(loop_i))) {
-					if ((finger_data[loop_i][0] < (ts->filter_level[0] + ts->ambiguous_state * 20) ||
-						finger_data[loop_i][0] > (ts->filter_level[3] - ts->ambiguous_state * 20)) &&
-						!(ts->grip_suppression & BIT(loop_i))) {
-						ts->grip_suppression |= BIT(loop_i);
-					} else if ((finger_data[loop_i][0] < (ts->filter_level[1] + ts->ambiguous_state * 20) ||
-						finger_data[loop_i][0] > (ts->filter_level[2] - ts->ambiguous_state * 20)) &&
-						(ts->grip_suppression & BIT(loop_i)))
-						ts->grip_suppression |= BIT(loop_i);
-					else if (finger_data[loop_i][0] > (ts->filter_level[1] + ts->ambiguous_state * 20) &&
-						finger_data[loop_i][0] < (ts->filter_level[2] - ts->ambiguous_state * 20)) {
-						ts->grip_suppression &= ~BIT(loop_i);
-					}
-				}
-				if ((ts->grip_suppression | ts->grip_b_suppression) & BIT(loop_i)) {
-					finger_pressed &= ~(1 << loop_i);
-
-				} else if (((finger_pressed >> loop_i) & 1) == 1) {
+				if (((finger_pressed >> loop_i) & 1) == 1) {
 					finger_pressed &= ~(1 << loop_i);
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 					input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR,
@@ -393,19 +359,11 @@ static void synaptics_ts_work_func(struct work_struct *work)
 			}
 			base += 5;
 		}
-		ts->ambiguous_state = 0;
-		for (loop_i = 0; loop_i < ts->finger_support; loop_i++)
-			if (((ts->grip_suppression >> loop_i) & 1) == 1)
-				ts->ambiguous_state++;
 		}
 	}
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 	input_sync(ts->input_dev);
 #endif
-
-	if (ts->debug_log_level & 0x4)
-		printk(KERN_INFO "ts->grip_suppression: %x, ts->ambiguous_state: %x\n",
-			ts->grip_suppression, ts->ambiguous_state);
 
 	if (ts->use_irq)
 		enable_irq(ts->client->irq);
@@ -464,7 +422,7 @@ static int synaptics_ts_probe(
 	}
 
 	if (loop_i == 10) {
-		printk(KERN_INFO "No Synaptics chip\n");
+		printk(KERN_ERR "i2c_smbus_read_byte_data failed\n");
 		goto err_detect_failed;
 	}
 
@@ -492,7 +450,6 @@ static int synaptics_ts_probe(
 		ts->flags = pdata->flags;
 		ts->sensitivity_adjust = pdata->sensitivity_adjust;
 		ts->finger_support = pdata->finger_support;
-		ts->filter_level = pdata->filter_level;
 	}
 	ts->max[0] = max_x =
 		i2c_smbus_read_byte_data(ts->client, ts->page_table[2].value+6) |
@@ -523,7 +480,7 @@ static int synaptics_ts_probe(
 	ret = synaptics_init_panel(ts);
 	ts->timestamp = jiffies + 60 * HZ;
 	if (ret < 0) {
-		printk(KERN_ERR "TOUCH_ERR: synaptics_init_panel failed\n");
+		printk(KERN_ERR "synaptics_init_panel failed\n");
 		goto err_detect_failed;
 	}
 
@@ -535,7 +492,7 @@ static int synaptics_ts_probe(
 	ts->input_dev = input_allocate_device();
 	if (ts->input_dev == NULL) {
 		ret = -ENOMEM;
-		printk(KERN_ERR "TOUCH_ERR: synaptics_ts_probe: Failed to allocate input device\n");
+		printk(KERN_ERR "synaptics_ts_probe: Failed to allocate input device\n");
 		goto err_input_dev_alloc_failed;
 	}
 	ts->input_dev->name = "synaptics-rmi-touchscreen";
@@ -568,7 +525,7 @@ static int synaptics_ts_probe(
 
 	ret = input_register_device(ts->input_dev);
 	if (ret) {
-		printk(KERN_ERR "TOUCH_ERR: synaptics_ts_probe: "
+		printk(KERN_ERR "synaptics_ts_probe: "
 				"Unable to register %s input device\n",
 				ts->input_dev->name);
 		goto err_input_register_device_failed;
@@ -588,7 +545,7 @@ static int synaptics_ts_probe(
 		if (ret == 0)
 			ts->use_irq = 1;
 		else
-			dev_err(&client->dev, "TOUCH_ERR: request_irq failed\n");
+			dev_err(&client->dev, "request_irq failed\n");
 	}
 	if (!ts->use_irq) {
 		hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -657,7 +614,7 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 
 	ret = i2c_smbus_write_byte_data(client, ts->page_table[8].value, 0x01); /* sleep */
 	if (ret < 0)
-		printk(KERN_ERR "TOUCH_ERR: synaptics_ts_suspend: i2c_smbus_write_byte_data failed\n");
+		printk(KERN_ERR "synaptics_ts_suspend: i2c_smbus_write_byte_data failed\n");
 
 	return 0;
 }
