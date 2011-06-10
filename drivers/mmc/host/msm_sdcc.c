@@ -1472,7 +1472,16 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
 }
-
+#ifdef CONFIG_MACH_MECHA
+void msmsdcc_dumpreg(struct mmc_host *mmc)
+{
+        int i;
+        struct msmsdcc_host *host = mmc_priv(mmc);
+        for (i = 0; i < 0x80; i += 4)
+                pr_info("%s: reg 0x%x: 0x%x\n", mmc_hostname(mmc),
+                        i, readl(host->base + i));
+}
+#endif
 int msmsdcc_set_pwrsave(struct mmc_host *mmc, int pwrsave)
 {
 	struct msmsdcc_host *host = mmc_priv(mmc);

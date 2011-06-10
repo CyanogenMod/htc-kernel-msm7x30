@@ -11,9 +11,6 @@
  *
  */
 
-#if defined(CONFIG_QCT_LTE)
-#include <mach/lte/msm_otg.h>
-#endif
 
 #ifndef __ARCH_ARM_MACH_MSM_OTG_H
 #define __ARCH_ARM_MACH_MSM_OTG_H

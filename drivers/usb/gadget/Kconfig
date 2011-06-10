@@ -880,6 +880,12 @@ config USB_ANDROID_DIAG
 	help
 	  Qualcomm diagnostics interface support.
 
+config USB_ANDROID_QCT_DIAG
+	boolean "USB MSM QCT Diag Function"
+	depends on USB_ANDROID
+	help
+	  Qualcomm diagnostics interface support.
+
 config USB_ANDROID_MASS_STORAGE
 	boolean "Android gadget mass storage function"
 	depends on USB_ANDROID && SWITCH

@@ -47,6 +47,9 @@ g_multi-objs			:= multi.o
 g_hid-objs			:= hid.o
 g_nokia-objs			:= nokia.o
 g_webcam-objs			:= webcam.o
+ifeq ($(CONFIG_USB_ANDROID_QCT_DIAG),y)
+diag-objs			:= f_diag.o
+endif
 
 obj-$(CONFIG_USB_ZERO)		+= g_zero.o
 obj-$(CONFIG_USB_AUDIO)		+= g_audio.o
@@ -73,6 +76,7 @@ obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
 obj-$(CONFIG_USB_ANDROID_ACCESSORY)	+= f_accessory.o
 
 # MSM specific
+obj-$(CONFIG_USB_ANDROID_QCT_DIAG)	+= diag.o
 obj-$(CONFIG_USB_ANDROID_DIAG)	+= diag.o
 
 obj-$(CONFIG_USB_HUB)  += smsc251x.o

@@ -18,28 +18,12 @@
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
+#include <mach/htc_battery.h>
 #include <asm/mach-types.h>
-#include <linux/workqueue.h>
-#include <linux/android_alarm.h>
-#include <linux/tps65200.h>
-#include <linux/power_supply.h>
-
-#define TPS65200_CHECK_INTERVAL (600)	/* 600 seconds*/
-
-static struct alarm tps65200_check_alarm;
-static struct workqueue_struct *tps65200_wq;
-static struct work_struct tps65200_work;
 
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
-
 static int tps65200_initial = -1;
 static int tps65200_low_chg;
-static int tps65200_chager_check;
-
-/**
- * Insmod parameters
- */
-/* I2C_CLIENT_INSMOD_1(tps65200); */
 
 static int tps65200_probe(struct i2c_client *client,
 			const struct i2c_device_id *id);
@@ -52,25 +36,14 @@ static int tps65200_remove(struct i2c_client *client);
 
 /* Supersonic for Switch charger */
 struct tps65200_i2c_client {
-	struct i2c_client *client;
-	u8 address;
-	/* max numb of i2c_msg required is for read =2 */
-	struct i2c_msg xfer_msg[2];
-	/* To lock access to xfer_msg */
-	struct mutex xfer_lock;
+    struct i2c_client *client;
+    u8 address;
+    /* max numb of i2c_msg required is for read =2 */
+    struct i2c_msg xfer_msg[2];
+    /* To lock access to xfer_msg */
+    struct mutex xfer_lock;
 };
 static struct tps65200_i2c_client tps65200_i2c_module;
-
-static void tps65200_set_check_alarm(void)
-{
-	ktime_t interval;
-	ktime_t next_alarm;
-
-	interval = ktime_set(TPS65200_CHECK_INTERVAL, 0);
-	next_alarm = ktime_add(alarm_get_elapsed_realtime(), interval);
-	alarm_start_range(&tps65200_check_alarm, next_alarm, next_alarm);
-}
-
 /**
 Function:tps65200_i2c_write
 Target:	Write a byte to Switch charger
@@ -83,31 +56,31 @@ return :TRUE-->OK
  */
 static int tps65200_i2c_write(u8 *value, u8 reg, u8 num_bytes)
 {
-	int ret;
-	struct tps65200_i2c_client *tps;
-	struct i2c_msg *msg;
+    int ret;
+    struct tps65200_i2c_client *tps;
+    struct i2c_msg *msg;
 
-	tps = &tps65200_i2c_module;
+    tps = &tps65200_i2c_module;
 
-	mutex_lock(&tps->xfer_lock);
-	/*
-	 * [MSG1]: fill the register address data
-	 * fill the data Tx buffer
-	 */
-	msg = &tps->xfer_msg[0];
-	msg->addr = tps->address;
-	msg->len = num_bytes + 1;
-	msg->flags = 0;
-	msg->buf = value;
-	/* over write the first byte of buffer with the register address */
-	*value = reg;
-	ret = i2c_transfer(tps->client->adapter, tps->xfer_msg, 1);
-	mutex_unlock(&tps->xfer_lock);
+    mutex_lock(&tps->xfer_lock);
+    /*
+     * [MSG1]: fill the register address data
+     * fill the data Tx buffer
+     */
+    msg = &tps->xfer_msg[0];
+    msg->addr = tps->address;
+    msg->len = num_bytes + 1;
+    msg->flags = 0;
+    msg->buf = value;
+    /* over write the first byte of buffer with the register address */
+    *value = reg;
+    ret = i2c_transfer(tps->client->adapter, tps->xfer_msg, 1);
+    mutex_unlock(&tps->xfer_lock);
 
-	/* i2cTransfer returns num messages.translate it pls.. */
-	if (ret >= 0)
+    /* i2cTransfer returns num messages.translate it pls.. */
+    if (ret >= 0)
 		ret = 0;
-	return ret;
+    return ret;
 }
 
 
@@ -123,34 +96,34 @@ return :TRUE-->OK
  */
 static int tps65200_i2c_read(u8 *value, u8 reg, u8 num_bytes)
 {
-	int ret;
-	u8 val;
-	struct tps65200_i2c_client *tps;
-	struct i2c_msg *msg;
+    int ret;
+    u8 val;
+    struct tps65200_i2c_client *tps;
+    struct i2c_msg *msg;
 
-	tps = &tps65200_i2c_module;
+    tps = &tps65200_i2c_module;
 
-	mutex_lock(&tps->xfer_lock);
-	/* [MSG1] fill the register address data */
-	msg = &tps->xfer_msg[0];
-	msg->addr = tps->address;
-	msg->len = 1;
-	msg->flags = 0; /* Read the register value */
-	val = reg;
-	msg->buf = &val;
-	/* [MSG2] fill the data rx buffer */
-	msg = &tps->xfer_msg[1];
-	msg->addr = tps->address;
-	msg->flags = I2C_M_RD;  /* Read the register value */
-	msg->len = num_bytes;   /* only n bytes */
-	msg->buf = value;
-	ret = i2c_transfer(tps->client->adapter, tps->xfer_msg, 2);
-	mutex_unlock(&tps->xfer_lock);
+    mutex_lock(&tps->xfer_lock);
+    /* [MSG1] fill the register address data */
+    msg = &tps->xfer_msg[0];
+    msg->addr = tps->address;
+    msg->len = 1;
+    msg->flags = 0; /* Read the register value */
+    val = reg;
+    msg->buf = &val;
+    /* [MSG2] fill the data rx buffer */
+    msg = &tps->xfer_msg[1];
+    msg->addr = tps->address;
+    msg->flags = I2C_M_RD;  /* Read the register value */
+    msg->len = num_bytes;   /* only n bytes */
+    msg->buf = value;
+    ret = i2c_transfer(tps->client->adapter, tps->xfer_msg, 2);
+    mutex_unlock(&tps->xfer_lock);
 
-	/* i2cTransfer returns num messages.translate it pls.. */
-	if (ret >= 0)
+    /* i2cTransfer returns num messages.translate it pls.. */
+    if (ret >= 0)
 		ret = 0;
-	return ret;
+    return ret;
 }
 
 
@@ -206,15 +179,12 @@ int tps_set_charger_ctrl(u32 ctl)
 		return 0;
 
 	switch (ctl) {
-	case POWER_SUPPLY_DISABLE_CHARGE:
+	case DISABLE:
 		pr_info("Switch charger OFF\n");
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x28, 0x00);
-		if (tps65200_chager_check)
-			/* cancel CHECK_CHG alarm */
-			alarm_cancel(&tps65200_check_alarm);
 		break;
-	case POWER_SUPPLY_ENABLE_SLOW_CHARGE:
+	case ENABLE_SLOW_CHG:
 		pr_info("Switch charger ON (SLOW)\n");
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x2A, 0x00);
@@ -222,14 +192,9 @@ int tps_set_charger_ctrl(u32 ctl)
 			tps65200_i2c_write_byte(0x8B, 0x03);
 		else
 			tps65200_i2c_write_byte(0x83, 0x03);
-		tps65200_i2c_read_byte(&regh, 0x03);
-		pr_info("batt: Switch charger ON (SLOW): regh 0x03=%x\n", regh);
 		tps65200_i2c_write_byte(0x63, 0x02);
-		if (tps65200_chager_check)
-			/* set alarm for CHECK_CHG */
-			tps65200_set_check_alarm();
 		break;
-	case POWER_SUPPLY_ENABLE_FAST_CHARGE:
+	case ENABLE_FAST_CHG:
 		pr_info("Switch charger ON (FAST)\n");
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x2A, 0x00);
@@ -239,60 +204,13 @@ int tps_set_charger_ctrl(u32 ctl)
 			tps65200_i2c_write_byte(0x83, 0x03);
 		tps65200_i2c_write_byte(0xA3, 0x02);
 		tps65200_i2c_read_byte(&regh, 0x01);
-		pr_info("batt: Switch charger ON (FAST): regh 0x01=%x\n", regh);
+		pr_info("1.batt: Switch charger ON (FAST): regh 0x01=%x\n", regh);
 		tps65200_i2c_read_byte(&regh, 0x00);
-		pr_info("batt: Switch charger ON (FAST): regh 0x00=%x\n", regh);
+		pr_info("2.batt: Switch charger ON (FAST): regh 0x00=%x\n", regh);
 		tps65200_i2c_read_byte(&regh, 0x03);
-		pr_info("batt: Switch charger ON (FAST): regh 0x03=%x\n", regh);
+		pr_info("2.batt: Switch charger ON (FAST): regh 0x03=%x\n", regh);
 		tps65200_i2c_read_byte(&regh, 0x02);
-		pr_info("batt: Switch charger ON (FAST): regh 0x02=%x\n", regh);
-		if (tps65200_chager_check)
-			/* set alarm for CHECK_CHG */
-			tps65200_set_check_alarm();
-		break;
-	case POWER_SUPPLY_ENABLE_SLOW_HV_CHARGE:
-		pr_info("Switch charger ON (SLOW_HV)\n");
-		tps65200_i2c_write_byte(0x29, 0x01);
-		tps65200_i2c_write_byte(0x2A, 0x00);
-		if (tps65200_low_chg)
-			tps65200_i2c_write_byte(0x8B, 0x03);
-		else
-			tps65200_i2c_write_byte(0x83, 0x03);
-		tps65200_i2c_read_byte(&regh, 0x03);
-		pr_info("batt: Switch charger ON (SLOW_HV): regh 0x03=%x\n",
-			 regh);
-		tps65200_i2c_write_byte(0x6A, 0x02);
-		tps65200_i2c_read_byte(&regh, 0x02);
-		pr_info("batt: Switch charger ON (SLOW_HV): regh 0x02=%x\n",
-			 regh);
-		if (tps65200_chager_check)
-			/* set alarm for CHECK_CHG */
-			tps65200_set_check_alarm();
-		break;
-	case POWER_SUPPLY_ENABLE_FAST_HV_CHARGE:
-		pr_info("Switch charger ON (FAST_HV)\n");
-		tps65200_i2c_write_byte(0x29, 0x01);
-		tps65200_i2c_write_byte(0x2A, 0x00);
-		if (tps65200_low_chg)
-			tps65200_i2c_write_byte(0x8B, 0x03);
-		else
-			tps65200_i2c_write_byte(0x83, 0x03);
-		tps65200_i2c_write_byte(0xAA, 0x02);
-		tps65200_i2c_read_byte(&regh, 0x01);
-		pr_info("batt: Switch charger ON (FAST_HV): regh 0x01=%x\n",
-			 regh);
-		tps65200_i2c_read_byte(&regh, 0x00);
-		pr_info("batt: Switch charger ON (FAST_HV): regh 0x00=%x\n",
-			 regh);
-		tps65200_i2c_read_byte(&regh, 0x03);
-		pr_info("batt: Switch charger ON (FAST_HV): regh 0x03=%x\n",
-			 regh);
-		tps65200_i2c_read_byte(&regh, 0x02);
-		pr_info("batt: Switch charger ON (FAST_HV): regh 0x02=%x\n",
-			 regh);
-		if (tps65200_chager_check)
-			/* set alarm for CHECK_CHG */
-			tps65200_set_check_alarm();
+		pr_info("2.batt: Switch charger ON (FAST): regh 0x02=%x\n", regh);
 		break;
 	case ENABLE_LIMITED_CHG:
 		pr_info("Switch charger on (LIMITED)\n");
@@ -363,6 +281,19 @@ int tps_set_charger_ctrl(u32 ctl)
 	return result;
 }
 EXPORT_SYMBOL(tps_set_charger_ctrl);
+static int cable_status_handler_func(struct notifier_block *nfb,
+		unsigned long action, void *param)
+{
+	u32 ctl = (u32)action;
+	pr_info("TPS65200 Switch charger set control%d\n", ctl);
+	tps_set_charger_ctrl(ctl);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block cable_status_handler = {
+	.notifier_call = cable_status_handler_func,
+};
 
 #if 0
 static int tps65200_detect(struct i2c_client *client, int kind,
@@ -379,38 +310,17 @@ static int tps65200_detect(struct i2c_client *client, int kind,
 }
 #endif
 
-static void tps65200_check_alarm_handler(struct alarm *alarm)
-{
-	queue_work(tps65200_wq, &tps65200_work);
-}
-
-static void tps65200_work_func(struct work_struct *work)
-{
-       tps_set_charger_ctrl(CHECK_CHG);
-       tps65200_set_check_alarm();
-}
-
 static int tps65200_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct tps65200_i2c_client   *data = &tps65200_i2c_module;
-	struct tps65200_platform_data *pdata =
-					client->dev.platform_data;
 
 	if (i2c_check_functionality(client->adapter, I2C_FUNC_I2C) == 0) {
 		dev_dbg(&client->dev, "[TPS65200]:I2C fail\n");
 		return -EIO;
 		}
 
-	if (pdata->charger_check) {
-		tps65200_chager_check = 1;
-		pr_info("for battery driver 8x60.\n");
-		INIT_WORK(&tps65200_work, tps65200_work_func);
-		tps65200_wq = create_singlethread_workqueue("tps65200");
-		alarm_init(&tps65200_check_alarm,
-			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
-			tps65200_check_alarm_handler);
-	}
+	register_notifier_cable_status(&cable_status_handler);
 
 	data->address = client->addr;
 	data->client = client;
@@ -457,7 +367,6 @@ static int __init sensors_tps65200_init(void)
 	int res;
 
 	tps65200_low_chg = 0;
-	tps65200_chager_check = 0;
 	res = i2c_add_driver(&tps65200_driver);
 	if (res) {
 		pr_info("[TPS65200]: Driver registration failed \n");
@@ -475,5 +384,5 @@ MODULE_AUTHOR("Josh Hsiao <Josh_Hsiao@htc.com>");
 MODULE_DESCRIPTION("tps65200 driver");
 MODULE_LICENSE("GPL");
 
-fs_initcall(sensors_tps65200_init);
+module_init(sensors_tps65200_init);
 module_exit(sensors_tps65200_exit);

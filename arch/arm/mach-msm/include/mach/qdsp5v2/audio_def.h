@@ -36,7 +36,6 @@
 #define SNDDEV_CAP_PLAYBACK 0x8 /* Support playback */
 #define SNDDEV_CAP_FM 0x10 /* Support FM radio */
 #define SNDDEV_CAP_TTY 0x20 /* Support TTY */
-#define SNDDEV_CAP_ANC 0x40 /* Support ANC */
 #define VOC_NB_INDEX	0
 #define VOC_WB_INDEX	1
 #define VOC_RX_VOL_ARRAY_NUM	2
