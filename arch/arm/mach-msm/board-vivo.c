@@ -1547,7 +1547,7 @@ static void __init msm7x30_init_marimba(void)
 		return;
 	}
 }
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 static struct resource msm_aictl_resources[] = {
 	{
 		.name = "aictl",
@@ -1830,7 +1830,7 @@ static void __init aux_pcm_gpio_init(void)
 		ARRAY_SIZE(aux_pcm_gpio_off));
 }
 
-#endif /* CONFIG_MSM7KV2_AUDIO */
+#endif /* CONFIG_MSM7KV2_1X_AUDIO */
 
 static struct i2c_board_info msm_marimba_board_info[] = {
 	{
@@ -2334,7 +2334,7 @@ static struct platform_device *devices[] __initdata = {
 	&qup_device_i2c,
 	&htc_headset_mgr,
 	&htc_battery_pdev,
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	&msm_aictl_device,
 	&msm_mi2s_device,
 	&msm_lpa_device,
@@ -2345,7 +2345,7 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_MSM_GEMINI
 	&msm_gemini_device,
 #endif
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	&msm_aux_pcm_device,
 #endif
 #ifdef CONFIG_S5K3H1GX
@@ -2652,7 +2652,7 @@ static void __init vivo_init(void)
 	msm_device_i2c_init();
 	qup_device_i2c_init();
 	msm7x30_init_marimba();
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	msm_snddev_init();
 	aux_pcm_gpio_init();
 #endif

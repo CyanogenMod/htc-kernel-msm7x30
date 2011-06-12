@@ -120,7 +120,7 @@ static unsigned aux_pcm_gpio_on[] = {
 
 void vivo_snddev_poweramp_on(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		gpio_set_value(PM8058_GPIO_PM_TO_SYS(VIVO_AUD_SPK_SD), 1);
 		mdelay(30);
@@ -136,7 +136,7 @@ void vivo_snddev_poweramp_on(int en)
 
 void vivo_snddev_hsed_pamp_on(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		gpio_set_value(PM8058_GPIO_PM_TO_SYS(VIVO_AUD_AMP_EN), 1);
 		mdelay(30);
@@ -160,7 +160,7 @@ void vivo_snddev_hs_spk_pamp_on(int en)
 void vivo_snddev_bt_sco_pamp_on(int en)
 {
 	static int bt_sco_refcount;
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	mutex_lock(&bt_sco_lock);
 	if (en) {
 		if (++bt_sco_refcount == 1)
@@ -180,7 +180,7 @@ void vivo_snddev_bt_sco_pamp_on(int en)
 
 void vivo_snddev_receiver_pamp_on(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		gpio_set_value(PM8058_GPIO_PM_TO_SYS(VIVO_AUD_AMP_EN), 1);
 		mdelay(20);
@@ -221,7 +221,7 @@ void vivo_snddev_usb_headset_on(int en)
 
 void vivo_snddev_imic_pamp_on(int en)
 {
-	pr_info("%s: %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 
 	if (en) {
 		pmic_hsed_enable(PM_HSED_CONTROLLER_0, PM_HSED_ENABLE_ALWAYS);
@@ -234,7 +234,7 @@ void vivo_snddev_imic_pamp_on(int en)
 
 void vivo_snddev_emic_pamp_on(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		gpio_set_value(VIVO_AUD_MICPATH_SEL, 1);
 	} else
@@ -243,7 +243,7 @@ void vivo_snddev_emic_pamp_on(int en)
 
 void vivo_back_mic_enable(int en)
 {
-	pr_info("%s %d\n", __func__, en);
+	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		gpio_set_value(VIVO_AUD_MICPATH_SEL, 0);
 		pmic_hsed_enable(PM_HSED_CONTROLLER_1, PM_HSED_ENABLE_ALWAYS);
@@ -261,13 +261,13 @@ int vivo_get_rx_vol(uint8_t hw, int network, int level)
 	maxv = info->max_gain[network];
 	minv = info->min_gain[network];
 	vol = minv + ((maxv - minv) * level) / 100;
-	pr_info("%s(%d, %d, %d) => %d\n", __func__, hw, network, level, vol);
+	pr_aud_info("%s(%d, %d, %d) => %d\n", __func__, hw, network, level, vol);
 	return vol;
 }
 
 void vivo_mic_bias_enable(int en, int shift)
 {
-	pr_info("%s: %d\n", __func__, en);
+	pr_aud_info("%s: %d\n", __func__, en);
 
 	if (en)
 		pmic_hsed_enable(PM_HSED_CONTROLLER_2, PM_HSED_ENABLE_ALWAYS);
@@ -279,7 +279,7 @@ void vivo_rx_amp_enable(int en)
 {
 	if (curr_rx_mode != 0) {
 		atomic_set(&aic3254_ctl, 1);
-		pr_info("%s: curr_rx_mode 0x%x, en %d\n",
+		pr_aud_info("%s: curr_rx_mode 0x%x, en %d\n",
 			__func__, curr_rx_mode, en);
 		if (curr_rx_mode & BIT_SPEAKER)
 			vivo_snddev_poweramp_on(en);
@@ -308,7 +308,7 @@ int vivo_support_aic3254(void)
 
 int vivo_support_back_mic(void)
 {
-	return 1;
+	return 0;
 }
 
 void vivo_get_acoustic_tables(struct acoustic_tables *tb)
@@ -327,7 +327,6 @@ void vivo_get_acoustic_tables(struct acoustic_tables *tb)
 	}
 }
 
-/*
 static struct q5v2audio_icodec_ops iops = {
 	.support_aic3254 = vivo_support_aic3254,
 };
@@ -364,7 +363,6 @@ static struct acoustic_ops acoustic = {
 	.enable_back_mic =  vivo_back_mic_enable,
 	.get_acoustic_tables = vivo_get_acoustic_tables
 };
-*/
 
 static struct aic3254_ctl_ops cops = {
 	.rx_amp_enable = vivo_rx_amp_enable,
@@ -385,7 +383,7 @@ void __init vivo_audio_init(void)
 	};
 
 	mutex_init(&bt_sco_lock);
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	htc_7x30_register_analog_ops(&ops);
 	htc_7x30_register_icodec_ops(&iops);
 	htc_7x30_register_ecodec_ops(&eops);
