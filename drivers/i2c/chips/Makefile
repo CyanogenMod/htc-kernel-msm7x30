@@ -31,6 +31,7 @@ obj-$(CONFIG_INPUT_ISL29028)	+= isl29028.o
 obj-$(CONFIG_INPUT_ISL29029)	+= isl29029.o
 obj-$(CONFIG_SMB329)            += smb329.o
 obj-$(CONFIG_TPS65200)          += tps65200.o
+obj-$(CONFIG_TPS65200_VIVO)          += tps65200_vivo.o
 obj-$(CONFIG_INPUT_CAPELLA_CM3628)          += cm3628.o
 obj-$(CONFIG_SENSORS_CAPSENSE)	+= cap_sense.o
 obj-$(CONFIG_SENSORS_CAPSENSE_EXPRESS)	+= cap_sense_express.o

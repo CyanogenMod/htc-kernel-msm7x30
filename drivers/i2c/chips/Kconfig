@@ -65,14 +65,30 @@ config SMB329
 	 Charging current 100mA~500mA or 500mA~1000mA
 	 by GPIO or Register
 
-config TPS65200
-        tristate "tps65200 Driver"
+
+choice
         depends on I2C
+	prompt "tps65200"
+	default TPS65200_NONE
         help
-         TPS65200 Switch charger implemented by HTC.
-         This could enable battery driver to set
-         Charging current 100mA~500mA or 500mA~1000mA
-         by GPIO or Register
+          TPS65200 Switch charger implemented by HTC.
+          This could enable battery driver to set
+          Charging current 100mA~500mA or 500mA~1000mA
+          by GPIO or Register
+
+	config TPS65200_NONE
+		bool "None"
+
+	config TPS65200
+		bool "tps65200"
+		help
+		  tps65200 Driver
+
+	config TPS65200_VIVO
+		bool "tps65200_vivo"
+		help
+		  tps65200 Driver vivo version
+endchoice
 
 config SENSORS_BMA150
 	tristate "BMA150 G-sensor Driver"
