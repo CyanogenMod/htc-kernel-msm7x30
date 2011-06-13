@@ -677,8 +677,8 @@ static struct msm_mddi_bridge_platform_data renesas_client_data = {
 	.fb_data = {
 		.xres = 480,
 		.yres = 800,
-		.width = 48,
-		.height = 80,
+		.width = 52,
+		.height = 86,
 		.output_format = 0,
 	},
 	.panel_conf = {
