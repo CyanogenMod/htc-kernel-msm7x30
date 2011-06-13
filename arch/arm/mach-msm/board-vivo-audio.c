@@ -308,7 +308,7 @@ int vivo_support_aic3254(void)
 
 int vivo_support_back_mic(void)
 {
-	return 0;
+	return 1;
 }
 
 void vivo_get_acoustic_tables(struct acoustic_tables *tb)
