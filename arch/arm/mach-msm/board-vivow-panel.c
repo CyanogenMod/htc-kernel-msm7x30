@@ -659,8 +659,8 @@ static struct msm_mddi_bridge_platform_data novatec_client_data = {
 	.fb_data = {
 		.xres = 480,
 		.yres = 800,
-		.width = 36,
-		.height = 108,
+		.width = 52,
+		.height = 86,
 		.output_format = 0,
 	},
 	.panel_conf = {
