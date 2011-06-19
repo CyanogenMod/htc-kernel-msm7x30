@@ -68,7 +68,7 @@ config SMB329
 
 choice
         depends on I2C
-	prompt "tps65200"
+	prompt "Select tps65200 version"
 	default TPS65200_NONE
         help
           TPS65200 Switch charger implemented by HTC.
@@ -80,14 +80,14 @@ choice
 		bool "None"
 
 	config TPS65200
-		bool "tps65200"
+		bool "7x30 Version"
 		help
-		  tps65200 Driver
+		  tps65200 Driver 7x30 Version
 
 	config TPS65200_VIVO
-		bool "tps65200_vivo"
+		bool "Vivo/Mecha Version"
 		help
-		  tps65200 Driver vivo version
+		  tps65200 Driver Vivo/Mecha Version
 endchoice
 
 config SENSORS_BMA150
