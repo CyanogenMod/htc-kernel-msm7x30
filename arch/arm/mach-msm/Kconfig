@@ -494,7 +494,7 @@ config MACH_GLACIER
          Support for the Qualcomm MSM7x30 Glacier board.
 
 config OVERLAY_FORCE_UPDATE
-       depends on MACH_GLACIER || MACH_SPEEDY
+       depends on MACH_GLACIER || MACH_SPEEDY || MACH_VIVO || MACH_VIVOW
        depends on MSM_MDP40
        default y
        bool "Force overlay to update screen"

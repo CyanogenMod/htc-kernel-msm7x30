@@ -799,7 +799,11 @@ static struct platform_driver vivow_backlight_driver = {
 };
 
 static struct msm_mdp_platform_data mdp_pdata = {
-	.overrides = MSM_MDP4_MDDI_DMA_SWITCH,
+	.overrides = MSM_MDP4_MDDI_DMA_SWITCH
+#ifdef CONFIG_OVERLAY_FORCE_UPDATE
+	| MSM_MDP_FORCE_UPDATE
+#endif
+	,
 };
 
 int __init vivow_init_panel(unsigned int sys_rev)
