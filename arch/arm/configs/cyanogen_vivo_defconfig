@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.13
-# Sun Jun 19 14:43:32 2011
+# Sun Jun 19 15:37:35 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1352,7 +1352,9 @@ CONFIG_SPI_MASTER=y
 # CONFIG_SPI_BITBANG is not set
 # CONFIG_SPI_GPIO is not set
 CONFIG_SPI_QSD=y
-CONFIG_SPI_QSD_NEW=y
+# CONFIG_SPI_QSD_NEW_NONE is not set
+# CONFIG_SPI_QSD_NEW is not set
+CONFIG_SPI_QSD_NEW_VIVO=y
 # CONFIG_SPI_CRUCIAL_OJ is not set
 CONFIG_SPI_TOUCHSCREEN_NTRIG=y
 CONFIG_SPI_AIC3254=y
