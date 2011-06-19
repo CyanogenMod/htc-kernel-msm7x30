@@ -202,12 +202,26 @@ config SPI_QSD
 	  This driver can also be built as a module.  If so, the module
 	  will be called spi_qsd.
 
-config SPI_QSD_NEW
-	tristate "Qualcomm MSM SPI support"
-	default n
-	depends on SPI_QSD
-	help
-	  none
+choice
+        depends on SPI_QSD
+        prompt "Select SPI_QSD_NEW Version"
+        default SPI_QSD_NEW_NONE
+        help
+	  Qualcomm MSM SPI support
+
+        config SPI_QSD_NEW_NONE
+                bool "None"
+
+        config SPI_QSD_NEW
+                bool "7x30 Version"
+                help
+                  Qualcomm MSM SPI support 7x30 version
+
+        config SPI_QSD_NEW_VIVO
+                bool "Vivo/Mecha Version"
+                help
+                  Qualcomm MSM SPI support vivo/mecha version
+endchoice
 
 config SPI_QUP
 	#tristate "Qualcomm MSM SPI QUPe Support"
