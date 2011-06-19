@@ -1859,7 +1859,7 @@ static struct spi_board_info msm_spi_board_info[] __initdata = {
 };
 
 
-#ifdef CONFIG_SPI_QSD_NEW
+#if defined(CONFIG_SPI_QSD_NEW) || defined(CONFIG_SPI_QSD_NEW_VIVO)
 static int msm_qsd_spi_gpio_config(void)
 {
 #if 0
@@ -1936,7 +1936,7 @@ static int msm_qsd_spi_dma_config(void)
 	return ret;
 }
 #endif
-#ifdef CONFIG_SPI_QSD_NEW
+#if defined(CONFIG_SPI_QSD_NEW) || defined(CONFIG_SPI_QSD_NEW_VIVO)
 static struct msm_spi_platform_data qsd_spi_pdata = {
 	.max_clock_speed = 26000000,
 	.gpio_config  = msm_qsd_spi_gpio_config,
@@ -2326,7 +2326,7 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_ssbi6,
 	&msm_device_ssbi7,
 #endif
-#ifdef CONFIG_SPI_QSD_NEW
+#if defined(CONFIG_SPI_QSD_NEW) || defined(CONFIG_SPI_QSD_NEW_VIVO)
 	&qsdnew_device_spi,
 #endif
 	&msm_device_i2c,
@@ -2705,7 +2705,7 @@ static void __init vivo_init(void)
 	if (rc != 0)
 		pr_crit("%s: Unable to initialize MMC\n", __func__);
 
-#ifdef CONFIG_SPI_QSD_NEW
+#if defined(CONFIG_SPI_QSD_NEW) || defined(CONFIG_SPI_QSD_NEW_VIVO)
 	msm_qsd_spi_init();
 #endif
 	spi_register_board_info(msm_spi_board_info, ARRAY_SIZE(msm_spi_board_info));
