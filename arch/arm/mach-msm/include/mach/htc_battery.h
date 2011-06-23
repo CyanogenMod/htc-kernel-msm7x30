@@ -16,7 +16,7 @@
 #include <linux/notifier.h>
 #include <linux/power_supply.h>
 
-#if CONFIG_TPS65200_VIVO
+#if defined(CONFIG_TPS65200_VIVO)
 #define BATT_EVENT_SUSPEND	0x01
 #define ENABLE_LIMITED_CHG	0x10
 #define CLEAR_LIMITED_CHG	0x11
