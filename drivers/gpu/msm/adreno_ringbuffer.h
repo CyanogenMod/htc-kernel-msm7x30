@@ -33,31 +33,13 @@
 #define GSL_RB_USE_MEM_TIMESTAMP
 #define GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 
-/* ringbuffer sizes log2quadword */
-#define GSL_RB_SIZE_8		0
-#define GSL_RB_SIZE_16		1
-#define GSL_RB_SIZE_32		2
-#define GSL_RB_SIZE_64		3
-#define GSL_RB_SIZE_128		4
-#define GSL_RB_SIZE_256		5
-#define GSL_RB_SIZE_512		6
-#define GSL_RB_SIZE_1K  	7
-#define GSL_RB_SIZE_2K  	8
-#define GSL_RB_SIZE_4K  	9
-#define GSL_RB_SIZE_8K  	10
-#define GSL_RB_SIZE_16K 	11
-#define GSL_RB_SIZE_32K 	12
-#define GSL_RB_SIZE_64K 	13
-#define GSL_RB_SIZE_128K	14
-#define GSL_RB_SIZE_256K	15
-#define GSL_RB_SIZE_512K	16
-#define GSL_RB_SIZE_1M		17
-#define GSL_RB_SIZE_2M		18
-#define GSL_RB_SIZE_4M		19
+/*
+ * Adreno ringbuffer sizes in bytes - these are converted to
+ * the appropriate log2 values in the code
+ */
 
-/* Yamato ringbuffer config*/
-static const unsigned int kgsl_cfg_rb_sizelog2quadwords = GSL_RB_SIZE_32K;
-static const unsigned int kgsl_cfg_rb_blksizequadwords  = GSL_RB_SIZE_16;
+#define KGSL_RB_SIZE (32 * 1024)
+#define KGSL_RB_BLKSIZE 16
 
 /* CP timestamp register */
 #define	REG_CP_TIMESTAMP		 REG_SCRATCH_REG0
@@ -89,7 +71,6 @@ struct kgsl_ringbuffer {
 
 	/*ringbuffer size */
 	unsigned int sizedwords;
-	unsigned int blksizequadwords;
 
 	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
 	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
