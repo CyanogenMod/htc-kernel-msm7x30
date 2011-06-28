@@ -620,13 +620,8 @@ static struct pm8058_led_config pm_led_config_XC[] = {
 		.name = "button-backlight",
 		.type = PM8058_LED_DRVX,
 		.bank = 6,
-		.flags = PM8058_LED_LTU_EN | PM8058_LED_FADE_EN,
-		.period_us = USEC_PER_SEC / 1000,
-		.start_index = 0,
-		.duites_size = 8,
-		.duty_time_ms = 32,
-		.lut_flag = PM_PWM_LUT_RAMP_UP | PM_PWM_LUT_PAUSE_HI_EN,
-		.out_current = 6,
+		.flags = PM8058_LED_DYNAMIC_BRIGHTNESS_EN,
+		.out_current = 20,
 	},
 
 };
