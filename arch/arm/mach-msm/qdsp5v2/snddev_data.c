@@ -172,6 +172,86 @@ static struct platform_device msm_iearpiece_device = {
 	.dev = { .platform_data = &snddev_iearpiece_data },
 };
 
+/* Add for Kinedo Gan-lite */
+static struct adie_codec_action_unit gan_lite_iearpiece_48KHz_osr256_actions[] =
+	HANDSET_RX_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry gan_lite_iearpiece_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = gan_lite_iearpiece_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(gan_lite_iearpiece_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile gan_lite_iearpiece_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = gan_lite_iearpiece_settings,
+	.setting_sz = ARRAY_SIZE(gan_lite_iearpiece_settings),
+};
+
+static struct snddev_icodec_data snddev_gan_lite_iearpiece_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
+	.name = "gan_lite_handset_rx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_HANDSET_SPKR,
+	.profile = &gan_lite_iearpiece_profile,
+	.channel_mode = 1,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.default_sample_rate = 48000,
+	.pamp_on = handset_enable,
+	.vol_idx = Q5V2_HW_HANDSET
+};
+
+static struct platform_device gan_lite_iearpiece_device = {
+	.name = "snddev_icodec",
+	.id = 40,
+	.dev = { .platform_data = &snddev_gan_lite_iearpiece_data },
+};
+
+static struct adie_codec_action_unit gan_lite_ispeaker_rx_48KHz_osr256_actions[] =
+	SPEAKER_RX_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry gan_lite_ispeaker_rx_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = gan_lite_ispeaker_rx_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(gan_lite_ispeaker_rx_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile gan_lite_ispeaker_rx_profile = {
+	.path_type = ADIE_CODEC_RX,
+	.settings = gan_lite_ispeaker_rx_settings,
+	.setting_sz = ARRAY_SIZE(gan_lite_ispeaker_rx_settings),
+};
+
+static struct snddev_icodec_data snddev_gan_lite_ispeaker_rx_data = {
+	.capability = (SNDDEV_CAP_RX | SNDDEV_CAP_VOICE),
+	.name = "gan_lite_speaker_mono_rx",
+	.copp_id = 0,
+	.acdb_id = ACDB_ID_SPKR_PHONE_MONO,
+	.profile = &gan_lite_ispeaker_rx_profile,
+	.channel_mode = 2,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.default_sample_rate = 48000,
+	.pamp_on = speaker_enable,
+	.vol_idx = Q5V2_HW_SPEAKER
+};
+
+static struct platform_device gan_lite_ispeaker_rx_device = {
+	.name = "snddev_icodec",
+	.id = 48,
+	.dev = { .platform_data = &snddev_gan_lite_ispeaker_rx_data },
+
+};
+
+/* End of Gan-lite adie nodes */
+
 static struct adie_codec_action_unit imic_8KHz_osr256_actions[] =
 	HANDSET_TX_8000_OSR_256;
 
