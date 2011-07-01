@@ -189,22 +189,33 @@ default value of '20' it means that if the CPU usage needs to be below
 
 The CPUfreq governor "interactive" is designed for low latency,
 interactive workloads. This governor sets the CPU speed depending on
-usage, similar to "ondemand" and "conservative" governors. However
-there is no polling, or 'sample_rate' required to scale the CPU up.
+usage, similar to "ondemand" and "conservative" governors.  However,
+the governor is more aggressive about scaling the CPU speed up in
+response to CPU-intensive activity.
 
-Sampling CPU load every X ms can lead to under powering the CPU
-for X ms, leading to dropped framerate, stuttering UI etc..
+Sampling the CPU load every X ms can lead to under-powering the CPU
+for X ms, leading to dropped frames, stuttering UI, etc.  Instead of
+sampling the cpu at a specified rate, the interactive governor will
+check whether to scale the cpu frequency up soon after coming out of
+idle.  When the cpu comes out of idle, a timer is configured to fire
+within 1-2 ticks.  If the cpu is very busy between exiting idle and
+when the timer fires then we assume the cpu is underpowered and ramp
+to MAX speed.
 
-Scaling the CPU up is done when coming out of idle, and like "ondemand"
-scaling up will always go to MAX, then step down based off of cpu load.
+If the cpu was not sufficiently busy to immediately ramp to MAX speed,
+then governor evaluates the cpu load since the last speed adjustment,
+choosing th highest value between that longer-term load or the
+short-term load since idle exit to determine the cpu speed to ramp to.
 
-There is only one tuneable value for this governor:
+The tuneable value for this governor are:
 
-min_sample_time: The ammount of time the CPU must spend (in uS)
-at the current frequency before scaling DOWN. This is done to
-more accurately determine the cpu workload and the best speed for that
-workload. The default is 50ms.
+min_sample_time: The minimum amount of time to spend at the current
+frequency before ramping down. This is to ensure that the governor has
+seen enough historic cpu load data to determine the appropriate
+workload.  Default is 80000 uS.
 
+go_maxspeed_load: The CPU load at which to ramp to max speed.  Default
+is 85.
 
 
 3. The Governor Interface in the CPUfreq Core
