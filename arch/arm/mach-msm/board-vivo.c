@@ -36,6 +36,7 @@
 #include <linux/lightsensor.h>
 #include <linux/atmel_qt602240.h>
 #include <linux/cy8c_tma_ts.h>
+#include <linux/elan_ktf2k.h>
 #include <linux/pmic8058-pwm.h>
 #include <linux/leds-pm8058.h>
 #include <linux/input/pmic8058-keypad.h>
@@ -146,7 +147,7 @@ static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.phy_init_seq		= phy_init_seq,
 	.phy_reset		= msm_hsusb_phy_reset,
 	.usb_id_pin_gpio	= VIVO_GPIO_USB_ID_PIN,
-	.accessory_detect	= 1, /* detect by USB ID pin */
+	.accessory_detect	= 2, /* detect by PMIC adc */
 	.change_phy_voltage	= vivo_change_phy_voltage,
 	.disable_usb_charger	= vivo_disable_usb_charger,
 };
@@ -738,16 +739,17 @@ struct atmel_i2c_platform_data vivo_ts_atmel_data[] = {
 		.config_T8 = {10, 0, 2, 2, 0, 0, 5, 15, 4, 170},
 		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 35, 3, 1, 0, 5, 2, 0, 4, 20, 10, 10, 0, 0, 0, 0, 248, 3, 25, 25, 140, 65, 136, 75, 15, 10},
 		.config_T15 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T18 = {0, 0},
+		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T20 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T22 = {15, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 7, 38, 255, 255, 0},
-		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T24 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T25 = {3, 0, 4, 41, 88, 27, 0, 0, 0, 0, 0, 0, 0, 0},
-		.config_T27 = {0, 0, 0, 0, 0, 0, 0},
 		.config_T28 = {0, 0, 3, 4, 8, 60},
 		.object_crc = {0xFF, 0xA9, 0x45},
 		.cable_config = {35, 25, 8, 16},
+		.cal_tchthr = {40, 40},
 		.GCAF_level = {20, 24, 28, 40, 63},
 	},
 	{
@@ -768,16 +770,17 @@ struct atmel_i2c_platform_data vivo_ts_atmel_data[] = {
 		.config_T8 = {10, 0, 2, 2, 0, 0, 5, 15, 4, 170},
 		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 35, 3, 1, 0, 5, 2, 0, 4, 20, 10, 10, 0, 0, 0, 0, 248, 0, 35, 25, 140, 65, 140, 75, 15, 10},
 		.config_T15 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T18 = {0, 0},
+		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T20 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T22 = {15, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 7, 38, 255, 255, 0},
-		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T24 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T25 = {3, 0, 4, 41, 88, 27, 0, 0, 0, 0, 0, 0, 0, 0},
-		.config_T27 = {0, 0, 0, 0, 0, 0, 0},
 		.config_T28 = {0, 0, 3, 4, 8, 60},
 		.object_crc = {0x6A, 0x55, 0x35},
 		.cable_config = {35, 25, 8, 16},
+		.cal_tchthr = {40, 40},
 		.GCAF_level = {20, 24, 28, 40, 63},
 	},
 	{
@@ -798,10 +801,11 @@ struct atmel_i2c_platform_data vivo_ts_atmel_data[] = {
 		.config_T8 = {10, 0, 2, 2, 0, 0, 5, 15},
 		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 35, 3, 1, 0, 5, 2, 0, 4, 20, 10, 10, 0, 0, 0, 0, 248, 3, 25, 25, 140, 65, 136, 75, 15},
 		.config_T15 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T18 = {0, 0},
+		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T20 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T22 = {15, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 7, 38, 255, 255, 0},
-		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T24 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T25 = {3, 0, 4, 41, 88, 27, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T27 = {0, 0, 0, 0, 0, 0, 0},
@@ -827,10 +831,11 @@ struct atmel_i2c_platform_data vivo_ts_atmel_data[] = {
 		.config_T8 = {10, 0, 2, 2, 0, 0, 5, 15},
 		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 35, 3, 1, 0, 5, 2, 0, 4, 20, 10, 10, 0, 0, 0, 0, 248, 0, 35, 25, 140, 65, 140, 75, 15},
 		.config_T15 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T18 = {0, 0},
+		.config_T19 = {3, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T20 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T22 = {15, 0, 0, 0, 0, 0, 0, 0, 25, 0, 0, 0, 7, 38, 255, 255, 0},
-		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T24 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T25 = {3, 0, 4, 41, 88, 27, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T27 = {0, 0, 0, 0, 0, 0, 0},
@@ -881,6 +886,47 @@ struct cy8c_i2c_platform_data vivo_ts_cy8c_data[] = {
 	},
 };
 
+static int vivo_ts_ektf2k_power(int on)
+{
+	pr_info("%s: power %d\n", __func__, on);
+
+	if (on) {
+		gpio_set_value(VIVO_GPIO_TP_EN, 1);
+		udelay(300);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(VIVO_TP_RSTz), 1);
+		msleep(300);
+	} else {
+		gpio_set_value(VIVO_GPIO_TP_EN, 0);
+		udelay(11);
+	}
+
+	return 0;
+}
+
+static int vivo_ts_ektf2k_reset(void)
+{
+	pr_info("%s: gpio reset\n", __func__);
+	gpio_set_value(PM8058_GPIO_PM_TO_SYS(VIVO_TP_RSTz), 0);
+	udelay(100);
+	gpio_set_value(PM8058_GPIO_PM_TO_SYS(VIVO_TP_RSTz), 1);
+	msleep(300);
+
+	return 0;
+}
+
+struct elan_ktf2k_i2c_platform_data vivo_ts_ektf2k_data[] = {
+	{
+		.version = 0x0021,
+		.abs_x_min = 0,
+		.abs_x_max = 640,
+		.abs_y_min = 0,
+		.abs_y_max = 1088,
+		.intr_gpio = PM8058_GPIO_PM_TO_SYS(VIVO_GPIO_TP_INT_N),
+		.power = vivo_ts_ektf2k_power,
+		.reset = vivo_ts_ektf2k_reset,
+	},
+};
+
 static struct i2c_board_info i2c_devices[] = {
 	{
 		I2C_BOARD_INFO(ATMEL_QT602240_NAME, 0x94 >> 1),
@@ -890,6 +936,11 @@ static struct i2c_board_info i2c_devices[] = {
 	{
 		I2C_BOARD_INFO(CYPRESS_TMA_NAME, 0x67),
 		.platform_data = &vivo_ts_cy8c_data,
+		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(VIVO_GPIO_TP_INT_N))
+	},
+	{
+		I2C_BOARD_INFO(ELAN_KTF2K_NAME, 0x15),
+		.platform_data = &vivo_ts_ektf2k_data,
 		.irq = MSM_GPIO_TO_INT(PM8058_GPIO_PM_TO_SYS(VIVO_GPIO_TP_INT_N))
 	},
 	{
@@ -2571,6 +2622,14 @@ static ssize_t vivo_virtual_keys_show(struct kobject *kobj,
 		"\n");
 }
 
+static struct kobj_attribute vivo_ektf2k_virtual_keys_attr = {
+	.attr = {
+		.name = "virtualkeys.elan-touchscreen",
+		.mode = S_IRUGO,
+	},
+	.show = &vivo_virtual_keys_show,
+};
+
 static struct kobj_attribute vivo_virtual_keys_attr = {
 	.attr = {
 		.name = "virtualkeys.atmel-touchscreen",
@@ -2590,6 +2649,7 @@ static struct kobj_attribute vivo_cy8c_virtual_keys_attr = {
 static struct attribute *vivo_properties_attrs[] = {
 	&vivo_virtual_keys_attr.attr,
 	&vivo_cy8c_virtual_keys_attr.attr,
+	&vivo_ektf2k_virtual_keys_attr.attr,
 	NULL
 };
 
