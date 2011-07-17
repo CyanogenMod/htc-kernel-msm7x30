@@ -113,7 +113,7 @@ struct htc_battery_platform_data {
 	int (*func_battery_gpio_init)(void);
 };
 
-#if CONFIG_HTC_BATTCHG
+#ifdef CONFIG_HTC_BATTCHG
 extern int register_notifier_cable_status(struct notifier_block *nb);
 extern int unregister_notifier_cable_status(struct notifier_block *nb);
 #else
