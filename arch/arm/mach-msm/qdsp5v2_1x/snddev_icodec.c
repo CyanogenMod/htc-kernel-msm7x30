@@ -1082,6 +1082,12 @@ static const struct file_operations snddev_icodec_debug_fops = {
 };
 #endif
 
+int update_aic3254_info(struct aic3254_info *info)
+{
+	/* do not support this function at 1x codebase temporarily */
+	return 0;
+}
+
 static int __init snddev_icodec_init(void)
 {
 	s32 rc;

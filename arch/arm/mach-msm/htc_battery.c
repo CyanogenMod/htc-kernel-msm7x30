@@ -45,6 +45,8 @@
 #include <linux/ds2746_battery.h>
 #endif
 
+#include <linux/android_alarm.h>
+
 static struct wake_lock vbus_wake_lock;
 
 enum {
@@ -128,6 +130,11 @@ static unsigned int cache_time;
 
 static int htc_battery_initial = 0;
 static int htc_full_level_flag = 0;
+
+static struct alarm batt_charger_ctrl_alarm;
+static struct work_struct batt_charger_ctrl_work;
+struct workqueue_struct *batt_charger_ctrl_wq;
+static unsigned int charger_ctrl_stat;
 
 static enum power_supply_property htc_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -1155,11 +1162,14 @@ static int htc_rpc_charger_switch(unsigned enable)
 	else if (enable == DISABLE_LIMIT_CHARGER)
 		ret = tps_set_charger_ctrl(CLEAR_LIMITED_CHG);
 	else {
-		req.data = cpu_to_be32(enable);
-		ret = msm_rpc_call(endpoint, HTC_PROCEDURE_CHARGER_SWITCH,
-				&req, sizeof(req), 5 * HZ);
-		if (ret < 0)
-			BATT_ERR("%s: msm_rpc_call failed!", __func__);
+		if (htc_batt_info.guage_driver == GUAGE_MODEM) {
+			req.data = cpu_to_be32(enable);
+			ret = msm_rpc_call(endpoint,
+					HTC_PROCEDURE_CHARGER_SWITCH,
+					&req, sizeof(req), 5 * HZ);
+			if (ret < 0)
+				BATT_ERR("%s: msm_rpc_call failed!", __func__);
+		}
 	}
 
 	return ret;
@@ -1237,9 +1247,20 @@ int htc_battery_charger_disable()
 	return rc;
 }
 
+static ssize_t htc_battery_charger_stat(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	int i = 0;
+
+	i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", charger_ctrl_stat);
+
+	return i;
+}
+
 static ssize_t htc_battery_charger_switch(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t count)
+					struct device_attribute *attr,
+					const char *buf, size_t count)
 {
 	int rc;
 	unsigned long enable = 0;
@@ -1254,9 +1275,46 @@ static ssize_t htc_battery_charger_switch(struct device *dev,
 	mutex_unlock(&htc_batt_info.rpc_lock);
 	if (rc < 0)
 		return rc;
+
+	alarm_cancel(&batt_charger_ctrl_alarm);
+	charger_ctrl_stat = (unsigned int)enable;
+
 	return count;
 }
 
+static ssize_t htc_battery_charger_timer(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int rc;
+	unsigned long time_out = 0;
+	ktime_t interval;
+	ktime_t next_alarm;
+
+	time_out = simple_strtoul(buf, NULL, 10);
+
+	if (time_out > 65536)
+		return -EINVAL;
+
+	if (time_out > 0) {
+		rc = htc_rpc_charger_switch(STOP_CHARGER);
+		if (rc < 0)
+			return rc;
+		interval = ktime_set(time_out, 0);
+		next_alarm = ktime_add(alarm_get_elapsed_realtime(), interval);
+		alarm_start_range(&batt_charger_ctrl_alarm,
+					next_alarm, next_alarm);
+		charger_ctrl_stat = STOP_CHARGER;
+	} else if (time_out == 0) {
+		rc = htc_rpc_charger_switch(ENABLE_CHARGER);
+		if (rc < 0)
+			return rc;
+		alarm_cancel(&batt_charger_ctrl_alarm);
+		charger_ctrl_stat = ENABLE_CHARGER;
+	}
+
+	return count;
+}
 
 static ssize_t htc_battery_set_full_level(struct device *dev,
 				     struct device_attribute *attr,
@@ -1297,9 +1355,14 @@ static ssize_t htc_battery_set_full_level(struct device *dev,
 
 static struct device_attribute htc_set_delta_attrs[] = {
 	__ATTR(delta, S_IWUSR | S_IWGRP, NULL, htc_battery_set_delta),
-	__ATTR(full_level, S_IWUSR | S_IWGRP, NULL, htc_battery_set_full_level),
-	__ATTR(batt_debug_flag,S_IWUSR | S_IWGRP, NULL, htc_battery_debug_flag),
-	__ATTR(charger_control, S_IWUSR | S_IWGRP, NULL, htc_battery_charger_switch),
+	__ATTR(full_level, S_IWUSR | S_IWGRP, NULL,
+						htc_battery_set_full_level),
+	__ATTR(batt_debug_flag, S_IWUSR | S_IWGRP, NULL,
+						htc_battery_debug_flag),
+	__ATTR(charger_control, S_IWUSR | S_IWGRP, htc_battery_charger_stat,
+						htc_battery_charger_switch),
+	__ATTR(charger_timer, S_IWUSR | S_IWGRP, NULL,
+						htc_battery_charger_timer),
 };
 
 static int htc_battery_create_attrs(struct device * dev)
@@ -1536,6 +1599,25 @@ static void htc_battery_tps65200_int_func(struct work_struct *work)
 		}
 		break;
 	}
+}
+
+static void batt_charger_ctrl_func(struct work_struct *work)
+{
+	int rc;
+
+	rc = htc_rpc_charger_switch(ENABLE_CHARGER);
+
+	if (rc)
+		return;
+
+	charger_ctrl_stat = (unsigned int)ENABLE_CHARGER;
+}
+
+static void batt_charger_ctrl_alarm_handler(struct alarm *alarm)
+{
+	BATT_LOG("charger control alarm is timeout.");
+
+	queue_work(batt_charger_ctrl_wq, &batt_charger_ctrl_work);
 }
 
 static int htc_battery_core_probe(struct platform_device *pdev)
@@ -1805,6 +1887,14 @@ static int htc_battery_probe(struct platform_device *pdev)
 			return rc;
 		}
 	}
+
+	charger_ctrl_stat = ENABLE_CHARGER;
+	INIT_WORK(&batt_charger_ctrl_work, batt_charger_ctrl_func);
+	alarm_init(&batt_charger_ctrl_alarm,
+		    ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
+		    batt_charger_ctrl_alarm_handler);
+	batt_charger_ctrl_wq =
+			create_singlethread_workqueue("charger_ctrl_timer");
 
 	return 0;
 }

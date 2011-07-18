@@ -1605,6 +1605,31 @@ static void kmemleak_disable(void)
 	pr_info("Kernel memory leak detector disabled\n");
 }
 
+#if 1
+/*
+ * Allow boot-time kmemleak disabling (disabled by default).
+ */
+#include <mach/board.h>
+#define MODULE_NAME "kmemleak"
+static int kmemleak_boot_config(char *str)
+{
+	unsigned kernel_flag;
+
+	if (!str)
+		return -EINVAL;
+
+	kernel_flag = simple_strtoul(str, NULL, 16);
+	pr_info(MODULE_NAME ": %s(): get kernel_flag=0x%x\n", __func__, kernel_flag);
+
+	/* kernel_flag <-> kmemleak_boot_config mapping */
+	if (kernel_flag & BIT4)
+		kmemleak_default = 1;
+	else
+		kmemleak_disable();
+	return 0;
+}
+early_param("kernelflag", kmemleak_boot_config);
+#else
 /*
  * Allow boot-time kmemleak disabling (enabled by default).
  */
@@ -1612,14 +1637,14 @@ static int kmemleak_boot_config(char *str)
 {
 	if (!str)
 		return -EINVAL;
-	if (strcmp(str, "on") == 0)
-		kmemleak_default = 1;
-	/* disable kmemleak by default */
-	else
+	if (strcmp(str, "off") == 0)
 		kmemleak_disable();
+	else if (strcmp(str, "on") != 0)
+		return -EINVAL;
 	return 0;
 }
 early_param("kmemleak", kmemleak_boot_config);
+#endif
 
 /*
  * Kmemleak initialization.

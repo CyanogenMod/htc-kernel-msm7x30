@@ -1164,6 +1164,8 @@ int mdp_probe(struct platform_device *pdev)
 	mdp->disable_irq = disable_mdp_irq;
 	mdp->write_regs = mdp_write_regs;
 
+	mdp->mdp_dev.fb0 = NULL;
+	mdp->mdp_dev.fb1 = NULL;
 	if (pdata == NULL || pdata->overrides == 0)
 		mdp->mdp_dev.overrides = 0;
 	else if(pdata->overrides)

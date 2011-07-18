@@ -38,6 +38,11 @@ struct msm_ssbi_platform_data {
 	enum msm_ssbi_controller_type controller_type;
 };
 
+#ifdef CONFIG_MSM8X60_SSBI
+int msm_ssbi_write(unsigned id, u16 addr, u8 *buf, int len);
+int msm_ssbi_read(unsigned id, u16 addr, u8 *buf, int len);
+#else
 int msm_ssbi_write(struct device *dev, u16 addr, u8 *buf, int len);
 int msm_ssbi_read(struct device *dev, u16 addr, u8 *buf, int len);
+#endif /* CONFIG_MSM8X60_SSBI */
 #endif

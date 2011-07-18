@@ -1,7 +1,7 @@
 /* linux/include/asm-arm/arch-msm/dma.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -50,17 +50,8 @@ unsigned int msm_dmov_build_crci_mask(int n, ...);
 #define DMOV_SD3(off, ch) DMOV_ADDR(off, ch, 3)
 
 #if defined(CONFIG_ARCH_MSM7X30)
-
 #define DMOV_SD_SIZE 0x400
 #define DMOV_SD_AARM 2
-
-#define DMOV_CE_CHAN_IN		5
-#define DMOV_CE_CHAN_OUT	6
-
-#define DMOV_CE_CRCI_IN		1
-#define DMOV_CE_CRCI_OUT	2
-#define DMOV_CE_CRCI_HASH	3
-
 #elif defined(CONFIG_MSM_ADM3)
 #define DMOV_SD_SIZE 0x800
 #define DMOV_SD_MASTER 1
@@ -150,20 +141,13 @@ unsigned int msm_dmov_build_crci_mask(int n, ...);
 #define DMOV_NAND_CRCI_CMD     15
 #define DMOV_NAND_CRCI_DATA    3
 
-#define DMOV_CE_CHAN_IN		11
-#define DMOV_CE_CHAN_OUT	12
+#define DMOV_CE_IN_CHAN        2
+#define DMOV_CE_IN_CRCI        4
 
-#define DMOV_CE_CRCI_IN		4
-#define DMOV_CE_CRCI_OUT	5
-#define DMOV_CE_CRCI_HASH	15
+#define DMOV_CE_OUT_CHAN       3
+#define DMOV_CE_OUT_CRCI       5
 
-#define DMOV_CE_IN_CHAN        5
-#define DMOV_CE_IN_CHAN_TZ     11
-#define DMOV_CE_IN_CRCI        1
-
-#define DMOV_CE_OUT_CHAN       6
-#define DMOV_CE_OUT_CHAN_TZ    12
-#define DMOV_CE_OUT_CRCI       2
+#define DMOV_CE_HASH_CRCI      15
 
 #define DMOV_SDC1_CHAN         18
 #define DMOV_SDC1_CRCI         1
@@ -202,6 +186,8 @@ unsigned int msm_dmov_build_crci_mask(int n, ...);
 
 #define DMOV_CE_OUT_CHAN      6
 #define DMOV_CE_OUT_CRCI      2
+
+#define DMOV_CE_HASH_CRCI     3
 
 #define DMOV_NAND_CHAN        7
 #define DMOV_NAND_CRCI_CMD    5

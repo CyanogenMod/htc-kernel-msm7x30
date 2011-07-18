@@ -21,6 +21,8 @@
 #include <linux/slab.h>
 #include <mach/msm_fb.h>
 #include <mach/debug_display.h>
+#include <asm/mach/arch.h>
+#include <asm/mach-types.h>
 
 static DECLARE_WAIT_QUEUE_HEAD(novtec_vsync_wait);
 
@@ -35,7 +37,6 @@ struct panel_info {
 };
 
 static struct platform_device mddi_nov_cabc = {
-	.name = "marvel-backlight",
 	.id = 0,
 };
 
@@ -198,6 +199,8 @@ err_request_gpio_failed:
 	return ret;
 }
 
+extern struct machine_desc *lookup_machine_type(unsigned int);
+
 static int mddi_novtec_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -207,8 +210,14 @@ static int mddi_novtec_probe(struct platform_device *pdev)
 	struct panel_data *panel_data = &bridge_data->panel_conf;
 	struct panel_info *panel =
 		kzalloc(sizeof(struct panel_info), GFP_KERNEL);
+	struct machine_desc *list = lookup_machine_type(machine_arch_type);;
 
 	PR_DISP_WARN("mddi_novtec_5410_probe\n");
+
+	if (strcmp(list->name, "marvel") == 0)
+		mddi_nov_cabc.name = "marvel-backlight";
+	else
+		mddi_nov_cabc.name = "marvelc-backlight";
 
 	if (!panel)
 		return -ENOMEM;

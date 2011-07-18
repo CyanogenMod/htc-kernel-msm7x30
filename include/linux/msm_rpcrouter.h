@@ -15,8 +15,8 @@
  *
  */
 
-#if defined(CONFIG_QCT_LTE)
-#include <linux/lte/msm_rpcrouter.h>
+#if defined(CONFIG_ARCH_MSM7X30_LTE)
+#include <linux/7x30-lte/msm_rpcrouter.h>
 #elif defined(CONFIG_ARCH_MSM8X60)
 #include <linux/msm_rpcrouter-8x60.h>
 #endif

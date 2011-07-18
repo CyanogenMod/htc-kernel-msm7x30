@@ -140,6 +140,16 @@ msmsdcc_print_status(struct msmsdcc_host *host, char *hdr, uint32_t status)
 }
 #endif
 
+void msmsdcc_dumpreg(struct mmc_host *mmc)
+{
+	int i;
+	struct msmsdcc_host *host = mmc_priv(mmc);
+	for (i = 0; i < 0x80; i += 4) {
+		pr_info("%s: reg 0x%x: 0x%x\n", mmc_hostname(mmc),
+			i, readl(host->base + i));
+	}
+}
+
 static int is_sd_platform(struct mmc_platform_data *plat)
 {
 	if (plat->slot_type && *plat->slot_type == MMC_TYPE_SD)
@@ -1204,6 +1214,8 @@ msmsdcc_irq(int irq, void *dev_id)
 			spin_lock(&host->lock);
 			/* only ansyc interrupt can come when clocks are off */
 			writel(MCI_SDIOINTMASK, host->base + MMCICLEAR);
+			if (host->sdcc_suspending && is_svlte_platform(host->plat))
+				host->async_irq_during_suspending = 1;
 		}
 
 		status = msmsdcc_readl(host, MMCISTATUS);
@@ -1213,6 +1225,11 @@ msmsdcc_irq(int irq, void *dev_id)
 #endif
 
 		status &= msmsdcc_readl(host, MMCIMASK0);
+		/* debug: dump register when data crc error*/
+		if ((status & MCI_DATACRCFAIL) && is_svlte_platform(host->plat)) {
+			pr_info("%s: data CRC error\n", mmc_hostname(host->mmc));
+			msmsdcc_dumpreg(host->mmc);
+		}
 		msmsdcc_writel(host, status, MMCICLEAR);
 
 		if ((status & MCI_SDIOINTR) && !is_svlte_platform(host->plat))
@@ -1986,6 +2003,7 @@ msmsdcc_suspend(struct platform_device *dev, pm_message_t state)
 	struct mmc_host *mmc = mmc_get_drvdata(dev);
 	struct msmsdcc_host *host = mmc_priv(mmc);
 	int rc = 0;
+	unsigned long flags;
 
 #if SDC_CLK_VERBOSE
 	pr_info("%s: %s enter\n", mmc_hostname(host->mmc), __func__);
@@ -2004,8 +2022,15 @@ msmsdcc_suspend(struct platform_device *dev, pm_message_t state)
 				 * If MMC core level suspend is not supported, turn
 				 * off clocks to allow deep sleep (TCXO shutdown).
 				 */
-				mmc->ios.clock = 0;
-				mmc->ops->set_ios(host->mmc, &host->mmc->ios);
+				/* If async irq occurred during suspending,
+				 * don't turn off clock since sdio_al might be active now.
+				 */
+				spin_lock_irqsave(&host->lock, flags);
+				if (!host->async_irq_during_suspending)
+					mmc->ios.clock = 0;
+				spin_unlock_irqrestore(&host->lock, flags);
+				if (mmc->ios.clock == 0)
+					mmc->ops->set_ios(host->mmc, &host->mmc->ios);
 			} else
 				msmsdcc_writel(host, 0, MMCIMASK0);
 		}
@@ -2024,6 +2049,7 @@ msmsdcc_suspend(struct platform_device *dev, pm_message_t state)
 			host->clks_on = 0;
 		}
 		host->sdcc_suspending = 0;
+		host->async_irq_during_suspending = 0;
 	}
 
 #if SDC_CLK_VERBOSE

@@ -198,8 +198,10 @@ static int smd_tty_write(struct tty_struct *tty,
 	*/
 	mutex_lock(&smd_tty_lock);
 	avail = smd_write_avail(info->ch);
-	if (len > avail)
+	if (len > avail) {
 		len = avail;
+		printk(KERN_INFO "%s: buffer full. avail:%d, len:%d\n", __func__, avail, len);
+	}
 	ret = smd_write(info->ch, buf, len);
 	mutex_unlock(&smd_tty_lock);
 

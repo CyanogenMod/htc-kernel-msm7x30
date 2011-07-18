@@ -19,6 +19,7 @@
 
 #if defined (CONFIG_ARCH_MSM8X60)
 #include <linux/init.h>
+#include <linux/types.h>
 #endif
 #include <linux/list.h>
 #include <mach/clk.h>
@@ -261,13 +262,16 @@ extern struct clk_ops clk_ops_remote;
 #if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60)
 void msm_clk_soc_init(void);
 void msm_clk_soc_set_ops(struct clk *clk);
+void msm_clk_soc_set_ignore_list(int *ignore_clk, unsigned num_ignore_clk);
 #else
 static inline void msm_clk_soc_init(void) { }
 static inline void msm_clk_soc_set_ops(struct clk *clk) { }
+static inline void msm_clk_soc_set_ignore_list(int *ignore_clk, unsigned num_ignore_clk) { }
 #endif
 
 int msm_clock_require_tcxo(unsigned long *reason, int nbits);
 int msm_clock_get_name(uint32_t id, char *name, uint32_t size);
+int msm_clock_get_name_noirq(uint32_t id, char *name, uint32_t size);
 int ebi1_clk_set_min_rate(enum clkvote_client client, unsigned long rate);
 unsigned long clk_get_max_axi_khz(void);
 

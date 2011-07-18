@@ -758,7 +758,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	kgsl_setstate(device, device->mmu.tlb_flags);
 
 	kgsl_drawctxt_switch(yamato_device,
-			&yamato_device->drawctxt[drawctxt_index], flags);
+			yamato_device->drawctxt[drawctxt_index], flags);
 
 	*timestamp = kgsl_ringbuffer_addcmds(&device->ringbuffer,
 					0, &link[0], 3);

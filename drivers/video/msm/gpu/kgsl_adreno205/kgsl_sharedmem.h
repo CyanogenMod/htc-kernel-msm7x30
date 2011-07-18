@@ -104,6 +104,9 @@ struct kgsl_sharedmem {
 int kgsl_sharedmem_alloc(uint32_t flags, int size,
 			struct kgsl_memdesc *memdesc);
 
+int kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
+			   struct kgsl_pagetable *pagetable, size_t size);
+
 static inline int
 kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
 {

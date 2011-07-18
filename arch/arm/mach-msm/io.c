@@ -73,6 +73,7 @@ static struct map_desc msm8x60_io_desc[] __initdata = {
 	MSM_DEVICE(CLK_CTL),
 	MSM_DEVICE(MMSS_CLK_CTL),
 	MSM_DEVICE(LPASS_CLK_CTL),
+	MSM_DEVICE(TCSR),
 	MSM_DEVICE(IMEM),
 #ifdef CONFIG_MSM_DEBUG_UART
 	MSM_DEVICE(DEBUG_UART),
@@ -84,6 +85,7 @@ static struct map_desc msm8x60_io_desc[] __initdata = {
 		.type =     MT_DEVICE,
 	},
 	MSM_DEVICE(QFPROM),
+	MSM_DEVICE(EBI1_CH0),
 };
 
 void __init msm_map_msm8x60_io(void)

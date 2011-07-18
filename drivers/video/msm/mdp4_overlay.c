@@ -188,46 +188,80 @@ void mdp4_overlay_dmae_xy(struct mdp4_overlay_pipe *pipe)
 	mdp_writel(pipe->mdp, (pipe->dst_y << 16 | pipe->dst_x), 0xb0010);
 }
 
-void mdp4_overlay_parameters_check(struct mdp4_overlay_pipe *pipe)
+int mdp4_overlay_parameters_check(struct mdp4_overlay_pipe *pipe)
 {
-	uint32_t dst_neww = 0, dst_newh = 0;
+	uint32_t fb_width = 0, fb_height = 0;
 
 	if(pipe == NULL || pipe->mdp == NULL)
-		return;
+		return 0;
 
-	if(pipe->dst_x < 0 || pipe->dst_x > pipe->mdp->mdp_dev.width) {
-		PR_DISP_ERR("%s(%d) Incorrect parameter dstx=%d", __func__, __LINE__, pipe->dst_x);
-		pipe->dst_x = 0;
+	if(pipe->mixer_num == 0) { /* set fb0 */
+		if(pipe->mdp->mdp_dev.fb0 != NULL) {
+			fb_width = pipe->mdp->mdp_dev.fb0->var.xres;
+			fb_height = pipe->mdp->mdp_dev.fb0->var.yres;
+		} else {
+			PR_DISP_ERR("%s(%d) mdp_dev fb0 is NULL\n", __func__, __LINE__);
+			return -EPERM;
+		}
+	} else { /* set fb1 */
+		if(pipe->mdp->mdp_dev.fb1 != NULL) {
+			fb_width = pipe->mdp->mdp_dev.fb1->var.xres;
+			fb_height = pipe->mdp->mdp_dev.fb1->var.yres;
+		} else {
+			PR_DISP_ERR("%s(%d) mdp_dev fb1 is NULL\n", __func__, __LINE__);
+			return -EPERM;
+		}
+	}
+	if(pipe->dst_x < 0 || pipe->dst_x >= fb_width) {
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dstx=%d", __func__, __LINE__, pipe->dst_x);
+		return -ERANGE;
 	}
 
-	if(pipe->dst_y < 0 || pipe->dst_y > pipe->mdp->mdp_dev.height) {
-		PR_DISP_ERR("%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
-		pipe->dst_y = 0;
+	if(pipe->dst_y < 0 || pipe->dst_y >= fb_height) {
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
+		return -ERANGE;
 	}
 
-	if(pipe->dst_w < 0 || pipe->dst_w > pipe->mdp->mdp_dev.width) {
-		PR_DISP_ERR("%s(%d) Incorrect parameter dstw=%d", __func__, __LINE__, pipe->dst_w);
-		pipe->dst_w = pipe->mdp->mdp_dev.width;
+	if(pipe->dst_w < 0 || pipe->dst_w > fb_width) {
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dstw=%d", __func__, __LINE__, pipe->dst_w);
+		return -ERANGE;
 	}
 
-	if(pipe->dst_y < 0 || pipe->dst_y > pipe->mdp->mdp_dev.height) {
-		PR_DISP_ERR("%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
-		pipe->dst_y = pipe->mdp->mdp_dev.height;
+	if(pipe->dst_y < 0 || pipe->dst_y > fb_height) {
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter2 dsty=%d", __func__, __LINE__, pipe->dst_y);
+		return -ERANGE;
 	}
 
-	if(pipe->dst_w + pipe->dst_x > pipe->mdp->mdp_dev.width) {
-		dst_neww = pipe->mdp->mdp_dev.width - pipe->dst_x;
-		PR_DISP_ERR("%s(%d) Incorrect parameter dstx=%d dstw=%d found, change new dstw=%d", __func__, __LINE__,
-			pipe->dst_x, pipe->dst_w, dst_neww);
-		pipe->dst_w = dst_neww;
+	if(pipe->dst_w + pipe->dst_x > fb_width) {
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dstx=%d dstw=%d found", __func__, __LINE__,
+			pipe->dst_x, pipe->dst_w);
+		return -ERANGE;
 	}
 
-	if(pipe->dst_h + pipe->dst_y > pipe->mdp->mdp_dev.height) {
-		dst_newh = pipe->mdp->mdp_dev.height - pipe->dst_y;
-		PR_DISP_ERR("%s(%d) Incorrect parameter dsty=%d dsth=%d found, change new dsth=%d", __func__, __LINE__,
-			pipe->dst_y, pipe->dst_h, dst_newh);
-		pipe->dst_h = dst_newh;
+	if(pipe->dst_h + pipe->dst_y > fb_height) {
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dsty=%d dsth=%d found", __func__, __LINE__,
+			pipe->dst_y, pipe->dst_h);
+		return -ERANGE;
 	}
+
+	if(pipe->dst_w && (pipe->dst_w != pipe->src_w) && (pipe->src_w >= pipe->dst_w * 4)) { /* dst_w too little */
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dst_w=%d(too small)", __func__, __LINE__, pipe->dst_w);
+		return -ERANGE;
+	}
+
+	if(pipe->dst_h && (pipe->dst_h != pipe->src_h) && (pipe->src_h >= pipe->dst_h * 4)) { /* dst_h too little */
+
+		PR_DISP_WARN("%s(%d) Incorrect parameter dst_h=%d(too small)", __func__, __LINE__, pipe->dst_h);
+		return -ERANGE;
+	}
+	return 0;
 }
 
 
@@ -427,7 +461,10 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
         /* workaroud for the panel with wrong direction */
         if (pipe->mdp->mdp_dev.overrides & MSM_MDP_PANEL_FLIP_UD) {
 		pipe->op_mode ^= MDP4_OP_FLIP_UD;
-		dst_newy = pipe->mdp->mdp_dev.height - pipe->dst_y - pipe->dst_h;
+		if(pipe->mixer_num == 0)
+			dst_newy = pipe->mdp->mdp_dev.fb0->var.yres - pipe->dst_y - pipe->dst_h;
+		else
+			dst_newy = pipe->mdp->mdp_dev.fb1->var.yres - pipe->dst_y - pipe->dst_h;
 		dst_xy = dst_newy << 16;
 	}
 	else
@@ -435,7 +472,10 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 
         if (pipe->mdp->mdp_dev.overrides & MSM_MDP_PANEL_FLIP_LR) {
 		pipe->op_mode ^= MDP4_OP_FLIP_LR;
-		dst_newx = pipe->mdp->mdp_dev.width - pipe->dst_x - pipe->dst_w;
+		if(pipe->mixer_num == 0)
+			dst_newx = pipe->mdp->mdp_dev.fb0->var.xres - pipe->dst_x - pipe->dst_w;
+		else
+			dst_newx = pipe->mdp->mdp_dev.fb1->var.xres - pipe->dst_x - pipe->dst_w;
 		dst_xy |= dst_newx;
 	}
 	else
@@ -458,19 +498,20 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	mdp_writel(pipe->mdp, pipe->phasey_step, rgb_base + 0x0060);
 }
 
-void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
+int mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 {
 	uint32_t vg_base;
 	uint32_t frame_size, src_size, src_xy, dst_size, dst_xy;
 	uint32_t format, pattern;
 	uint32_t dst_newx = 0, dst_newy = 0;
-	int pnum;
+	int pnum, ret=0;
 
 	pnum = pipe->pipe_num - OVERLAY_PIPE_VG1; /* start from 0 */
 	vg_base = MDP4_VIDEO_BASE;
 	vg_base += (MDP4_VIDEO_OFF * pnum);
 
-	mdp4_overlay_parameters_check(pipe);
+	ret = mdp4_overlay_parameters_check(pipe);
+	if(ret) return ret;
 
 	frame_size = ((pipe->src_height << 16) | pipe->src_width);
 	src_size = ((pipe->src_h << 16) | pipe->src_w);
@@ -496,7 +537,10 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
         /* workaroud for the panel with wrong direction */
         if (pipe->mdp->mdp_dev.overrides & MSM_MDP_PANEL_FLIP_UD) {
 		pipe->op_mode ^= MDP4_OP_FLIP_UD;
-		dst_newy = pipe->mdp->mdp_dev.height - pipe->dst_y - pipe->dst_h;
+		if(pipe->mixer_num == 0)
+			dst_newy = pipe->mdp->mdp_dev.fb0->var.yres - pipe->dst_y - pipe->dst_h;
+		else
+			dst_newy = pipe->mdp->mdp_dev.fb0->var.yres - pipe->dst_y - pipe->dst_h;
 		dst_xy = dst_newy << 16;
 	}
 	else
@@ -504,7 +548,10 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 
         if (pipe->mdp->mdp_dev.overrides & MSM_MDP_PANEL_FLIP_LR) {
 		pipe->op_mode ^= MDP4_OP_FLIP_LR;
-		dst_newx = pipe->mdp->mdp_dev.width - pipe->dst_x - pipe->dst_w;
+		if(pipe->mixer_num == 0)
+			dst_newx = pipe->mdp->mdp_dev.fb0->var.xres - pipe->dst_x - pipe->dst_w;
+		else
+			dst_newx = pipe->mdp->mdp_dev.fb1->var.yres - pipe->dst_x - pipe->dst_w;
 		dst_xy |= dst_newx;
 	}
 	else
@@ -537,6 +584,7 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 	if (pipe->op_mode & MDP4_OP_DITHER_EN) {
 		mdp_writel(pipe->mdp, pipe->r_bit << 4 | pipe->b_bit << 2 | pipe->g_bit, vg_base + 0x0068);
 	}
+	return 0;
 }
 
 int mdp4_overlay_format2type(uint32_t format)
@@ -1403,7 +1451,7 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	pipe->dst_y = req->dst_rect.y & 0x07ff;
 	pipe->dst_x = req->dst_rect.x & 0x07ff;
 
-	mdp4_overlay_parameters_check(pipe);
+	if (mdp4_overlay_parameters_check(pipe)) return -ERANGE;
 
 	pipe->op_mode = 0;
 
@@ -1576,6 +1624,25 @@ static int mdp4_pull_mode(struct mdp4_overlay_pipe *pipe)
 	return lcdc;
 }
 
+/* Temporary workaround before QCT release formal fix. */
+int mdp4_overlay_alter_req(struct mdp_overlay *req)
+{
+	if (req->src.format == 5 &&
+			req->src.width == 1280 &&
+			req->src.height == 720 &&
+			req->dst_rect.w == 480
+	   ) {
+		pr_info("%s: alter req due to down-scaling issue of 720p.",
+				__func__);
+		req->src_rect.x = 60;
+		req->src_rect.y = 90;
+		req->src_rect.w = 960;
+		req->src_rect.h = 540;
+	}
+
+	return 0;
+}
+
 int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct mdp_overlay *req)
 {
 	struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
@@ -1585,10 +1652,10 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	unsigned long irq_flags = 0;
 #endif
-
 	if (req->src.format == MDP_FB_FORMAT)
 		req->src.format = MDP_RGB_565;//mfd->fb_imgType;
 
+	mdp4_overlay_alter_req(req);
 
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	if (mdp->mdp_dev.overrides & MSM_MDP_RGB_PANEL_SELE_REFRESH) {
@@ -1784,8 +1851,16 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 		pipe->srcp1_ystride = pipe->src_width;
 	}
 
-	if (pipe->pipe_num >= OVERLAY_PIPE_VG1)
-		mdp4_overlay_vg_setup(pipe);	/* video/graphic pipe */
+	if (pipe->pipe_num >= OVERLAY_PIPE_VG1){
+		int ret=0;
+		ret = mdp4_overlay_vg_setup(pipe);/* video/graphic pipe */
+		if(ret) {
+			clk_disable(mdp->clk);
+			mod_timer(&mdp->standby_timer,
+				jiffies + msecs_to_jiffies(1000));
+			return ret;
+		}
+	}
 	else
 		mdp4_overlay_rgb_setup(pipe);	/* rgb pipe */
 

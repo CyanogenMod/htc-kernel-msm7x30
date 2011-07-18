@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <mach/htc_battery.h>
 #include <asm/mach-types.h>
+#include <linux/tps65200.h>
 
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
 static int tps65200_initial = -1;
@@ -256,7 +257,7 @@ int tps_set_charger_ctrl(u32 ctl)
 		tps65200_i2c_read_byte(&status, 0x00);
 		pr_info("TPS65200 status 0x00=%x\n", status);
 		break;
-	case OVERTEMP_VREG_4060:
+	case OVERTEMP_VREG:
 		pr_info("Switch charger OVERTEMP_VREG_4060 \n");
 		tps65200_i2c_read_byte(&regh, 0x02);
 		regh = (regh & 0xC0) | 0x1C;
@@ -264,7 +265,20 @@ int tps_set_charger_ctrl(u32 ctl)
 		tps65200_i2c_read_byte(&regh, 0x02);
 		pr_info("Switch charger OVERTEMP_VREG_4060: regh 0x02=%x\n", regh);
 		break;
-	case NORMALTEMP_VREG_4200:
+	case NORMALTEMP_VREG:
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		tps65200_i2c_read_byte(&regh, 0x04);
+		pr_info("Switch charger CONFIG_D: regh 0x04=%x\n", regh);
+		if (htc_is_dq_pass()) {
+			pr_info("Switch charger NORMALTEMP_VREG_4340\n");
+			tps65200_i2c_read_byte(&regh, 0x02);
+			regh = (regh & 0xC0) | 0X2A;
+			tps65200_i2c_write_byte(regh, 0x02);
+			tps65200_i2c_read_byte(&regh, 0x02);
+			pr_info("Switch charger NORMALTEMP_VREG_4340: regh 0x02=%x\n", regh);
+			break;
+		}
+#endif
 		pr_info("Switch charger NORMALTEMP_VREG_4200 \n");
 		tps65200_i2c_read_byte(&regh, 0x02);
 		regh = (regh & 0xC0) | 0X23;

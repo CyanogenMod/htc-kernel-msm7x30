@@ -222,6 +222,22 @@ config FB_MSM_HDMI_MSM_PANEL
 	select FB_MSM_HDMI_3D
 	default n
 
+config FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
+	bool "Use DVI mode"
+	depends on FB_MSM_HDMI_MSM_PANEL
+	default n
+	---help---
+	  Support for DVI mode for MSM HDMI 1080p Panel
+
+config FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
+	bool "Use HDCP mode"
+	depends on FB_MSM_HDMI_MSM_PANEL
+	default n
+	---help---
+	  Support for HDCP mode for MSM HDMI 1080p Panel
+	  Choose to enable HDCP
+
+
 config FB_MSM_EXT_INTERFACE_COMMON
 	bool
 	default n
@@ -249,6 +265,11 @@ config FB_MSM_MIPI_DSI_RENESAS
 	default n
 
 config FB_MSM_MIPI_DSI_NOVATEK
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+
+config FB_MSM_MIPI_DSI_ORISE
 	bool
 	select FB_MSM_MIPI_DSI
 	default n
@@ -293,6 +314,11 @@ config FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_DSI_NOVATEK
 	default n
 
+config FB_MSM_MIPI_ORISE_CMD_QHD_PT
+	bool
+	select FB_MSM_MIPI_DSI_ORISE
+	default n
+
 config FB_MSM_MIPI_PANEL_DETECT
 	depends on ARCH_MSM8X60
 	bool "MIPI Panel Detect + LCDC panel"
@@ -301,3 +327,4 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_LCDC_SAMSUNG_WSVGA
 	select FB_MSM_LCDC_AUO_WVGA
 	select FB_MSM_LCDC_AUO_WXGA
+	select FB_MSM_MIPI_ORISE_CMD_QHD_PT

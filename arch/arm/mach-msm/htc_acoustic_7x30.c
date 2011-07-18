@@ -52,6 +52,7 @@
 #define ACOUSTIC_MUTE_HEADSET 	_IOW(ACOUSTIC_IOCTL_MAGIC, 32, int)
 #define ACOUSTIC_GET_TABLES 	_IOW(ACOUSTIC_IOCTL_MAGIC, 33, unsigned)
 #define ACOUSTIC_ENABLE_BACK_MIC	_IOW(ACOUSTIC_IOCTL_MAGIC, 34, unsigned)
+#define ACOUSTIC_UPDATE_AIC3254_INFO	_IOW(ACOUSTIC_IOCTL_MAGIC, 36, unsigned)
 
 #define D(fmt, args...) printk(KERN_INFO "[AUD] htc-acoustic: "fmt, ##args)
 #define E(fmt, args...) printk(KERN_ERR "[AUD] htc-acoustic: "fmt, ##args)
@@ -154,6 +155,7 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	struct adie_codec_action_unit *htc_adie_ptr;
 	struct acdb_id cur_acdb_id;
 	char filename[64];
+	struct aic3254_info cur_aic3254_info;
 
 	mutex_lock(&api_lock);
 	switch (cmd) {
@@ -400,6 +402,18 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			the_ops->enable_back_mic(en);
 		break;
 	}
+	case ACOUSTIC_UPDATE_AIC3254_INFO:
+		if (copy_from_user(&cur_aic3254_info, (void *)arg,
+			sizeof(struct aic3254_info))) {
+			rc = -EFAULT;
+			break;
+		}
+		E("update AIC3254 ID : (%d, %d)\n",
+			cur_aic3254_info.dev_id,
+			cur_aic3254_info.path_id);
+
+		rc = update_aic3254_info(&cur_aic3254_info);
+		break;
 	default:
 		rc = -EINVAL;
 	}

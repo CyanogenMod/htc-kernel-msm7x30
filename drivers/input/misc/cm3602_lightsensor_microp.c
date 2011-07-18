@@ -384,7 +384,7 @@ static ssize_t ls_adc_show(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR(ls_adc, 0666, ls_adc_show, NULL);
+static DEVICE_ATTR(ls_adc, 0664, ls_adc_show, NULL);
 
 static ssize_t ls_enable_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -431,7 +431,7 @@ static ssize_t ls_enable_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(ls_auto, 0666, ls_enable_show, ls_enable_store);
+static DEVICE_ATTR(ls_auto, 0664, ls_enable_show, ls_enable_store);
 
 static ssize_t ls_kadc_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -472,7 +472,7 @@ static ssize_t ls_kadc_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(ls_kadc, 0666, ls_kadc_show, ls_kadc_store);
+static DEVICE_ATTR(ls_kadc, 0664, ls_kadc_show, ls_kadc_store);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void light_sensor_suspend(struct early_suspend *h)

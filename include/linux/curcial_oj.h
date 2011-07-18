@@ -21,8 +21,10 @@ struct curcial_oj_platform_data {
 	void (*oj_shutdown)(int);
 	int (*oj_poweron)(int);
 	void(*oj_adjust_xy)(uint8_t *, int16_t *, int16_t *);
+	void (*oj_reset)(int);
 	int microp_version;
 	bool share_power;
+	bool reset_pin;
 	bool swap;
 	int x;
 	int y;

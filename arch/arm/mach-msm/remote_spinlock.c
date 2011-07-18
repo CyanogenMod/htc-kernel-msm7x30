@@ -60,7 +60,7 @@ remote_spinlock_dal_init(const char *chunk_name, _remote_spinlock_t *lock)
 		return -EINVAL;
 
 
-#if defined(CONFIG_QCT_LTE) || defined(CONFIG_ARCH_MSM8X60)
+#if defined(CONFIG_ARCH_MSM7X30_LTE) || defined(CONFIG_ARCH_MSM8X60)
 	dal_smem_start = smem_get_entry(SMEM_DAL_AREA, &dal_smem_size);
 #else
 	dal_smem_start = smem_item(SMEM_DAL_AREA, &dal_smem_size);
