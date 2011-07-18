@@ -31,6 +31,7 @@
 #include <asm/uaccess.h>
 #include <asm/mach-types.h>
 #include <linux/cm3628.h>
+#include <linux/pl_sensor.h>
 #include <linux/capella_cm3602.h>
 #include <asm/setup.h>
 #include <linux/wakelock.h>
@@ -372,14 +373,14 @@ static void report_psensor_input_event(struct cm3628_info *lpi, int interrupt_fl
 
 	if (interrupt_flag == 1 && lpi->ps_enable == 0) {
 	/*P-sensor disable but interrupt occur. It might init fail when power on.workaround: reinit*/
-		D("[CM3628] proximity err, ps_enable %d, but intrrupt occur, record_init_fail %d\n",
-			lpi->ps_enable, record_init_fail);
-		 _cm3628_I2C_Write_Byte(lpi->PS_slave_address,
-		PS_cmd_cmd, 0x00);/*first init need 0x0*/
+		D("[CM3628] proximity err, ps_enable %d, but intrrupt occur, record_init_fail %d, interrupt_flag %d\n",
+			lpi->ps_enable, record_init_fail, interrupt_flag);
+		/* _cm3628_I2C_Write_Byte(lpi->PS_slave_address,
+		PS_cmd_cmd, 0x00);
 		psensor_initial_cmd(lpi);
 		_cm3628_I2C_Write_Byte(lpi->PS_slave_address,
 			PS_cmd_cmd,
-			lpi->ps_conf1_val |CM3628_PS_SD);
+			lpi->ps_conf1_val |CM3628_PS_SD);*/
 		return;
 	}
 
@@ -404,6 +405,7 @@ static void report_psensor_input_event(struct cm3628_info *lpi, int interrupt_fl
 		/* 0 is close, 1 is far */
 		input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, val);
 		input_sync(lpi->ps_input_dev);
+		blocking_notifier_call_chain(&psensor_notifier_list, val+2, NULL);
 	}
 
 	wake_lock_timeout(&(lpi->ps_wake_lock), 2*HZ);
@@ -476,6 +478,8 @@ void enable_ps_int(int cmd_value)
 {
 	struct cm3628_info *lpi = lp_info;
 	int ret;
+
+	lpi->ps_enable = 1;
 	/* settng command code(0x01) = 0x03*/
 	_cm3628_I2C_Write_Byte(lpi->PS_slave_address,
 		PS_thd, lpi->ps_thd_set);
@@ -485,8 +489,7 @@ void enable_ps_int(int cmd_value)
 	if (ret != 0) {
 		lpi->ps_enable = 0;
 		D("[CM3628] P-sensor i2c err, enable interrupt error\n");
-	} else
-		lpi->ps_enable = 1;
+	}
 }
 
 void disable_ps_int(void)/*disable ps interrupt*/
@@ -704,7 +707,7 @@ static int psensor_enable(struct cm3628_info *lpi)
 		D("[CM3628] %s: already enabled\n", __func__);
 		return 0;
 	}
-
+	blocking_notifier_call_chain(&psensor_notifier_list, 1, NULL);
 	lpi->j_start = jiffies;
 	/*D("%s: j_start = %lu", __func__, lpi->j_start);*/
 
@@ -719,6 +722,7 @@ static int psensor_enable(struct cm3628_info *lpi)
 		/* default report FAR */
 		input_report_abs(lpi->ps_input_dev, ABS_DISTANCE, 1);
 		input_sync(lpi->ps_input_dev);
+		blocking_notifier_call_chain(&psensor_notifier_list, 1+2, NULL);
 	} else
 		report_psensor_input_event(lpi, 0);
 
@@ -774,7 +778,7 @@ static int psensor_disable(struct cm3628_info *lpi)
 		pr_err("[CM3628 error]%s: disable psensor fail\n", __func__);
 		return ret;
 	}
-
+	blocking_notifier_call_chain(&psensor_notifier_list, 0, NULL);
 	lpi->ps_enable = 0;
 
 #ifdef POLLING_PROXIMITY
