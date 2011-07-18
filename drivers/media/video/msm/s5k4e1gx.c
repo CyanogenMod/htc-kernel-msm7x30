@@ -1371,6 +1371,14 @@ static int32_t s5k4e1gx_setting(enum msm_s_reg_update rupdate,
 			if (!sdata->csi_if)
 			s5k4e1gx_i2c_write_b(s5k4e1gx_client->addr, 0x3110, 0x10);
 
+#ifdef CONFIG_MSM_CAMERA_7X30
+	/*only streaming on in preview mode and zero_shutter_mode on MIPI*/
+	if (rt == S_RES_PREVIEW && sdata->csi_if && sdata->zero_shutter_mode) {
+		pr_info("[CAM]%s: delay 200ms before Streaming ON\n", __func__);
+		mdelay(200);
+	}
+#endif
+
 			rc = s5k4e1gx_i2c_write_b(s5k4e1gx_client->addr,
 					S5K4E1GX_REG_MODE_SELECT,
 					S5K4E1GX_MODE_SELECT_STREAM);

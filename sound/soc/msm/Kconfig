@@ -72,7 +72,7 @@ config SND_MSM_MVS7x30_SOC
 
 config SND_MSM_MVS_DAI_SOC
 	tristate "SoC CPU/CODEC DAI for the MSM7x30 chip"
-	depends on SND_MVS_SOC
+	depends on SND_MVS_SOC || MSM_8x60_VOIP
 	default y
 	help
 	 To add support for ALSA PCM driver for MSM7x30 board.
@@ -116,4 +116,18 @@ config SND_SOC_MSM8660
 	 to LPA buffer over DMA.The interface bypasses DSP and hence
 	 does not support any post/pre processing features.The driver
 	 would support full duplex playback/record sessions.
+
+config SND_VOIP_PCM
+	tristate
+
+config MSM_8x60_VOIP
+	tristate "SoC Machine driver for voip"
+	depends on SND_SOC_MSM8X60
+	select SND_MSM_MVS_DAI_SOC
+	select SND_VOIP_PCM
+	default n
+	help
+	 To support ALSA VOIP driver for MSM8x60 target.
+	 This driver communicates with QDSP6, for getting
+	 uplink and downlink voice packets.
 endmenu

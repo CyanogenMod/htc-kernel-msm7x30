@@ -337,10 +337,11 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 				input_event(ds->input_devs->dev[di->keymap[i].dev],
 				ds->info->type, di->keymap[i].code, 0);
 			}
-		} else
+		} else {
 #ifndef CONFIG_ARCH_MSM8X60
 			hrtimer_cancel(&ds->timer);
 #endif
+		}
 
 		return 0;
 	}
@@ -360,13 +361,14 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 					__func__, irq, di->keymap[i].gpio);
 			}
 			irq_status = 1;
-		} else
+		} else {
 #ifdef CONFIG_ARCH_MSM8X60
 			for (i = 0; i < di->keymap_size; i++)
 				queue_work(ki_queue, &ds->key_state[i].work);
 #else
 			hrtimer_start(&ds->timer, ktime_set(0, 0), HRTIMER_MODE_REL);
 #endif
+		}
 
 		return 0;
 	}

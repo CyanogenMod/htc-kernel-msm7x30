@@ -334,8 +334,9 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 		unsigned int timeout_us, limit_us;
 
 		timeout_us = data->timeout_ns / 1000;
-		timeout_us += data->timeout_clks * 1000 /
-			(card->host->ios.clock / 1000);
+		if ((card->host->ios.clock / 1000) > 0)
+			timeout_us += data->timeout_clks * 1000 /
+				(card->host->ios.clock / 1000);
 
 		if (data->flags & MMC_DATA_WRITE)
 			/*
@@ -514,6 +515,13 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 	might_sleep();
 
 	add_wait_queue(&host->wq, &wait);
+#ifdef CONFIG_PM_RUNTIME
+	while(mmc_dev(host)->power.runtime_status == RPM_SUSPENDING) {
+		if (host->suspend_task == current)
+			break;
+		msleep(15);
+	}
+#endif
 	spin_lock_irqsave(&host->lock, flags);
 	while (1) {
 		set_current_state(TASK_UNINTERRUPTIBLE);
@@ -1160,15 +1168,15 @@ void mmc_rescan(struct work_struct *work)
 	mmc_bus_get(host);
 
 	/* if there is a card registered, check whether it is still present */
-	if ((host->bus_ops != NULL) && host->bus_ops->detect && !host->bus_dead)
+	if ((host->bus_ops != NULL) && host->bus_ops->detect && !host->bus_dead) {
 		host->bus_ops->detect(host);
 
 	/* If the card was removed the bus will be marked
 	 * as dead - extend the wakelock so userspace
 	 * can respond */
-	if (host->bus_dead)
-		extend_wakelock = 1;
-
+		if (host->bus_dead)
+			extend_wakelock = 1;
+	}
 	mmc_bus_put(host);
 
 

@@ -18,9 +18,9 @@
  */
 
 #include <linux/delay.h>
+#include <linux/gpio.h>
 #include <linux/rtc.h>
 #include <linux/slab.h>
-
 
 #include <mach/htc_headset_mgr.h>
 
@@ -125,6 +125,10 @@ int headset_notifier_register(struct headset_notifier *notifier)
 		HS_LOG("Register REMOTE_ADC notifier");
 		hs_mgr_notifier.remote_adc = notifier->func;
 		break;
+	case HEADSET_REG_REMOTE_KEYCODE:
+		HS_LOG("Register REMOTE_KEYCODE notifier");
+		hs_mgr_notifier.remote_keycode = notifier->func;
+		break;
 	case HEADSET_REG_RPC_KEY:
 		HS_LOG("Register RPC_KEY notifier");
 		hs_mgr_notifier.rpc_key = notifier->func;
@@ -132,6 +136,12 @@ int headset_notifier_register(struct headset_notifier *notifier)
 	case HEADSET_REG_MIC_STATUS:
 		HS_LOG("Register MIC_STATUS notifier");
 		hs_mgr_notifier.mic_status = notifier->func;
+		if (hi) {
+			cancel_delayed_work_sync(&mic_detect_work);
+			hi->mic_detect_counter = HS_DEF_MIC_DETECT_COUNT;
+			queue_delayed_work(detect_wq, &mic_detect_work,
+					   HS_JIFFIES_MIC_DETECT);
+		}
 		break;
 	case HEADSET_REG_MIC_BIAS:
 		HS_LOG("Register MIC_BIAS notifier");
@@ -250,6 +260,34 @@ static void set_35mm_hw_state(int state)
 
 	if (hs_mgr_notifier.key_int_enable)
 		hs_mgr_notifier.key_int_enable(state);
+}
+
+static int tv_out_detect(void)
+{
+	int adc = 0;
+	int mic = HEADSET_NO_MIC;
+
+	HS_DBG();
+
+	if (!hs_mgr_notifier.remote_adc)
+		return HEADSET_NO_MIC;
+
+	if (!hi->pdata.hptv_det_hp_gpio || !hi->pdata.hptv_det_tv_gpio)
+		return HEADSET_NO_MIC;
+
+	gpio_set_value(hi->pdata.hptv_det_hp_gpio, 0);
+	gpio_set_value(hi->pdata.hptv_det_tv_gpio, 1);
+	msleep(HS_DELAY_MIC_BIAS);
+
+	hs_mgr_notifier.remote_adc(&adc);
+	if (adc >= HS_DEF_HPTV_ADC_16_BIT_MIN &&
+	    adc <= HS_DEF_HPTV_ADC_16_BIT_MAX)
+	mic = HEADSET_TV_OUT;
+
+	gpio_set_value(hi->pdata.hptv_det_hp_gpio, 1);
+	gpio_set_value(hi->pdata.hptv_det_tv_gpio, 0);
+
+	return mic;
 }
 
 #if 0
@@ -401,7 +439,7 @@ static void debug_work_func(struct work_struct *work)
 			hs_mgr_notifier.remote_adc(&adc);
 		HS_LOG("Debug Flag %d, HP_DET %d, ADC %d", flag,
 		       hpin_gpio, adc);
-		msleep(1000);
+		msleep(HS_DELAY_SEC);
 	}
 }
 
@@ -445,6 +483,9 @@ static void remove_detect_work_func(struct work_struct *work)
 	}
 
 	set_35mm_hw_state(0);
+
+	if (hi->ext_35mm_status == HTC_35MM_TV_OUT && hi->pdata.hptv_sel_gpio)
+		gpio_set_value(hi->pdata.hptv_sel_gpio, 0);
 
 	if (hi->metrico_status)
 		enable_metrico_headset(0);
@@ -504,18 +545,37 @@ static void insert_detect_work_func(struct work_struct *work)
 	if (hs_mgr_notifier.mic_status)
 		mic = hs_mgr_notifier.mic_status();
 
+	if (mic == HEADSET_NO_MIC)
+		mic = tv_out_detect();
+
+	if (mic == HEADSET_TV_OUT && hi->pdata.hptv_sel_gpio)
+		gpio_set_value(hi->pdata.hptv_sel_gpio, 1);
+
 	if (mic == HEADSET_METRICO && !hi->metrico_status)
 		enable_metrico_headset(1);
 
 	state = switch_get_state(&hi->sdev);
 	state &= ~MASK_35MM_HEADSET;
 	state |= BIT_35MM_HEADSET;
-	state |= (mic == HEADSET_MIC || mic == HEADSET_METRICO) ?
-		 BIT_HEADSET : BIT_HEADSET_NO_MIC;
+
+	switch (mic) {
+	case HEADSET_TV_OUT:
+		state |= BIT_TV_OUT;
+		break;
+	case HEADSET_METRICO:
+	case HEADSET_MIC:
+		state |= BIT_HEADSET;
+		break;
+	default:
+		state |= BIT_HEADSET_NO_MIC;
+	}
 
 	if (mic == HEADSET_UNKNOWN_MIC) {
 		hi->ext_35mm_status = HTC_35MM_UNKNOWN_MIC;
 		HS_LOG_TIME("Insert 3.5mm headset with UNKNOWN MIC");
+	} else if (mic == HEADSET_TV_OUT) {
+		hi->ext_35mm_status = HTC_35MM_TV_OUT;
+		HS_LOG_TIME("Insert 3.5mm TV OUT cable");
 	} else if (state & BIT_HEADSET) {
 		hi->ext_35mm_status = HTC_35MM_MIC;
 		HS_LOG_TIME("Insert 3.5mm headset with MIC");
@@ -590,6 +650,21 @@ int hs_notify_key_event(int key_code)
 	return 1;
 }
 
+int hs_notify_key_irq(void)
+{
+	int adc = 0;
+	int key_code = HS_MGR_KEY_INVALID;
+
+	if (!hs_mgr_notifier.remote_adc || !hs_mgr_notifier.remote_keycode)
+		return 1;
+
+	hs_mgr_notifier.remote_adc(&adc);
+	key_code = hs_mgr_notifier.remote_keycode(adc);
+	hs_notify_key_event(key_code);
+
+	return 1;
+}
+
 static void usb_headset_detect(int type)
 {
 	int state;
@@ -601,13 +676,13 @@ static void usb_headset_detect(int type)
 
 	switch (type) {
 	case USB_NO_HEADSET:
-		HS_LOG("Remove USB_HEADSET");
+		HS_LOG_TIME("Remove USB_HEADSET");
 		hi->usb_headset.type = USB_NO_HEADSET;
 		hi->usb_headset.status = STATUS_DISCONNECTED;
 		state &= ~MASK_USB_HEADSET;
 		break;
 	case USB_AUDIO_OUT:
-		HS_LOG("Insert USB_AUDIO_OUT");
+		HS_LOG_TIME("Insert USB_AUDIO_OUT");
 		hi->usb_headset.type = USB_AUDIO_OUT;
 		hi->usb_headset.status = STATUS_CONNECTED_ENABLED;
 		state |= BIT_USB_AUDIO_OUT;
@@ -859,7 +934,7 @@ static ssize_t debug_flag_store(struct device *dev,
 	} else if (strncmp(buf, "no_headset", count - 1) == 0) {
 		HS_LOG("Headset simulation: no_headset");
 		state = BIT_HEADSET | BIT_HEADSET_NO_MIC | BIT_35MM_HEADSET |
-			BIT_USB_AUDIO_OUT;
+			BIT_TV_OUT | BIT_USB_AUDIO_OUT;
 		switch_send_event(state, 0);
 	} else if (strncmp(buf, "35mm_mic", count - 1) == 0) {
 		HS_LOG("Headset simulation: 35mm_mic");
@@ -868,6 +943,10 @@ static ssize_t debug_flag_store(struct device *dev,
 	} else if (strncmp(buf, "35mm_no_mic", count - 1) == 0) {
 		HS_LOG("Headset simulation: 35mm_no_mic");
 		state = BIT_HEADSET_NO_MIC | BIT_35MM_HEADSET;
+		switch_send_event(state, 1);
+	} else if (strncmp(buf, "35mm_tv_out", count - 1) == 0) {
+		HS_LOG("Headset simulation: 35mm_tv_out");
+		state = BIT_TV_OUT | BIT_35MM_HEADSET;
 		switch_send_event(state, 1);
 	} else if (strncmp(buf, "usb_audio", count - 1) == 0) {
 		HS_LOG("Headset simulation: usb_audio");
@@ -970,6 +1049,16 @@ static void unregister_attributes(void)
 	class_destroy(hi->htc_accessory_class);
 }
 
+static void headset_mgr_init(void)
+{
+	if (hi->pdata.hptv_det_hp_gpio)
+		gpio_set_value(hi->pdata.hptv_det_hp_gpio, 1);
+	if (hi->pdata.hptv_det_tv_gpio)
+		gpio_set_value(hi->pdata.hptv_det_tv_gpio, 0);
+	if (hi->pdata.hptv_sel_gpio)
+		gpio_set_value(hi->pdata.hptv_sel_gpio, 0);
+}
+
 static int htc_headset_mgr_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -985,6 +1074,10 @@ static int htc_headset_mgr_probe(struct platform_device *pdev)
 	hi->pdata.driver_flag = pdata->driver_flag;
 	hi->pdata.headset_devices_num = pdata->headset_devices_num;
 	hi->pdata.headset_devices = pdata->headset_devices;
+
+	hi->pdata.hptv_det_hp_gpio = pdata->hptv_det_hp_gpio;
+	hi->pdata.hptv_det_tv_gpio = pdata->hptv_det_tv_gpio;
+	hi->pdata.hptv_sel_gpio = pdata->hptv_sel_gpio;
 
 	hi->driver_init_seq = 0;
 
@@ -1067,6 +1160,7 @@ static int htc_headset_mgr_probe(struct platform_device *pdev)
 		HS_LOG("Create RPC server successfully");
 	}
 
+	headset_mgr_init();
 	hs_notify_driver_ready(DRIVER_NAME);
 
 	HS_LOG("--------------------");

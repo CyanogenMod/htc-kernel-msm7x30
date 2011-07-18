@@ -136,16 +136,16 @@ config TPS6507X
 
 config PMIC8058
 	tristate "PMIC8058 Power Management chip"
-	depends on I2C_SSBI && (ARCH_MSM7X30 || ARCH_MSM8X60)
-	default y if I2C_SSBI && (ARCH_MSM7X30 || ARCH_MSM8X60)
+	depends on (I2C_SSBI || MSM8X60_SSBI) && (ARCH_MSM7X30 || ARCH_MSM8X60)
+	default y if (I2C_SSBI || MSM8X60_SSBI) && (ARCH_MSM7X30 || ARCH_MSM8X60)
 	select MFD_CORE
 	help
 	  Say yes here for Qualcomm PM8058 chip.
 
 config PMIC8901
 	tristate "PMIC8901 Power Management chip"
-	depends on I2C_SSBI && ARCH_MSM8X60
-	default y if I2C_SSBI && ARCH_MSM8X60
+	depends on (I2C_SSBI || MSM8X60_SSBI) && ARCH_MSM8X60
+	default y if (I2C_SSBI || MSM8X60_SSBI) && ARCH_MSM8X60
 	select MFD_CORE
 	help
 	  Say yes here for Qualcomm PM8901 chip.

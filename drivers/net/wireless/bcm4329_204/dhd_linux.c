@@ -2396,14 +2396,12 @@ fail_0:
 
 /* work-around for stop the wlc_ioctl early. */
 extern void disable_dev_wlc_ioctl(void);
-extern void wl_iw_force_deauth(void); 
 
 static void __exit
 dhd_module_cleanup(void)
 {
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
-	wl_iw_force_deauth();
 	disable_dev_wlc_ioctl();
 	DHD_DEFAULT((KERN_INFO "%s: bcm4329 module remove\n", __func__));
 #if 0

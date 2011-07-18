@@ -1047,15 +1047,15 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 }
 
 /*
- wait_event_interruptible_timeout checks for the exit condition before
+ wait_io_event_interruptible_timeout checks for the exit condition before
  placing a process in wait q. For conditional interrupts we expect the
  process to already be in its wait q when its exit condition checking
  function is called.
 */
-#define kgsl_wait_event_interruptible_timeout(wq, condition, timeout)	\
+#define kgsl_wait_io_event_interruptible_timeout(wq, condition, timeout)	\
 ({									\
 	long __ret = timeout;						\
-	__wait_event_interruptible_timeout(wq, condition, __ret); 	\
+	__wait_io_event_interruptible_timeout(wq, condition, __ret); 	\
 	__ret;								\
 })
 
@@ -1072,7 +1072,7 @@ static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 		mutex_unlock(&kgsl_driver.mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
-		status = kgsl_wait_event_interruptible_timeout(
+		status = kgsl_wait_io_event_interruptible_timeout(
 				yamato_device->ib1_wq,
 				kgsl_check_interrupt_timestamp(device,
 					timestamp), msecs_to_jiffies(msecs));
@@ -1169,7 +1169,7 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			break;
 		}
 
-		if (dev_priv->ctxt_id_mask & (1 << binbase.drawctxt_id)) {
+		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,
 					binbase.drawctxt_id,

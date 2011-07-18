@@ -223,6 +223,7 @@ struct usb_info {
 	void (*usb_mhl_switch)(bool);
 
 	/* for notification when USB is connected or disconnected */
+	int connect_type_ready;
 	void (*usb_connected)(int);
 
 	struct workqueue_struct *usb_wq;
@@ -246,6 +247,7 @@ struct usb_info {
 	struct clk *pclk;
 	struct clk *otgclk;
 	struct clk *ebi1clk;
+	struct clk *pclk_src;
 
 	atomic_t ep0_dir;
 	atomic_t test_mode;
@@ -273,6 +275,7 @@ struct usb_info {
 	struct timer_list	ac_detect_timer;
 	int			ac_detect_count;
 	int ac_9v_gpio;
+	char *pclk_src_name;
 };
 
 static const struct usb_ep_ops msm72k_ep_ops;
@@ -291,6 +294,7 @@ static void send_usb_connect_notify(struct work_struct *w)
 	if (!ui)
 		return;
 
+	ui->connect_type_ready = 1;
 	USB_INFO("send connect type %d\n", ui->connect_type);
 	mutex_lock(&notify_sem);
 	list_for_each_entry(notifier,
@@ -563,9 +567,29 @@ static void usb_ept_start(struct msm_endpoint *ept)
 
 	BUG_ON(req->live);
 
+	while (req) {
+		req->live = 1;
+		/* prepare the transaction descriptor item for the hardware */
+		req->item->info =
+			INFO_BYTES(req->req.length) | INFO_IOC | INFO_ACTIVE;
+		req->item->page0 = req->dma;
+		req->item->page1 = (req->dma + 0x1000) & 0xfffff000;
+		req->item->page2 = (req->dma + 0x2000) & 0xfffff000;
+		req->item->page3 = (req->dma + 0x3000) & 0xfffff000;
+
+		if (req->next == NULL) {
+			req->item->next = TERMINATE;
+			break;
+		}
+		req->item->next = req->next->item_dma;
+		req = req->next;
+	}
 	/* link the hw queue head to the request's transaction item */
-	ept->head->next = req->item_dma;
+	ept->head->next = ept->req->item_dma;
 	ept->head->info = 0;
+
+	/* flush buffers before priming ept */
+	dma_coherent_pre_ops();
 
 	/* during high throughput testing it is observed that
 	 * ept stat bit is not set even thoguh all the data
@@ -578,24 +602,18 @@ static void usb_ept_start(struct msm_endpoint *ept)
 		for (cnt = 0; cnt < 3000; cnt++) {
 			if (!(readl(USB_ENDPTPRIME) & n) &&
 					(readl(USB_ENDPTSTAT) & n))
-				goto DONE;
+				return;
 			udelay(1);
 		}
 	}
 
-	if (!(readl(USB_ENDPTSTAT) & n)) {
+	if ((readl(USB_ENDPTPRIME) & n)  && !(readl(USB_ENDPTSTAT) & n)) {
 		USB_ERR("Unable to prime the ept%d%s\n",
 				ept->num,
 				ept->flags & EPT_FLAG_IN ? "in" : "out");
-		return;
 	}
 
-DONE:
-	/* mark this chain of requests as live */
-	while (req) {
-		req->live = 1;
-		req = req->next;
-	}
+	return;
 }
 
 int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
@@ -604,7 +622,6 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 	struct msm_request *req = to_msm_request(_req);
 	struct msm_request *last;
 	struct usb_info *ui = ept->ui;
-	struct ept_queue_item *item = req->item;
 	unsigned length = req->req.length;
 
 	if (length > 0x4000)
@@ -635,14 +652,6 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 				  (ept->flags & EPT_FLAG_IN) ?
 				  DMA_TO_DEVICE : DMA_FROM_DEVICE);
 
-	/* prepare the transaction descriptor item for the hardware */
-	item->next = TERMINATE;
-	item->info = INFO_BYTES(length) | INFO_IOC | INFO_ACTIVE;
-	item->page0 = req->dma;
-	item->page1 = (req->dma + 0x1000) & 0xfffff000;
-	item->page2 = (req->dma + 0x2000) & 0xfffff000;
-	item->page3 = (req->dma + 0x3000) & 0xfffff000;
-
 	/* Add the new request to the end of the queue */
 	last = ept->last;
 	if (last) {
@@ -655,8 +664,6 @@ int usb_ept_queue_xfer(struct msm_endpoint *ept, struct usb_request *_req)
 		/* only modify the hw transaction next pointer if
 		 * that request is not live
 		 */
-		if (!last->live)
-			last->item->next = req->item_dma;
 	} else {
 		/* queue was empty -- kick the hardware */
 		ept->req = req;
@@ -928,8 +935,6 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 	/* expire all requests that are no longer active */
 	spin_lock_irqsave(&ui->lock, flags);
 	while ((req = ept->req)) {
-		info = req->item->info;
-
 		/* if we've processed all live requests, time to
 		 * restart the hardware on the next non-live request
 		 */
@@ -938,6 +943,9 @@ static void handle_endpoint(struct usb_info *ui, unsigned bit)
 			break;
 		}
 
+		/* clean speculative fetches on req->item->info */
+		dma_coherent_post_ops();
+		info = req->item->info;
 		/* if the transaction is still in-flight, stop here */
 		if (info & INFO_ACTIVE)
 			break;
@@ -1154,6 +1162,14 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	}
 	return IRQ_HANDLED;
 }
+
+int usb_is_connect_type_ready(void)
+{
+	if (!the_usb_info)
+		return 0;
+	return the_usb_info->connect_type_ready;
+}
+EXPORT_SYMBOL(usb_is_connect_type_ready);
 
 int usb_get_connect_type(void)
 {
@@ -1618,6 +1634,8 @@ static void usb_lpm_enter(struct usb_info *ui)
 		clk_disable(ui->coreclk);
 	clk_set_rate(ui->ebi1clk, 0);
 	ui->in_lpm = 1;
+	if (ui->pclk_src)
+		clk_disable(ui->pclk_src);
 	spin_unlock_irqrestore(&ui->lock, iflags);
 
 	if (board_mfg_mode() == 1) {/*for MFG adb unstable in FROYO ROM*/
@@ -1641,6 +1659,9 @@ static void usb_lpm_exit(struct usb_info *ui)
 	clk_set_rate(ui->ebi1clk, acpuclk_get_max_axi_rate());
 #endif
 	udelay(10);
+	if (ui->pclk_src)
+		clk_enable(ui->pclk_src);
+
 	if (ui->coreclk)
 		clk_enable(ui->coreclk);
 	clk_enable(ui->clk);
@@ -2084,8 +2105,11 @@ static void usb_do_work(struct work_struct *w)
 					charger_detect_by_uart(ui);
 				else if (ui->ac_9v_gpio)
 					charger_detect_by_9v_gpio(ui);
-				else
+				else {
+					if (ui->usb_id_pin_gpio != 0)
+						msleep(200);
 					charger_detect(ui);
+				}
 
 				ui->state = USB_STATE_ONLINE;
 #ifdef CONFIG_USB_ACCESSORY_DETECT
@@ -2740,6 +2764,7 @@ static int msm72k_probe(struct platform_device *pdev)
 		ui->ldo_enable = pdata->ldo_enable;
 		ui->usb_mhl_switch = pdata->usb_mhl_switch;
 		ui->ac_9v_gpio = pdata->ac_9v_gpio;
+		ui->pclk_src_name = pdata->pclk_src_name;
 
 		if (ui->ldo_init)
 			ui->ldo_init(1);
@@ -2788,6 +2813,19 @@ static int msm72k_probe(struct platform_device *pdev)
 	ui->clk = clk_get(&pdev->dev, "usb_hs_clk");
 	if (IS_ERR(ui->clk))
 		return usb_free(ui, PTR_ERR(ui->clk));
+
+	/* If USB Core is running its protocol engine based on PCLK,
+	 * PCLK must be running at >60Mhz for correct HSUSB operation and
+	 * USB core cannot tolerate frequency changes on PCLK. For such
+	 * USB cores, vote for maximum clk frequency on pclk source
+	 */
+	if (ui->pclk_src_name) {
+		ui->pclk_src = clk_get(0, ui->pclk_src_name);
+		if (IS_ERR(ui->pclk_src))
+			return usb_free(ui, PTR_ERR(ui->pclk_src));
+		else
+			clk_set_rate(ui->pclk_src, 64000000);
+	}
 
 	ui->pclk = clk_get(&pdev->dev, "usb_hs_pclk");
 	if (IS_ERR(ui->pclk))
@@ -2851,6 +2889,7 @@ static int msm72k_probe(struct platform_device *pdev)
 		use_mfg_serialno = 0;
 	strncpy(mfg_df_serialno, serialno, strlen(serialno));
 
+	ui->connect_type_ready = 0;
 	ui->ac_detect_count = 0;
 	ui->ac_detect_timer.data = (unsigned long) ui;
 	ui->ac_detect_timer.function = ac_detect_expired;

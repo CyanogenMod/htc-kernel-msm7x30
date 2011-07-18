@@ -279,6 +279,8 @@ struct mdp_device {
 	unsigned overrides;
 	uint32_t width;		/*panel width*/
 	uint32_t height;	/*panel height*/
+	struct fb_info *fb0;
+	struct fb_info *fb1;
 };
 
 struct class_interface;

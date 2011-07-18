@@ -73,13 +73,19 @@
 
 #define MASK_HEADSET		(BIT_HEADSET | BIT_HEADSET_NO_MIC)
 #define MASK_35MM_HEADSET	(BIT_HEADSET | BIT_HEADSET_NO_MIC | \
-				BIT_35MM_HEADSET)
+				BIT_35MM_HEADSET | BIT_TV_OUT)
 #define MASK_FM_ATTRIBUTE	(BIT_FM_HEADSET | BIT_FM_SPEAKER)
 #define MASK_USB_HEADSET	(BIT_USB_AUDIO_OUT)
 
 #define HS_DEF_MIC_ADC_10_BIT		200
+#define HS_DEF_MIC_ADC_15_BIT_MAX	25320
+#define HS_DEF_MIC_ADC_15_BIT_MIN	7447
 #define HS_DEF_MIC_ADC_16_BIT_MAX	50641
 #define HS_DEF_MIC_ADC_16_BIT_MIN	14894
+#define HS_DEF_MIC_ADC_16_BIT_MAX2	56007
+#define HS_DEF_MIC_ADC_16_BIT_MIN2	14894
+#define HS_DEF_HPTV_ADC_16_BIT_MAX	16509
+#define HS_DEF_HPTV_ADC_16_BIT_MIN	6456
 
 #define HS_DEF_MIC_DETECT_COUNT		10
 
@@ -128,16 +134,18 @@
 #define HEADSET_MIC		1
 #define HEADSET_METRICO		2
 #define HEADSET_UNKNOWN_MIC	3
+#define HEADSET_TV_OUT		4
 
 #define HTC_35MM_UNPLUG		0
 #define HTC_35MM_NO_MIC		1
 #define HTC_35MM_MIC		2
 #define HTC_35MM_UNKNOWN_MIC	3
-
+#define HTC_35MM_TV_OUT		4
 
 enum {
 	HEADSET_REG_HPIN_GPIO,
 	HEADSET_REG_REMOTE_ADC,
+	HEADSET_REG_REMOTE_KEYCODE,
 	HEADSET_REG_RPC_KEY,
 	HEADSET_REG_MIC_STATUS,
 	HEADSET_REG_MIC_BIAS,
@@ -198,6 +206,7 @@ struct headset_notifier {
 struct hs_notifier_func {
 	int (*hpin_gpio)(void);
 	int (*remote_adc)(int *);
+	int (*remote_keycode)(int);
 	void (*rpc_key)(int);
 	int (*mic_status)(void);
 	int (*mic_bias_enable)(int);
@@ -210,6 +219,10 @@ struct htc_headset_mgr_platform_data {
 	unsigned int driver_flag;
 	int headset_devices_num;
 	struct platform_device **headset_devices;
+
+	unsigned int hptv_det_hp_gpio;
+	unsigned int hptv_det_tv_gpio;
+	unsigned int hptv_sel_gpio;
 };
 
 struct htc_headset_mgr_info {
@@ -258,6 +271,7 @@ void hs_notify_driver_ready(char *name);
 void hs_notify_hpin_irq(void);
 int hs_notify_plug_event(int insert);
 int hs_notify_key_event(int key_code);
+int hs_notify_key_irq(void);
 
 int hs_debug_log_state(void);
 

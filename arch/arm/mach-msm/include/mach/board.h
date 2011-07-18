@@ -26,6 +26,9 @@
 #ifdef CONFIG_MSM_BUS_SCALING
 #include <mach/msm_bus.h>
 #endif
+#ifdef CONFIG_ARCH_MSM8X60
+#include <asm/clkdev.h>
+#endif
 #include "msm_ssbi.h"
 
 #define BIT0                    0x00000001
@@ -324,6 +327,8 @@ struct msm_panel_common_pdata {
 	int mdp_core_clk_rate;
 	unsigned num_mdp_clk;
 	int *mdp_core_clk_table;
+	int (*rgb_format)(void);
+	unsigned char (*shrink_pwm)(int val);
 #ifdef CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *mdp_bus_scale_table;
 #endif
@@ -368,7 +373,7 @@ struct msm_hdmi_platform_data {
 	int (*cable_detect)(int insert);
 	int (*comm_power)(int on, int show);
 	int (*enable_5v)(int on);
-	int (*core_power)(int on);
+	int (*core_power)(int on, int show);
 	int (*cec_power)(int on);
 	int (*init_irq)(void);
 };
@@ -404,7 +409,7 @@ void __init msm_map_comet_io(void);
 void __init msm_init_irq(void);
 
 #ifdef CONFIG_ARCH_MSM8X60
-void __init msm_clock_init(struct clk *clock_tbl, unsigned num_clocks);
+void __init msm_clock_init(struct clk_lookup *clock_tbl, unsigned num_clocks);
 struct mmc_platform_data;
 int __init msm_add_sdcc(unsigned int controller,
 		struct mmc_platform_data *plat);
@@ -502,12 +507,6 @@ void msm_snddev_tx_route_config(void);
 void msm_snddev_tx_route_deconfig(void);
 void msm_snddev_rx_route_config(void);
 void msm_snddev_rx_route_deconfig(void);
-void msm_snddev_enable_amic_power(void);
-void msm_snddev_disable_amic_power(void);
-void msm_snddev_enable_dmic_power(void);
-void msm_snddev_disable_dmic_power(void);
-void msm_snddev_enable_dmic_sec_power(void);
-void msm_snddev_disable_dmic_sec_power(void);
 
 extern unsigned int msm_shared_ram_phys; /* defined in arch/arm/mach-msm/io.c */
 

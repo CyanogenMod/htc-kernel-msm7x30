@@ -499,7 +499,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	if (mmc_card_highspeed(card)) {
 		if (max_dtr > card->sw_caps.hs_max_dtr) {
 			max_dtr = card->sw_caps.hs_max_dtr;
-			printk(KERN_WARNING "%s: high speed mode but max_dtr = %d\n",
+			printk(KERN_WARNING "%s: high speed mode max_dtr = %d\n",
 				       mmc_hostname(host), max_dtr);
 		}
 	} else if (max_dtr > card->csd.max_dtr) {

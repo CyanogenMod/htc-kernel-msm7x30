@@ -103,6 +103,7 @@ static void atmel_ts_early_suspend(struct early_suspend *h);
 static void atmel_ts_late_resume(struct early_suspend *h);
 #endif
 
+static void confirm_calibration(struct atmel_ts_data *ts, int recal);
 static void multi_input_report(struct atmel_ts_data *ts);
 
 int i2c_atmel_read(struct i2c_client *client, uint16_t address, uint8_t *data, uint8_t length)
@@ -465,6 +466,27 @@ static ssize_t atmel_diag_dump(struct device *dev,
 static DEVICE_ATTR(diag, (S_IWUSR|S_IRUGO),
 	atmel_diag_show, atmel_diag_dump);
 
+static ssize_t atmel_unlock_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct atmel_ts_data *ts_data;
+	int unlock = -1;
+	ts_data = private_ts;
+
+	if (buf[0] >= '0' && buf[0] <= '9' && buf[1] == '\n')
+		unlock = buf[0] - '0';
+
+	printk(KERN_INFO "Touch: unlock change to %d\n", unlock);
+
+	if (unlock == 2 && ts_data->pre_data[0] != RECALIB_DONE)
+		confirm_calibration(ts_data, 0);
+
+	return count;
+}
+
+static DEVICE_ATTR(unlock, (S_IWUSR|S_IRUGO),
+	NULL, atmel_unlock_store);
+
 static struct kobject *android_touch_kobj;
 
 static int atmel_touch_sysfs_init(void)
@@ -507,11 +529,17 @@ static int atmel_touch_sysfs_init(void)
 		printk(KERN_ERR "TOUCH_ERR: create_file diag failed\n");
 		return ret;
 	}
+	ret = sysfs_create_file(android_touch_kobj, &dev_attr_unlock.attr);
+	if (ret) {
+		printk(KERN_ERR "TOUCH_ERR: create_file unlock failed\n");
+		return ret;
+	}
 	return 0;
 }
 
 static void atmel_touch_sysfs_deinit(void)
 {
+	sysfs_remove_file(android_touch_kobj, &dev_attr_unlock.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_diag.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_debug_level.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_regdump.attr);
@@ -632,7 +660,7 @@ static void check_calibration(struct atmel_ts_data*ts)
 	}
 }
 
-static void confirm_calibration(struct atmel_ts_data *ts)
+static void confirm_calibration(struct atmel_ts_data *ts, int recal)
 {
 	uint8_t ATCH_NOR[4] = {0, 1, 0, 0};
 
@@ -654,9 +682,10 @@ static void confirm_calibration(struct atmel_ts_data *ts)
 				ts->config_setting[NONE].config_T9[T9_CFG_TCHTHR]);
 	}
 	ts->pre_data[0] = RECALIB_DONE;
-	i2c_atmel_write_byte_data(ts->client,
-		get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
-		T6_CFG_CALIBRATE, 0x55);
+	if (recal)
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
+			T6_CFG_CALIBRATE, 0x55);
 	printk(KERN_INFO "Touch: calibration confirm\n");
 }
 
@@ -702,7 +731,7 @@ static void msg_process_multitouch(struct atmel_ts_data *ts, uint8_t *data, uint
 					((jiffies > ts->timestamp + 15 * HZ && ts->psensor_status == 0) ||
 					(idx == 0 && ts->finger_data[idx].y > 750
 					&& ((ts->finger_data[idx].y - ts->pre_data[idx + 1]) > 135))))
-						confirm_calibration(ts);
+						confirm_calibration(ts, 1);
 				if (ts->finger_count)
 					i2c_atmel_write_byte_data(ts->client,
 						get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +

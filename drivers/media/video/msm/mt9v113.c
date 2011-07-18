@@ -1599,6 +1599,11 @@ int mt9v113_sensor_open_init(struct msm_camera_sensor_info *data)
 {
 	int rc = 0;
 
+	if (data == NULL) {
+		pr_err("[CAM]%s sensor data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	mt9v113_ctrl = kzalloc(sizeof(struct mt9v113_ctrl_t), GFP_KERNEL);
 	if (!mt9v113_ctrl) {
 		pr_info("[CAM]mt9v113_init failed!\n");
@@ -1606,10 +1611,6 @@ int mt9v113_sensor_open_init(struct msm_camera_sensor_info *data)
 		goto init_done;
 	}
 
-	if (data == NULL) {
-		pr_err("[CAM]%s sensor data is NULL\n", __func__);
-		return -EINVAL;
-	}
 	mt9v113_ctrl->sensordata = data;
 	data->pdata->camera_gpio_on();
 	/*switch PCLK and MCLK to 2nd cam*/
@@ -1718,15 +1719,15 @@ int mt9v113_sensor_release(void)
 	uint16_t check_value = 0;
 	struct msm_camera_sensor_info *sdata = mt9v113_pdev->dev.platform_data;
 
-    /* enter SW standby mode */
-    pr_info("[CAM]%s: enter SW standby mode\n", __func__);
+	/* enter SW standby mode */
+	pr_info("[CAM]%s: enter SW standby mode\n", __func__);
 	suspend();
 	
 	/* Do streaming Off */
 	/* write 0x0016[5] to 0  */
 	rc = mt9v113_i2c_read_w(mt9v113_client->addr, 0x0016, &check_value);
 	if (rc < 0)
-	  return rc;
+	  goto sensor_release;
 
 	pr_info("[CAM]%s: mt9v113: 0x0016 reg value = 0x%x\n",
 		__func__, check_value);
@@ -1740,7 +1741,7 @@ int mt9v113_sensor_release(void)
 		check_value, WORD_LEN);
 	if (rc < 0) {
 		pr_err("[CAM]%s: Enter Standby mode fail\n", __func__);
-		return rc;
+		goto sensor_release;
 	}
 
 	/*0709: optical ask : CLK switch to Main Cam after 2nd Cam release*/
@@ -1760,6 +1761,11 @@ int mt9v113_sensor_release(void)
 	pr_info("[CAM]%s msm_camio_probe_off()\n", __func__);
 	msm_camio_probe_off(mt9v113_pdev);
 	sdata->pdata->camera_gpio_off();
+
+sensor_release:
+	kfree(mt9v113_ctrl);
+	mt9v113_ctrl = NULL;
+
 	return rc;
 }
 
@@ -2015,7 +2021,11 @@ static int __mt9v113_probe(struct platform_device *pdev)
 static struct platform_driver msm_camera_driver = {
 	.probe = __mt9v113_probe,
 	.driver = {
+#ifdef CONFIG_MSM_CAMERA_8X60
+		   .name = "msm_camera_webcam",
+#else
 		   .name = "msm_camera_mt9v113",
+#endif
 		   .owner = THIS_MODULE,
 		   },
 };

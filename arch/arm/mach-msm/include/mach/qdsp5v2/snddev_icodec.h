@@ -54,6 +54,9 @@ struct snddev_icodec_data {
 	void (*pamp_on) (int on);
 	u32 dev_vol_type;
 	u32 vol_idx;
+	u32 aic3254_id;
+	u32 aic3254_voc_id;
+	u32 default_aic3254_id;
 };
 
 struct q5v2audio_analog_ops {
@@ -69,11 +72,21 @@ struct q5v2audio_analog_ops {
 	void (*fm_speaker_enable)(int en);
 };
 
-void htc_7x30_register_analog_ops(struct q5v2audio_analog_ops *ops);
+struct q5v2audio_aic3254_ops {
+	void (*aic3254_set_mode)(int config, int mode);
+};
 
 struct q5v2audio_icodec_ops {
 	int (*support_aic3254) (void);
 };
 
+struct aic3254_info {
+	u32 dev_id;
+	u32 path_id;
+};
+
+void htc_7x30_register_analog_ops(struct q5v2audio_analog_ops *ops);
+void htc_7x30_register_aic3254_ops(struct q5v2audio_aic3254_ops *ops);
+int update_aic3254_info(struct aic3254_info *info);
 void htc_7x30_register_icodec_ops(struct q5v2audio_icodec_ops *ops);
 #endif
