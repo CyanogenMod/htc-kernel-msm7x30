@@ -34,8 +34,8 @@
 struct kgsl_g12_ringbuffer {
 	unsigned int prevctx;
 	unsigned int numcontext;
+	unsigned int ctxt_id_mask;
 	struct kgsl_memdesc      cmdbufdesc;
-	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
 };
 
 struct kgsl_g12_device {

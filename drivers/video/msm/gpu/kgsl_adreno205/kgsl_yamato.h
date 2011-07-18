@@ -38,7 +38,7 @@ struct kgsl_yamato_device {
 	struct kgsl_memregion gmemspace;
 	unsigned int      drawctxt_count;
 	struct kgsl_drawctxt *drawctxt_active;
-	struct kgsl_drawctxt *drawctxt[KGSL_CONTEXT_MAX];
+	struct kgsl_drawctxt drawctxt[KGSL_CONTEXT_MAX];
 	wait_queue_head_t ib1_wq;
 };
 

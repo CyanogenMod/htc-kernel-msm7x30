@@ -38,15 +38,15 @@ kgsl_g12_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
 
-	if (g12_device->ringbuffer.numcontext >= KGSL_CONTEXT_MAX) {
+	if (g12_device->ringbuffer.numcontext >= KGSL_G12_CONTEXT_MAX) {
 		*drawctxt_id = 0;
 		return KGSL_FAILURE;
 
 	}
 	g12_device->ringbuffer.numcontext++;
-	ctx_id = find_first_zero_bit(g12_device->ringbuffer.ctxt_bitmap,
-				     KGSL_CONTEXT_MAX);
-	set_bit(ctx_id, g12_device->ringbuffer.ctxt_bitmap);
+	ctx_id = ffz(g12_device->ringbuffer.ctxt_id_mask);
+	g12_device->ringbuffer.ctxt_id_mask |= 1 << ctx_id;
+
 	*drawctxt_id = ctx_id;
 
 	return KGSL_SUCCESS;
@@ -57,19 +57,19 @@ kgsl_g12_drawctxt_destroy(struct kgsl_device *device,
 			unsigned int drawctxt_id)
 {
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
-	if (drawctxt_id >= KGSL_CONTEXT_MAX)
+	if (drawctxt_id >= KGSL_G12_CONTEXT_MAX)
 		return KGSL_FAILURE;
 
 	if (g12_device->ringbuffer.numcontext == 0)
 		return KGSL_FAILURE;
 
-	if (!test_bit(drawctxt_id, g12_device->ringbuffer.ctxt_bitmap))
+	if ((g12_device->ringbuffer.ctxt_id_mask & (1 << drawctxt_id)) == 0)
 		return KGSL_FAILURE;
 
 	if (g12_device->ringbuffer.prevctx == drawctxt_id)
 		g12_device->ringbuffer.prevctx = KGSL_G12_INVALID_CONTEXT;
 
-	clear_bit(drawctxt_id, g12_device->ringbuffer.ctxt_bitmap);
+	g12_device->ringbuffer.ctxt_id_mask &= ~(1 << drawctxt_id);
 	g12_device->ringbuffer.numcontext--;
 
 	return KGSL_SUCCESS;

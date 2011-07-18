@@ -28,7 +28,6 @@
 #include <linux/list.h>
 #include <linux/io.h>
 #include <linux/mm.h>
-#include <linux/slab.h>
 #include <linux/android_pmem.h>
 #include <linux/pm_qos_params.h>
 #include <linux/highmem.h>
@@ -55,62 +54,6 @@
 #define KGSL_MAX_PRESERVED_BUFFERS		10
 #define KGSL_MAX_SIZE_OF_PRESERVED_BUFFER	0x10000
 
-static void
-kgsl_ptpool_cleanup(void)
-{
-	int size = kgsl_driver.ptpool.entries * kgsl_driver.ptsize;
-
-	if (kgsl_driver.ptpool.hostptr)
-		dma_free_coherent(NULL, size, kgsl_driver.ptpool.hostptr,
-				  kgsl_driver.ptpool.physaddr);
-
-	kfree(kgsl_driver.ptpool.bitmap);
-	memset(&kgsl_driver.ptpool, 0, sizeof(kgsl_driver.ptpool));
-}
-/* Allocate memory and structures for the pagetable pool */
-static int __devinit
-kgsl_ptpool_init(void)
-{
-	int size = kgsl_driver.ptpool.entries * kgsl_driver.ptsize;
-
-	if (size > SZ_4M) {
-		size = SZ_4M;
-		kgsl_driver.ptpool.entries = SZ_4M / kgsl_driver.ptsize;
-		KGSL_DRV_ERR("Page table pool too big.  Limiting to "
-			"%d processes\n", kgsl_driver.ptpool.entries);
-	}
-
-	/* Allocate a large chunk of memory for the page tables */
-	kgsl_driver.ptpool.hostptr =
-		dma_alloc_coherent(NULL, size, &kgsl_driver.ptpool.physaddr,
-				   GFP_KERNEL);
-
-	if (kgsl_driver.ptpool.hostptr == NULL) {
-		KGSL_DRV_ERR("pagetable init failed\n");
-		return -ENOMEM;
-	}
-
-	/* Allocate room for the bitmap */
-
-	kgsl_driver.ptpool.bitmap =
-		kzalloc((kgsl_driver.ptpool.entries / BITS_PER_BYTE) + 1,
-			GFP_KERNEL);
-
-	if (kgsl_driver.ptpool.bitmap == NULL) {
-		KGSL_DRV_ERR("pagetable init failed\n");
-		dma_free_coherent(NULL, size, kgsl_driver.ptpool.hostptr,
-				  kgsl_driver.ptpool.physaddr);
-		return -ENOMEM;
-	}
-
-	/* Clear the memory at init time - this saves us having to do
-	   it as page tables are allocated */
-
-	memset(kgsl_driver.ptpool.hostptr, 0, size);
-	spin_lock_init(&kgsl_driver.ptpool.lock);
-
-	return 0;
-}
 
 static void kgsl_put_phys_file(struct file *file);
 
@@ -618,16 +561,22 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	BUG_ON(private == NULL);
 	filep->private_data = NULL;
 	list_del(&dev_priv->list);
-	for (i = 0; i < KGSL_CONTEXT_MAX; i++) {
-		if (test_bit(i, dev_priv->ctxt_bitmap))
+
+	while (dev_priv->ctxt_id_mask) {
+		if (dev_priv->ctxt_id_mask & (1 << i)) {
 			device->ftbl.device_drawctxt_destroy(device, i);
+			dev_priv->ctxt_id_mask &= ~(1 << i);
+		}
+		i++;
 	}
+
 	kgsl_put_process_private(device, private);
 
 	if (atomic_dec_return(&device->open_count) == -1) {
 		KGSL_DRV_VDBG("last_release\n");
 		result = device->ftbl.device_stop(device);
 	}
+
 	KGSL_POST_HWACCESS();
 	kfree(dev_priv);
 
@@ -677,7 +626,7 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 
 	mutex_lock(&kgsl_driver.mutex);
 
-	bitmap_zero(dev_priv->ctxt_bitmap, KGSL_CONTEXT_MAX);
+	dev_priv->ctxt_id_mask = 0;
 	dev_priv->device = device;
 	dev_priv->pid = task_pid_nr(current);
 	filep->private_data = dev_priv;
@@ -817,7 +766,7 @@ uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
 
 		yamato_device = (struct kgsl_yamato_device*)device;
 		for (i = 0; i < KGSL_CONTEXT_MAX; i++) {
-			struct kgsl_drawctxt *ctxt = yamato_device->drawctxt[i];
+			struct kgsl_drawctxt *ctxt = &yamato_device->drawctxt[i];
 			struct gmem_shadow_t *s;
 			if ((ctxt == NULL) ||
 				(ctxt->flags == CTXT_FLAGS_NOT_IN_USE))
@@ -929,7 +878,8 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 		result = -EFAULT;
 		goto done;
 	}
-	if (!test_bit(param.drawctxt_id, dev_priv->ctxt_bitmap)) {
+
+	if ((dev_priv->ctxt_id_mask & 1 << param.drawctxt_id) == 0) {
 		result = -EINVAL;
 		KGSL_DRV_ERR("invalid drawctxt drawctxt_id %d\n",
 				      param.drawctxt_id);
@@ -1044,7 +994,7 @@ static long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 		goto done;
 	}
 
-	set_bit(param.drawctxt_id, dev_priv->ctxt_bitmap);
+	dev_priv->ctxt_id_mask |= 1 << param.drawctxt_id;
 
 done:
 	return result;
@@ -1060,7 +1010,8 @@ static long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 		result = -EFAULT;
 		goto done;
 	}
-	if (!test_bit(param.drawctxt_id, dev_priv->ctxt_bitmap)) {
+
+	if ((dev_priv->ctxt_id_mask & 1 << param.drawctxt_id) == 0) {
 		result = -EINVAL;
 		goto done;
 	}
@@ -1069,7 +1020,8 @@ static long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 							dev_priv->device,
 							param.drawctxt_id);
 	if (result == 0)
-		clear_bit(param.drawctxt_id, dev_priv->ctxt_bitmap);
+		dev_priv->ctxt_id_mask &= ~(1 << param.drawctxt_id);
+
 done:
 	return result;
 }
@@ -1685,7 +1637,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 		result = -EINVAL;
 		goto done;
 	}
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	result = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				vma_size, vma->vm_page_prot);
@@ -2092,15 +2044,6 @@ static int __devinit kgsl_platform_probe(struct platform_device *pdev)
 	if (result != 0)
 		goto done;
 
-	kgsl_driver.ptsize = KGSL_PAGETABLE_ENTRIES(pdata->pt_va_size) *KGSL_PAGETABLE_ENTRY_SIZE;
-	kgsl_driver.ptsize = ALIGN(kgsl_driver.ptsize, KGSL_PAGESIZE);
-	kgsl_driver.pt_va_size = pdata->pt_va_size;
-	kgsl_driver.ptpool.entries = pdata->pt_max_count;
-	result = kgsl_ptpool_init();
-
-	if (result != 0)
-		goto done;
-
 	result = kgsl_drm_init(pdev);
 
 	INIT_LIST_HEAD(&kgsl_driver.pagetable_list);
@@ -2156,7 +2099,6 @@ done:
 static int kgsl_platform_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-	kgsl_ptpool_cleanup();
 	kgsl_driver_cleanup();
 	kgsl_drm_exit();
 	kgsl_device_unregister();

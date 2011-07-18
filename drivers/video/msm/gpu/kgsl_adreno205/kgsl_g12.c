@@ -79,6 +79,7 @@ irqreturn_t kgsl_g12_isr(int irq, void *data)
 
 	device = (struct kgsl_device *) data;
 	g12_device =  (struct kgsl_g12_device *) device;
+
 	kgsl_g12_regread(device, ADDR_VGC_IRQSTATUS >> 2, &status);
 
 	if (status & GSL_VGC_INT_MASK) {
@@ -204,7 +205,6 @@ kgsl_g12_init(struct kgsl_device *device,
 	struct kgsl_memregion *regspace = &device->regspace;
 	//unsigned int memflags = KGSL_MEMFLAGS_ALIGNPAGE |	KGSL_MEMFLAGS_CONPHYS;
 	struct kgsl_g12_device *g12_device = (struct kgsl_g12_device *) device;
-	struct kgsl_platform_data *pdata = NULL;
 
 
 	KGSL_DRV_VDBG("enter (device=%p, config=%p)\n", device, config);
@@ -268,7 +268,6 @@ kgsl_g12_init(struct kgsl_device *device,
 	INIT_WORK(&device->idle_check_ws, kgsl_idle_check);
 
 	INIT_LIST_HEAD(&device->ringbuffer.memqueue);
-	pdata = kgsl_driver.pdev->dev.platform_data;
 
 	printk(KERN_INFO "kgsl mmu config 0x%x\n", config->mmu_config);
 	if (config->mmu_config) {
@@ -276,7 +275,7 @@ kgsl_g12_init(struct kgsl_device *device,
 		device->mmu.mpu_base  = config->mpu_base;
 		device->mmu.mpu_range = config->mpu_range;
 		device->mmu.va_base   = config->va_base;
-		device->mmu.va_range  = pdata->pt_va_size;
+		device->mmu.va_range  = config->va_range;
 	}
 
 	status = kgsl_g12_cmdstream_init(device);
@@ -658,7 +657,7 @@ static int kgsl_g12_waittimestamp(struct kgsl_device *device,
 	KGSL_DRV_INFO("current (device=%p,timestamp=%d)\n",
 			device, g12_device->timestamp);
 
-	timeout = wait_io_event_interruptible_timeout(
+	timeout = wait_event_interruptible_timeout(
 			g12_device->wait_timestamp_wq,
 			kgsl_check_timestamp((struct kgsl_device *) g12_device,
 					     timestamp),

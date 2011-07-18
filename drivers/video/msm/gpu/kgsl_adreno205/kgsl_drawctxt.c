@@ -21,7 +21,6 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/msm_kgsl.h>
-#include <linux/slab.h>
 
 #include "yamato_reg.h"
 #include "kgsl.h"
@@ -1474,17 +1473,18 @@ kgsl_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	/* find a free context slot */
 	index = 0;
-	for (index = 0; index < KGSL_CONTEXT_MAX; index++) {
-		if (yamato_device->drawctxt[index] == NULL)
+	while (index < KGSL_CONTEXT_MAX) {
+		if (yamato_device->drawctxt[index].flags ==
+							CTXT_FLAGS_NOT_IN_USE)
 			break;
+
+		index++;
 	}
 
-	if (index == KGSL_CONTEXT_MAX)
+	if (index >= KGSL_CONTEXT_MAX)
 		return -EINVAL;
 
-	drawctxt = yamato_device->drawctxt[index] = kzalloc(sizeof(struct kgsl_drawctxt), GFP_KERNEL);
-	if (drawctxt == NULL)
-		return -ENOMEM;
+	drawctxt = &yamato_device->drawctxt[index];
 	drawctxt->pagetable = pagetable;
 	drawctxt->flags = CTXT_FLAGS_IN_USE;
 	drawctxt->bin_base_offset = 0;
@@ -1536,56 +1536,54 @@ int kgsl_drawctxt_destroy(struct kgsl_device *device, unsigned int drawctxt_id)
 	if (drawctxt_id >= KGSL_CONTEXT_MAX)
 		return -EINVAL;
 
-	drawctxt = yamato_device->drawctxt[drawctxt_id];
-
-	if (drawctxt == NULL)
-		return -EINVAL;
+	drawctxt = &yamato_device->drawctxt[drawctxt_id];
 
 	KGSL_CTXT_INFO("drawctxt_id %d ptr %p\n", drawctxt_id, drawctxt);
 	if (drawctxt->flags != CTXT_FLAGS_NOT_IN_USE) {
-
 		/* deactivate context */
-
 		if (yamato_device->drawctxt_active == drawctxt) {
-
 			/* no need to save GMEM or shader, the context is
-
 			 * being destroyed.
-
 			 */
 			drawctxt->flags &= ~(CTXT_FLAGS_GMEM_SAVE |
-						CTXT_FLAGS_SHADER_SAVE |
-						CTXT_FLAGS_GMEM_SHADOW |
-						CTXT_FLAGS_STATE_SHADOW);
+					     CTXT_FLAGS_SHADER_SAVE |
+					     CTXT_FLAGS_GMEM_SHADOW |
+					     CTXT_FLAGS_STATE_SHADOW);
+
 			kgsl_drawctxt_switch(yamato_device, NULL, 0);
 		}
-		yamato_device->drawctxt[drawctxt_id] = NULL;
-		kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
-	/* destroy state shadow, if allocated */
-	if (drawctxt->gpustate.gpuaddr != 0) {
-		kgsl_mmu_unmap(drawctxt->pagetable,
-				drawctxt->gpustate.gpuaddr,
-			       drawctxt->gpustate.size);
-		drawctxt->gpustate.gpuaddr = 0;
-	}
-	if (drawctxt->gpustate.physaddr != 0)
-		kgsl_sharedmem_free(&drawctxt->gpustate);
 
-	/* destroy gmem shadow, if allocated */
-	if (drawctxt->context_gmem_shadow.gmemshadow.gpuaddr != 0) {
-		kgsl_mmu_unmap(drawctxt->pagetable,
-		drawctxt->context_gmem_shadow.gmemshadow.gpuaddr,
-		drawctxt->context_gmem_shadow.gmemshadow.size);
-		drawctxt->context_gmem_shadow.gmemshadow.gpuaddr = 0;
-	}
-	if (drawctxt->context_gmem_shadow.gmemshadow.physaddr != 0)
-		kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.
-				    gmemshadow);
-	kfree(drawctxt);
-	BUG_ON(yamato_device->drawctxt_count == 0);
-	yamato_device->drawctxt_count--;
-	pr_info("[DISP] %s pid %d name %s ctx_id %d total %d\n",
-		 __func__, current->pid, current->comm, drawctxt_id,
+		kgsl_yamato_idle(device, KGSL_TIMEOUT_DEFAULT);
+
+		/* destroy state shadow, if allocated */
+		if (drawctxt->gpustate.gpuaddr != 0) {
+			kgsl_mmu_unmap(drawctxt->pagetable,
+				       drawctxt->gpustate.gpuaddr,
+				       drawctxt->gpustate.size);
+			drawctxt->gpustate.gpuaddr = 0;
+		}
+		if (drawctxt->gpustate.physaddr != 0)
+			kgsl_sharedmem_free(&drawctxt->gpustate);
+
+		/* destroy gmem shadow, if allocated */
+		if (drawctxt->context_gmem_shadow.gmemshadow.gpuaddr != 0) {
+			kgsl_mmu_unmap(drawctxt->pagetable,
+			drawctxt->context_gmem_shadow.gmemshadow.gpuaddr,
+			drawctxt->context_gmem_shadow.gmemshadow.size);
+			drawctxt->context_gmem_shadow.gmemshadow.gpuaddr = 0;
+		}
+
+		if (drawctxt->context_gmem_shadow.gmemshadow.physaddr != 0)
+			kgsl_sharedmem_free(&drawctxt->context_gmem_shadow.
+					    gmemshadow);
+
+		drawctxt->flags = CTXT_FLAGS_NOT_IN_USE;
+
+		BUG_ON(yamato_device->drawctxt_count == 0);
+
+		yamato_device->drawctxt_count--;
+		pr_info("[DISP] %s pid %d name %s ctx_id %d total %d\n",
+			 __func__, current->pid, current->comm, drawctxt_id,
 				yamato_device->drawctxt_count);
 	}
 	KGSL_CTXT_INFO("return\n");
@@ -1613,9 +1611,7 @@ int kgsl_drawctxt_bind_gmem_shadow(struct kgsl_yamato_device *yamato_device,
 		* skips context switch */
 		return 0;
 
-	drawctxt = yamato_device->drawctxt[drawctxt_id];
-	if(drawctxt == NULL)
-		return -EINVAL;
+	drawctxt = &yamato_device->drawctxt[drawctxt_id];
 
 	shadow = &drawctxt->user_gmem_shadow[buffer_id];
 
@@ -1713,9 +1709,7 @@ int kgsl_drawctxt_set_bin_base_offset(struct kgsl_device *device,
 	struct kgsl_yamato_device *yamato_device = (struct kgsl_yamato_device *)
 								device;
 
-	drawctxt = yamato_device->drawctxt[drawctxt_id];
-	if(drawctxt == NULL)
-		return -EINVAL;
+	drawctxt = &yamato_device->drawctxt[drawctxt_id];
 
 	drawctxt->bin_base_offset = offset;
 

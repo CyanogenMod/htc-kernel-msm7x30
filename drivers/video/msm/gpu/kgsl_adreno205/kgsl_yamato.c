@@ -424,7 +424,6 @@ kgsl_yamato_init(struct kgsl_device *device, struct kgsl_devconfig *config)
 								device;
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = &device->regspace;
-	struct kgsl_platform_data *pdata = NULL;
 	//unsigned int memflags = KGSL_MEMFLAGS_ALIGNPAGE | KGSL_MEMFLAGS_CONPHYS;
 
 	KGSL_DRV_VDBG("enter (device=%p, config=%p)\n", device, config);
@@ -482,7 +481,6 @@ kgsl_yamato_init(struct kgsl_device *device, struct kgsl_devconfig *config)
 	device->interval_timeout = INTERVAL_YAMATO_TIMEOUT;
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
-	pdata = kgsl_driver.pdev->dev.platform_data;
 
 	kgsl_yamato_getfunctable(&device->ftbl);
 	if (config->mmu_config) {
@@ -490,7 +488,7 @@ kgsl_yamato_init(struct kgsl_device *device, struct kgsl_devconfig *config)
 		device->mmu.mpu_base  = config->mpu_base;
 		device->mmu.mpu_range = config->mpu_range;
 		device->mmu.va_base	  = config->va_base;
-		device->mmu.va_range  = pdata->pt_va_size;
+		device->mmu.va_range  = config->va_range;
 	}
 
 	status = kgsl_mmu_init(device);
@@ -1049,15 +1047,15 @@ static int kgsl_check_interrupt_timestamp(struct kgsl_device *device,
 }
 
 /*
- wait_io_event_interruptible_timeout checks for the exit condition before
+ wait_event_interruptible_timeout checks for the exit condition before
  placing a process in wait q. For conditional interrupts we expect the
  process to already be in its wait q when its exit condition checking
  function is called.
 */
-#define kgsl_wait_io_event_interruptible_timeout(wq, condition, timeout)	\
+#define kgsl_wait_event_interruptible_timeout(wq, condition, timeout)	\
 ({									\
 	long __ret = timeout;						\
-	__wait_io_event_interruptible_timeout(wq, condition, __ret); 	\
+	__wait_event_interruptible_timeout(wq, condition, __ret); 	\
 	__ret;								\
 })
 
@@ -1074,7 +1072,7 @@ static int kgsl_yamato_waittimestamp(struct kgsl_device *device,
 		mutex_unlock(&kgsl_driver.mutex);
 		/* We need to make sure that the process is placed in wait-q
 		 * before its condition is called */
-		status = kgsl_wait_io_event_interruptible_timeout(
+		status = kgsl_wait_event_interruptible_timeout(
 				yamato_device->ib1_wq,
 				kgsl_check_interrupt_timestamp(device,
 					timestamp), msecs_to_jiffies(msecs));
@@ -1138,7 +1136,7 @@ int __init kgsl_yamato_config(struct kgsl_devconfig *devconfig,
 	 * stuff */
 	devconfig->va_base = 0x66000000;
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-	devconfig->va_range = SZ_128M;
+	devconfig->va_range = SZ_32M;
 #else
 	devconfig->va_range = 0x0F000000;
 #endif
@@ -1170,7 +1168,8 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			result = -EFAULT;
 			break;
 		}
-		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
+
+		if (dev_priv->ctxt_id_mask & (1 << binbase.drawctxt_id)) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,
 					binbase.drawctxt_id,

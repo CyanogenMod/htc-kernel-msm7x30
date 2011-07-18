@@ -67,13 +67,6 @@ enum kgsl_clk_freq {
 /*cache coherency ops */
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
-/* The size of each entry in a page table */
-
-#define KGSL_PAGETABLE_ENTRY_SIZE  4
-/* Extra accounting entries needed in the pagetable */
-#define KGSL_PT_EXTRA_ENTRIES      16
-#define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> KGSL_PAGESIZE_SHIFT) + KGSL_PT_EXTRA_ENTRIES)
-
 
 struct kgsl_driver {
 	struct cdev cdev;
@@ -118,21 +111,6 @@ struct kgsl_driver {
 	struct mutex pt_mutex;
 
 	struct kgsl_pagetable *global_pt;
-	/* Size (in bytes) for each pagetable */
-	unsigned int ptsize;
-	/* The virtual address range for each pagetable as set by the
-	   platform */
-
-	unsigned int pt_va_size;
-	/* A structure for information about the pool of
-	   pagetable memory */
-	struct {
-		unsigned long *bitmap;
-		int entries;
-		spinlock_t lock;
-		void *hostptr;
-		unsigned int physaddr;
-	} ptpool;
 };
 
 extern struct kgsl_driver kgsl_driver;

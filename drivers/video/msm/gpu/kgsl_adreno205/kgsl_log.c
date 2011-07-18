@@ -28,7 +28,7 @@
 #include "kgsl_yamato.h"
 
 /*default log levels is error for everything*/
-#define KGSL_LOG_LEVEL_DEFAULT 3
+#define KGSL_LOG_LEVEL_DEFAULT 3 
 #define KGSL_LOG_LEVEL_MAX     7
 unsigned int kgsl_drv_log = KGSL_LOG_LEVEL_DEFAULT;
 unsigned int kgsl_cmd_log = KGSL_LOG_LEVEL_DEFAULT;
