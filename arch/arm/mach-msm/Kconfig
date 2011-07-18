@@ -701,10 +701,27 @@ config TROUT_BATTCHG
 	default n
 	bool "Trout battery / charger driver"
 
-config HTC_BATTCHG
+
+choice
 	depends on MSM_ONCRPCROUTER && POWER_SUPPLY
-	default n
-	bool "HTC battery / charger driver"
+	prompt "Select HTC battery / charger driver version"
+	default HTC_BATTCHG_NONE
+	help
+	  HTC battery / charger driver.
+
+	config HTC_BATTCHG_NONE
+	  bool "None"
+
+	config HTC_BATTCHG
+	  bool "7x30 Version"
+	  help
+	    7x30 Version
+
+	config HTC_BATTCHG_VIVO
+	  bool "Vivo/Mecha Version"
+	  help
+	    Vivo/Mecha Version
+endchoice
 
 config HTC_BATT_CORE
 	depends on POWER_SUPPLY
@@ -717,7 +734,7 @@ config HTC_BATT8x60
 	bool "HTC battery driver for 8x60"
 
 config HTC_BATTCHG_SMEM
-	depends on HTC_BATTCHG
+	depends on HTC_BATTCHG || HTC_BATTCHG_VIVO
 	default n
 	bool "Read Battery Info via SMEM"
 
