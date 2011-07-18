@@ -13,17 +13,7 @@
 #ifndef _TPS65200_H_
 #define _TPS65200_H_
 #include <linux/notifier.h>
-
-#define ENABLE_LIMITED_CHG      0x10
-#define CLEAR_LIMITED_CHG       0x11
-#define CHECK_CHG		0X64
-#define SET_ICL500		0X65
-#define SET_ICL100		0X66
-#define CHECK_INT2		0X67
-#define OVERTEMP_VREG_4060	0XC8
-#define NORMALTEMP_VREG_4200	0XC9
-#define CHECK_INT1		0XCA
-#define CHECK_CONTROL		0xCB
+#include <mach/htc_battery.h>
 
 enum wled_ctl_t {
 	WLED_DISABLE = 0,
@@ -35,7 +25,7 @@ struct tps65200_platform_data {
 	int charger_check;
 };
 
-#ifdef CONFIG_TPS65200
+#if defined(CONFIG_TPS65200) || defined(CONFIG_TPS65200_VIVO)
 extern int tps_set_charger_ctrl(u32 ctl);
 #else
 static int tps_set_charger_ctrl(u32 ctl) {return 0 ; }
