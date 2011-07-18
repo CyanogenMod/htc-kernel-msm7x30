@@ -43,16 +43,12 @@
 #define RECALIB_NG                              1
 #define RECALIB_DONE                            2
 
-/* phone call status */
-#define PHONE_NONE                              0
-#define PHONE_END_CALL                          1
-#define PHONE_IN_CALL                           2
-
 struct atmel_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	struct workqueue_struct *atmel_wq;
 	struct work_struct work;
+	struct work_struct check_delta_work;
 	int (*power) (int on);
 	struct early_suspend early_suspend;
 	struct info_id_t *id;
@@ -103,6 +99,7 @@ static void atmel_ts_early_suspend(struct early_suspend *h);
 static void atmel_ts_late_resume(struct early_suspend *h);
 #endif
 
+static void confirm_calibration(struct atmel_ts_data *ts, int recal);
 static void multi_input_report(struct atmel_ts_data *ts);
 
 int i2c_atmel_read(struct i2c_client *client, uint16_t address, uint8_t *data, uint8_t length)
@@ -332,8 +329,8 @@ static ssize_t atmel_regdump_show(struct device *dev,
 		return count;
 	numObj = ts_data->id->num_declared_objects - 1;
 	startAddr = get_object_address(ts_data, GEN_POWERCONFIG_T7);
-	endAddr = ts_data->object_table[numObj].i2c_address +
-			ts_data->object_table[numObj].size - 1;
+	endAddr = get_object_address(ts_data, SPT_CTECONFIG_T28);
+	endAddr += get_object_size(ts_data, SPT_CTECONFIG_T28) - 1;
 	if (ts_data->id->version >= 0x14) {
 		for (loop_i = startAddr; loop_i <= endAddr; loop_i++) {
 			ret_t = i2c_atmel_read(ts_data->client, loop_i, ptr, 1);
@@ -465,6 +462,29 @@ static ssize_t atmel_diag_dump(struct device *dev,
 static DEVICE_ATTR(diag, (S_IWUSR|S_IRUGO),
 	atmel_diag_show, atmel_diag_dump);
 
+static ssize_t atmel_unlock_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct atmel_ts_data *ts_data;
+	int unlock = -1;
+	ts_data = private_ts;
+
+	if (buf[0] >= '0' && buf[0] <= '9' && buf[1] == '\n')
+		unlock = buf[0] - '0';
+
+	printk(KERN_INFO "Touch: unlock change to %d\n", unlock);
+
+	if (unlock == 2 && ts_data->id->version >= 0x20 &&
+		ts_data->first_pressed &&
+		ts_data->pre_data[0] < RECALIB_DONE)
+		confirm_calibration(ts_data, 0);
+
+	return count;
+}
+
+static DEVICE_ATTR(unlock, (S_IWUSR|S_IRUGO),
+	NULL, atmel_unlock_store);
+
 static struct kobject *android_touch_kobj;
 
 static int atmel_touch_sysfs_init(void)
@@ -507,11 +527,17 @@ static int atmel_touch_sysfs_init(void)
 		printk(KERN_ERR "TOUCH_ERR: create_file diag failed\n");
 		return ret;
 	}
+	ret = sysfs_create_file(android_touch_kobj, &dev_attr_unlock.attr);
+	if (ret) {
+		printk(KERN_ERR "TOUCH_ERR: create_file unlock failed\n");
+		return ret;
+	}
 	return 0;
 }
 
 static void atmel_touch_sysfs_deinit(void)
 {
+	sysfs_remove_file(android_touch_kobj, &dev_attr_unlock.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_diag.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_debug_level.attr);
 	sysfs_remove_file(android_touch_kobj, &dev_attr_regdump.attr);
@@ -556,6 +582,63 @@ static int check_delta(struct atmel_ts_data*ts)
 		if (count > 32)
 			return 1;
 	}
+	return 0;
+}
+
+static int check_delta_full(struct atmel_ts_data *ts)
+{
+	int8_t data[T37_DATA + T37_PAGE_SIZE];
+	uint8_t loop_i, loop_j;
+	uint8_t cnt, pos_cnt, neg_cnt, thr_cnt;
+	uint8_t x, y;
+	int16_t rawdata;
+
+	cnt = pos_cnt = neg_cnt = 0;
+	i2c_atmel_write_byte_data(ts->client,
+		get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
+		T6_CFG_DIAG, T6_CFG_DIAG_CMD_DELTAS);
+
+	x = T28_CFG_MODE0_X + ts->config_setting[NONE].config_T28[T28_CFG_MODE];
+	y = T28_CFG_MODE0_Y - ts->config_setting[NONE].config_T28[T28_CFG_MODE];
+	thr_cnt = (x * y) >> 1; /* 50% */
+
+	for (loop_i = 0; loop_i < 4; loop_i++) {
+		memset(data, 0xFF, sizeof(data));
+		for (loop_j = 0;
+			!(data[T37_MODE] == T6_CFG_DIAG_CMD_DELTAS && data[T37_PAGE] == loop_i) && loop_j < 10; loop_j++) {
+			msleep(5);
+			i2c_atmel_read(ts->client,
+				get_object_address(ts, DIAGNOSTIC_T37), data, 2);
+		}
+		if (loop_j == 10)
+			printk(KERN_ERR "%s: Diag data not ready\n", __func__);
+
+		i2c_atmel_read(ts->client,
+			get_object_address(ts, DIAGNOSTIC_T37),
+			data, T37_DATA + T37_PAGE_SIZE);
+		for (loop_j = T37_DATA;
+			loop_j < (T37_DATA + T37_PAGE_SIZE - 1); loop_j += 2) {
+			rawdata = data[loop_j+1] << 8 | data[loop_j];
+			cnt++;
+			if (rawdata > 50)
+				pos_cnt++;
+			else if (rawdata < -50)
+				neg_cnt++;
+
+			if (cnt >= x * y - 1)
+				break;
+		}
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
+			T6_CFG_DIAG, T6_CFG_DIAG_CMD_PAGEUP);
+	}
+
+	if (pos_cnt + neg_cnt > thr_cnt) {
+		printk(KERN_INFO "Touch: environment changed, C=%d P=%d N=%d T=%d\n",
+			cnt, pos_cnt, neg_cnt, thr_cnt);
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -632,7 +715,7 @@ static void check_calibration(struct atmel_ts_data*ts)
 	}
 }
 
-static void confirm_calibration(struct atmel_ts_data *ts)
+static void confirm_calibration(struct atmel_ts_data *ts, int recal)
 {
 	uint8_t ATCH_NOR[4] = {0, 1, 0, 0};
 
@@ -654,9 +737,10 @@ static void confirm_calibration(struct atmel_ts_data *ts)
 				ts->config_setting[NONE].config_T9[T9_CFG_TCHTHR]);
 	}
 	ts->pre_data[0] = RECALIB_DONE;
-	i2c_atmel_write_byte_data(ts->client,
-		get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
-		T6_CFG_CALIBRATE, 0x55);
+	if (recal)
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
+			T6_CFG_CALIBRATE, 0x55);
 	printk(KERN_INFO "Touch: calibration confirm\n");
 }
 
@@ -699,10 +783,9 @@ static void msg_process_multitouch(struct atmel_ts_data *ts, uint8_t *data, uint
 			}
 			if (ts->id->version >= 0x20 && ts->pre_data[0] < RECALIB_DONE) {
 				if (ts->finger_count == 0 && !ts->pre_data[0] &&
-					((jiffies > ts->timestamp + 15 * HZ && ts->psensor_status == 0) ||
 					(idx == 0 && ts->finger_data[idx].y > 750
-					&& ((ts->finger_data[idx].y - ts->pre_data[idx + 1]) > 135))))
-						confirm_calibration(ts);
+					&& ((ts->finger_data[idx].y - ts->pre_data[idx + 1]) > 135)))
+						confirm_calibration(ts, 1);
 				if (ts->finger_count)
 					i2c_atmel_write_byte_data(ts->client,
 						get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
@@ -976,6 +1059,32 @@ static void atmel_ts_work_func(struct work_struct *work)
 	enable_irq(ts->client->irq);
 }
 
+static void atmel_ts_check_delta_work_func(struct work_struct *work)
+{
+	struct atmel_ts_data *ts;
+
+	ts = container_of(work, struct atmel_ts_data, check_delta_work);
+
+	if (ts->id->version >= 0x20 && check_delta_full(ts)) {
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) +
+			T8_CFG_ATCHCALST, ts->ATCH_EXT[0]);
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) +
+			T8_CFG_ATCHCALSTHR, ts->ATCH_EXT[1]);
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) +
+			T8_CFG_ATCHFRCCALTHR, 16);
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) +
+			T8_CFG_ATCHFRCCALRATIO, 240);
+		msleep(1);
+		i2c_atmel_write_byte_data(ts->client,
+			get_object_address(ts, GEN_COMMANDPROCESSOR_T6) +
+			T6_CFG_CALIBRATE, 0x55);
+	}
+}
+
 static irqreturn_t atmel_ts_irq_handler(int irq, void *dev_id)
 {
 	struct atmel_ts_data *ts = dev_id;
@@ -1166,6 +1275,7 @@ static int atmel_ts_probe(struct i2c_client *client,
 	}
 
 	INIT_WORK(&ts->work, atmel_ts_work_func);
+	INIT_WORK(&ts->check_delta_work, atmel_ts_check_delta_work_func);
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
 	pdata = client->dev.platform_data;
@@ -1333,10 +1443,8 @@ static int atmel_ts_probe(struct i2c_client *client,
 		ts->abs_width_min = pdata->abs_width_min;
 		ts->abs_width_max = pdata->abs_width_max;
 		ts->GCAF_level = pdata->GCAF_level;
-		if (ts->id->version >= 0x20) {
+		if (ts->id->version >= 0x20)
 			ts->ATCH_EXT = &pdata->config_T8[T8_CFG_ATCHCALST];
-			ts->timestamp = jiffies + 60 * HZ;
-		}
 		ts->filter_level = pdata->filter_level;
 
 		if (usb_get_connect_type())
@@ -1673,6 +1781,7 @@ static int atmel_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 
 	disable_irq(client->irq);
 
+	cancel_work_sync(&ts->check_delta_work);
 	ret = cancel_work_sync(&ts->work);
 	if (ret)
 		enable_irq(client->irq);
@@ -1710,7 +1819,6 @@ static int atmel_ts_resume(struct i2c_client *client)
 				get_object_address(ts, GEN_ACQUISITIONCONFIG_T8) + T8_CFG_ATCHCALSTHR,
 				ts->cal_tchthr[ts->status] - 5);
 		}
-		ts->timestamp = jiffies;
 	}
 
 	i2c_atmel_write(ts->client,
@@ -1746,6 +1854,7 @@ static int atmel_ts_resume(struct i2c_client *client)
 		if (ts->pre_data[0] != RECALIB_NEED) {
 			printk(KERN_INFO "Touch: resume in call, psensor status %d\n",
 				ts->psensor_status);
+			queue_work(ts->atmel_wq, &ts->check_delta_work);
 		} else {
 			msleep(1);
 			i2c_atmel_write_byte_data(client,
