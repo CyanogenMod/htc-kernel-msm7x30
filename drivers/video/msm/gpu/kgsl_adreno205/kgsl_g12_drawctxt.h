@@ -63,7 +63,6 @@ struct kgsl_device_private;
 #define PACKETSIZE_STATESTREAM  (ALIGN_IN_BYTES((PACKETSIZE_STATE * \
 				 sizeof(unsigned int)), 32) / \
 				 sizeof(unsigned int))
-#define KGSL_G12_CONTEXT_MAX 16
 
 #define KGSL_G12_INVALID_CONTEXT UINT_MAX
 

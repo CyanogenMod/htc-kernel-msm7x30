@@ -108,10 +108,24 @@ config MSM_KGSL_PER_FD_PAGETABLE
          If enabled, the MMU unit of GPU driver will use seperate
          pagetables for each file descriptor
 
+config KGSL_PER_PROCESS_PAGE_TABLE
+        bool "Enable Per Process page tables for the KGSL driver"
+        default n
+        depends on MSM_KGSL_MMU && !MSM_KGSL_DRM
+
 config MSM_KGSL_MMU_PAGE_FAULT
 	bool "Force the GPU MMU to page fault for unmapped regions"
 	default n
 	depends on MSM_KGSL_MMU && !MSM_KGSL_DRM
+
+config MSM_KGSL_CONTEXTS
+       int "Maximum number of GPU HW contexts"
+       default 32
+       depends on GPU_MSM_KGSL
+       help
+         Set the maximum number of possible concurrent GPU HW contexts.
+         The actual number of contexts that can be allocated depends
+         on available system memory.
 
 config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
 	bool "Disable human readable CP_STAT fields in post-mortem dump"
