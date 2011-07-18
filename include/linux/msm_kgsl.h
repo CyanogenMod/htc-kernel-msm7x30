@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,10 +30,8 @@
 #define _MSM_KGSL_H
 
 /*context flags */
-#define KGSL_CONTEXT_SAVE_GMEM	1
+#define KGSL_CONTEXT_SAVE_GMEM		1
 #define KGSL_CONTEXT_NO_GMEM_ALLOC	2
-#define KGSL_CONTEXT_SUBMIT_IB_LIST	4
-#define KGSL_CONTEXT_CTX_SWITCH	8
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
@@ -48,16 +46,10 @@
 #define KGSL_FLAGS_RESERVED0   0x00000020
 #define KGSL_FLAGS_RESERVED1   0x00000040
 #define KGSL_FLAGS_RESERVED2   0x00000080
-#define KGSL_FLAGS_SOFT_RESET  0x00000100
 
 /* device id */
 enum kgsl_deviceid {
-#if defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
-	KGSL_DEVICE_YAMATO	= 0x00000000,
-	KGSL_DEVICE_2D0		= 0x00000001,
-	KGSL_DEVICE_2D1		= 0x00000002,
-	KGSL_DEVICE_MAX		= 0x00000003
-#elif defined(CONFIG_GPU_MSM_KGSL_ADRENO205)
+#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
 	KGSL_DEVICE_YAMATO	= 0x00000000,
 	KGSL_DEVICE_G12		= 0x00000001,
 	KGSL_DEVICE_MAX		= 0x00000002
@@ -133,7 +125,7 @@ struct kgsl_shadowprop {
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
-#if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60)
+#ifdef CONFIG_ARCH_MSM7X30
 #include <mach/msm_bus.h>
 struct kgsl_platform_data {
 	unsigned int high_axi_2d;
@@ -158,10 +150,8 @@ struct kgsl_platform_data {
 	struct msm_bus_scale_pdata *grp2d0_bus_scale_table;
 	struct msm_bus_scale_pdata *grp2d1_bus_scale_table;
 	unsigned int nap_allowed;
-#if  defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
 	unsigned int pt_va_size;
 	unsigned int pt_max_count;
-#endif
 };
 #endif
 
@@ -230,15 +220,6 @@ struct kgsl_device_waittimestamp {
  * other ioctls to determine when the commands have been executed by
  * the GPU.
  */
-#if  defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
-struct kgsl_ringbuffer_issueibcmds {
-	unsigned int drawctxt_id;
-	unsigned int ibdesc_addr;
-	unsigned int numibs;
-	unsigned int timestamp; /*output param */
-	unsigned int flags;
-};
-#else
 struct kgsl_ringbuffer_issueibcmds {
 	unsigned int drawctxt_id;
 	unsigned int ibaddr;
@@ -246,7 +227,6 @@ struct kgsl_ringbuffer_issueibcmds {
 	unsigned int timestamp; /*output param */
 	unsigned int flags;
 };
-#endif
 
 #define IOCTL_KGSL_RINGBUFFER_ISSUEIBCMDS \
 	_IOWR(KGSL_IOC_TYPE, 0x10, struct kgsl_ringbuffer_issueibcmds)
@@ -363,7 +343,7 @@ struct kgsl_bind_gmem_shadow {
 struct kgsl_sharedmem_from_vmalloc {
 	unsigned int gpuaddr;	/*output param */
 	unsigned int hostptr;
-#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205) || defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
+#ifdef CONFIG_GPU_MSM_KGSL_ADRENO205
 	unsigned int flags;
 #else
 	/* If set from user space then will attempt to
