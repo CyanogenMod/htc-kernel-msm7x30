@@ -2364,8 +2364,8 @@ static const struct s5k6aafx_i2c_reg_conf const prev_snap_conf_init_tbl[] = {
 	{S5K6AAFX_REG_WR, 0x03E8},
 	{S5K6AAFX_REG_WR, 0x0168},
 	{S5K6AAFX_REG_W_ADDL, 0x02D4},/* flip and mirror */
-	{S5K6AAFX_REG_WR, 0x0002},/* 0x02D4 value */
-	{S5K6AAFX_REG_WR, 0x0002},/* 0x02D4 value */
+	{S5K6AAFX_REG_WR, 0x0003},/* 0x02D4 value */
+	{S5K6AAFX_REG_WR, 0x0003},/* 0x02D4 value */
 
 	/* PREVIEW CONFIGURATION 1 (SXGA, YUV) */
 	{S5K6AAFX_REG_W_ADDL, 0x0268},
@@ -2386,8 +2386,8 @@ static const struct s5k6aafx_i2c_reg_conf const prev_snap_conf_init_tbl[] = {
 	{S5K6AAFX_REG_WR, 0x0535},
 	{S5K6AAFX_REG_WR, 0x0000},
 	{S5K6AAFX_REG_W_ADDL, 0x0288}, /* flip and mirror */
-	{S5K6AAFX_REG_WR, 0x0002}, /* 0x0288 value */
-	{S5K6AAFX_REG_WR, 0x0002}, /* 0x0288 value */
+	{S5K6AAFX_REG_WR, 0x0003}, /* 0x0288 value */
+	{S5K6AAFX_REG_WR, 0x0003}, /* 0x0288 value */
 
 	/* PREVIEW CONFIGURATION 0 (1280X720, YUV) */
 	/* HD Mode */
@@ -2409,8 +2409,8 @@ static const struct s5k6aafx_i2c_reg_conf const prev_snap_conf_init_tbl[] = {
 	{S5K6AAFX_REG_WR, 0x03E8}, /* REG_0TC_PCFG_usMaxFrTimeMsecMult10 */
 	{S5K6AAFX_REG_WR, 0x01A0}, /* REG_0TC_PCFG_usMinFrTimeMsecMult10 */
 	{S5K6AAFX_REG_W_ADDL, 0x0262}, /* flip and mirror */
-	{S5K6AAFX_REG_WR, 0x0002}, /* 0x0262 value */
-	{S5K6AAFX_REG_WR, 0x0002}, /* 0x0262 value */
+	{S5K6AAFX_REG_WR, 0x0003}, /* 0x0262 value */
+	{S5K6AAFX_REG_WR, 0x0003}, /* 0x0262 value */
 
 	/*********** APPLY PREVIEW CONFIGURATION & RUN PREVIEW ***********/
 	/* REG_TC_GP_ActivePrevConfig-Select preview configuration_3 */
@@ -2535,8 +2535,8 @@ static const struct s5k6aafx_i2c_reg_conf const prev_snap_conf_init_tb2[] = {
 	{S5K6AAFX_REG_WR, 0x0535},
 	{S5K6AAFX_REG_WR, 0x0168},
 	{S5K6AAFX_REG_W_ADDL, 0x02D4},/* flip and mirror */
-	{S5K6AAFX_REG_WR, 0x0001},/* 0x0288 value */
-	{S5K6AAFX_REG_WR, 0x0001},
+	{S5K6AAFX_REG_WR, 0x0003},/* 0x0288 value */
+	{S5K6AAFX_REG_WR, 0x0003},
 
 	/* PREVIEW CONFIGURATION 1 (SXGA, YUV) */
 	{S5K6AAFX_REG_W_ADDL, 0x0268},
@@ -2557,8 +2557,8 @@ static const struct s5k6aafx_i2c_reg_conf const prev_snap_conf_init_tb2[] = {
 	{S5K6AAFX_REG_WR, 0x0535},
 	{S5K6AAFX_REG_WR, 0x029A},
 	{S5K6AAFX_REG_W_ADDL, 0x0288}, /* flip and mirror */
-	{S5K6AAFX_REG_WR, 0x0001}, /* 0x0288 value */
-	{S5K6AAFX_REG_WR, 0x0001}, /* 0x0288 value */
+	{S5K6AAFX_REG_WR, 0x0003}, /* 0x0288 value */
+	{S5K6AAFX_REG_WR, 0x0003}, /* 0x0288 value */
 
 	/*********** APPLY PREVIEW CONFIGURATION & RUN PREVIEW ***********/
 	/* REG_TC_GP_ActivePrevConfig-Select preview configuration_3 */
