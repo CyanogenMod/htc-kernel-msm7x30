@@ -210,9 +210,9 @@ static int AKECS_GetData(void)
 	char buffer[RBUFF_SIZE_8975 + 1];
 	int ret;
 
-	memset(buffer, 0, RBUFF_SIZE_8975 + 1);
+	memset(buffer, 0, RBUFF_SIZE_8975);
 	buffer[0] = AK8975_REG_ST1;
-	ret = AKI2C_RxData(buffer, RBUFF_SIZE_8975 + 1);
+	ret = AKI2C_RxData(buffer, RBUFF_SIZE_8975);
 	if (ret < 0)
 		return ret;
 

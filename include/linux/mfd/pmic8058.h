@@ -97,7 +97,9 @@ struct pm8058_platform_data {
 	/* This table is only needed for misc interrupts. */
 	int		irq_base;
 	int 		(*init)(struct pm8058_chip *pm_chip);
-
+#ifdef CONFIG_MSM8X60_SSBI
+	int		irq;
+#endif
 	int		num_subdevs;
 	struct mfd_cell *sub_devices;
 	int		irq_trigger_flags;

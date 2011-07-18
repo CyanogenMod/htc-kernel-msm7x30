@@ -14,8 +14,8 @@
  *
  */
 
-#if defined(CONFIG_QCT_LTE)
-#include "lte/smd_private.h"
+#if defined(CONFIG_ARCH_MSM7X30_LTE)
+#include "7x30-lte/smd_private.h"
 #elif defined(CONFIG_ARCH_MSM8X60)
 #include "smd_private-8x60.h"
 #endif

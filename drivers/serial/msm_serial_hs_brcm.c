@@ -360,7 +360,6 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 
 	struct msm_hs_port *msm_uport;
 	struct device *dev;
-	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
 
 	if (pdev->id < 0 || pdev->id >= UARTDM_NR) {
 		printk(KERN_ERR "[BT]Invalid plaform device ID = %d\n",
@@ -370,10 +369,6 @@ static int __devexit msm_hs_remove(struct platform_device *pdev)
 
 	msm_uport = &q_uart_port[pdev->id];
 	dev = msm_uport->uport.dev;
-
-	if (pdata && pdata->gpio_config)
-		if (pdata->gpio_config(0))
-			dev_err(dev, "[BT]GPIO config error\n");
 
 	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 
@@ -1847,17 +1842,21 @@ static int msm_hs_startup(struct uart_port *uport)
 /* Initialize tx and rx data structures */
 static int uartdm_init_port(struct uart_port *uport)
 {
+	int ret = 0;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct msm_hs_tx *tx = &msm_uport->tx;
 	struct msm_hs_rx *rx = &msm_uport->rx;
 
 	/* Allocate the command pointer. Needs to be 64 bit aligned */
 	tx->command_ptr = kmalloc(sizeof(dmov_box), GFP_KERNEL | __GFP_DMA);
-
-	tx->command_ptr_ptr = kmalloc(sizeof(u32), GFP_KERNEL | __GFP_DMA);
-
-	if (!tx->command_ptr || !tx->command_ptr_ptr)
+	if (!tx->command_ptr)
 		return -ENOMEM;
+
+	tx->command_ptr_ptr = kmalloc(sizeof(u32 *), GFP_KERNEL | __GFP_DMA);
+	if (!tx->command_ptr_ptr) {
+		ret = -ENOMEM;
+		goto free_tx_command_ptr;
+	}
 
 	tx->mapped_cmd_ptr = dma_map_single(uport->dev, tx->command_ptr,
 					    sizeof(dmov_box), DMA_TO_DEVICE);
@@ -1885,19 +1884,33 @@ static int uartdm_init_port(struct uart_port *uport)
 	rx->pool = dma_pool_create("rx_buffer_pool", uport->dev,
 				   UARTDM_RX_BUF_SIZE, 16, 0);
 
-	if (!rx->pool)
-		return -ENOMEM;
+	if (!rx->pool) {
+		pr_err("%s(): cannot allocate rx_buffer_pool", __func__);
+		ret = -ENOMEM;
+		goto exit_tasket_init;
+	}
 
 	rx->buffer = dma_pool_alloc(rx->pool, GFP_KERNEL, &rx->rbuffer);
+	if (!rx->buffer) {
+		pr_err("%s(): cannot allocate rx->buffer", __func__);
+		ret = -ENOMEM;
+		goto free_pool;
+	}
 
 	/* Allocate the command pointer. Needs to be 64 bit aligned */
 	rx->command_ptr = kmalloc(sizeof(dmov_box), GFP_KERNEL | __GFP_DMA);
+	if (!rx->command_ptr) {
+		pr_err("%s(): cannot allocate rx->command_ptr", __func__);
+		ret = -ENOMEM;
+		goto free_rx_buffer;
+	}
 
 	rx->command_ptr_ptr = kmalloc(sizeof(u32), GFP_KERNEL | __GFP_DMA);
-
-	if (!rx->command_ptr || !rx->command_ptr_ptr ||
-	    !rx->buffer)
-		return -ENOMEM;
+	if (!rx->command_ptr_ptr) {
+		pr_err("%s(): cannot allocate rx->command_ptr_ptr", __func__);
+		ret = -ENOMEM;
+		goto free_rx_command_ptr;
+	}
 
 	rx->command_ptr->num_rows = ((UARTDM_RX_BUF_SIZE >> 4) << 16) |
 					 (UARTDM_RX_BUF_SIZE >> 4);
@@ -1932,7 +1945,32 @@ static int uartdm_init_port(struct uart_port *uport)
 	INIT_WORK(&rx->tty_work, msm_hs_tty_flip_buffer_work);
 	INIT_DELAYED_WORK(&rx->flip_insert_work, flip_insert_work);
 
-	return 0;
+	return ret;
+
+free_rx_command_ptr:
+	kfree(rx->command_ptr);
+
+free_rx_buffer:
+	dma_pool_free(msm_uport->rx.pool, msm_uport->rx.buffer,
+			msm_uport->rx.rbuffer);
+
+free_pool:
+	dma_pool_destroy(msm_uport->rx.pool);
+
+exit_tasket_init:
+	wake_lock_destroy(&msm_uport->rx.wake_lock);
+	wake_lock_destroy(&msm_uport->dma_wake_lock);
+	tasklet_kill(&msm_uport->tx.tlet);
+	tasklet_kill(&msm_uport->rx.tlet);
+	dma_unmap_single(uport->dev, msm_uport->tx.mapped_cmd_ptr_ptr,
+			sizeof(u32 *), DMA_TO_DEVICE);
+	dma_unmap_single(uport->dev, msm_uport->tx.mapped_cmd_ptr,
+			sizeof(dmov_box), DMA_TO_DEVICE);
+	kfree(msm_uport->tx.command_ptr_ptr);
+
+free_tx_command_ptr:
+	kfree(msm_uport->tx.command_ptr);
+	return ret;
 }
 
 static int msm_hs_probe(struct platform_device *pdev)
@@ -1982,11 +2020,6 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 		if (unlikely(msm_uport->wakeup.irq < 0))
 			return -ENXIO;
-
-		if (pdata->gpio_config)
-			if (unlikely(pdata->gpio_config(1)))
-				dev_err(uport->dev, "[BT]Cannot configure"
-					"gpios\n");
 	}
 
 	if (pdata == NULL)

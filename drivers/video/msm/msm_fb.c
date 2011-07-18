@@ -1317,6 +1317,12 @@ static int msmfb_probe(struct platform_device *pdev)
 	msmfb->fake_vsync.function = msmfb_fake_vsync;
 
 	ret = register_framebuffer(fb);
+
+	if(fb->node == 0)
+		mdp->fb0 = msmfb->fb;
+	else
+		mdp->fb1 = msmfb->fb;
+
 	if (ret)
 		goto error_register_framebuffer;
 

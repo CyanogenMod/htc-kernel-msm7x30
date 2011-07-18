@@ -69,11 +69,15 @@ struct q5v2audio_analog_ops {
 	void (*fm_speaker_enable)(int en);
 };
 
-void htc_7x30_register_analog_ops(struct q5v2audio_analog_ops *ops);
-
 struct q5v2audio_icodec_ops {
 	int (*support_aic3254) (void);
 };
 
+struct aic3254_info {
+	u32 dev_id;
+	u32 path_id;
+};
+
+void htc_7x30_register_analog_ops(struct q5v2audio_analog_ops *ops);
 void htc_7x30_register_icodec_ops(struct q5v2audio_icodec_ops *ops);
 #endif

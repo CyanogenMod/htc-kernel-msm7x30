@@ -19,6 +19,8 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <asm/mach-types.h>
+#include <linux/irq.h>
+#include <linux/gpio.h>
 #include <linux/workqueue.h>
 #include <linux/android_alarm.h>
 #include <linux/tps65200.h>
@@ -29,6 +31,8 @@
 static struct alarm tps65200_check_alarm;
 static struct workqueue_struct *tps65200_wq;
 static struct work_struct tps65200_work;
+
+static unsigned int chg_stat_int;
 
 static const unsigned short normal_i2c[] = { I2C_CLIENT_END };
 
@@ -49,6 +53,9 @@ static int tps65200_detect(struct i2c_client *client, int kind,
 #endif
 static int tps65200_remove(struct i2c_client *client);
 
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+int htc_is_dq_pass(void);
+#endif
 
 /* Supersonic for Switch charger */
 struct tps65200_i2c_client {
@@ -218,25 +225,39 @@ int tps_set_charger_ctrl(u32 ctl)
 		pr_info("Switch charger ON (SLOW)\n");
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x2A, 0x00);
+		/* set DPM regulation voltage to 4.44V */
+		regh = 0x83;
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		if (htc_is_dq_pass())
+			/* set DPM regulation voltage to 4.6V */
+			regh = 0x85;
+#endif
 		if (tps65200_low_chg)
-			tps65200_i2c_write_byte(0x8B, 0x03);
-		else
-			tps65200_i2c_write_byte(0x83, 0x03);
+			regh |= 0x08;	/* enable low charge curent */
+		tps65200_i2c_write_byte(regh, 0x03);
 		tps65200_i2c_read_byte(&regh, 0x03);
 		pr_info("batt: Switch charger ON (SLOW): regh 0x03=%x\n", regh);
 		tps65200_i2c_write_byte(0x63, 0x02);
 		if (tps65200_chager_check)
 			/* set alarm for CHECK_CHG */
 			tps65200_set_check_alarm();
+		if (chg_stat_int)
+			enable_irq(chg_stat_int);
 		break;
 	case POWER_SUPPLY_ENABLE_FAST_CHARGE:
 		pr_info("Switch charger ON (FAST)\n");
 		tps65200_i2c_write_byte(0x29, 0x01);
 		tps65200_i2c_write_byte(0x2A, 0x00);
+		/* set DPM regulation voltage to 4.44V */
+		regh = 0x83;
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		if (htc_is_dq_pass())
+			/* set DPM regulation voltage to 4.6V */
+			regh = 0x85;
+#endif
 		if (tps65200_low_chg)
-			tps65200_i2c_write_byte(0x8B, 0x03);
-		else
-			tps65200_i2c_write_byte(0x83, 0x03);
+			regh |= 0x08;	/* enable low charge current */
+		tps65200_i2c_write_byte(regh, 0x03);
 		tps65200_i2c_write_byte(0xA3, 0x02);
 		tps65200_i2c_read_byte(&regh, 0x01);
 		pr_info("batt: Switch charger ON (FAST): regh 0x01=%x\n", regh);
@@ -249,6 +270,8 @@ int tps_set_charger_ctrl(u32 ctl)
 		if (tps65200_chager_check)
 			/* set alarm for CHECK_CHG */
 			tps65200_set_check_alarm();
+		if (chg_stat_int)
+			enable_irq(chg_stat_int);
 		break;
 	case POWER_SUPPLY_ENABLE_SLOW_HV_CHARGE:
 		pr_info("Switch charger ON (SLOW_HV)\n");
@@ -338,7 +361,7 @@ int tps_set_charger_ctrl(u32 ctl)
 		tps65200_i2c_read_byte(&status, 0x00);
 		pr_info("TPS65200 status 0x00=%x\n", status);
 		break;
-	case OVERTEMP_VREG_4060:
+	case OVERTEMP_VREG:
 		pr_info("Switch charger OVERTEMP_VREG_4060 \n");
 		tps65200_i2c_read_byte(&regh, 0x02);
 		regh = (regh & 0xC0) | 0x1C;
@@ -346,7 +369,20 @@ int tps_set_charger_ctrl(u32 ctl)
 		tps65200_i2c_read_byte(&regh, 0x02);
 		pr_info("Switch charger OVERTEMP_VREG_4060: regh 0x02=%x\n", regh);
 		break;
-	case NORMALTEMP_VREG_4200:
+	case NORMALTEMP_VREG:
+#ifdef CONFIG_SUPPORT_DQ_BATTERY
+		tps65200_i2c_read_byte(&regh, 0x04);
+		pr_info("Switch charger CONFIG_D: regh 0x04=%x\n", regh);
+		if (htc_is_dq_pass()) {
+			pr_info("Switch charger NORMALTEMP_VREG_4340\n");
+			tps65200_i2c_read_byte(&regh, 0x02);
+			regh = (regh & 0xC0) | 0X2A;
+			tps65200_i2c_write_byte(regh, 0x02);
+			tps65200_i2c_read_byte(&regh, 0x02);
+			pr_info("Switch charger NORMALTEMP_VREG_4340: regh 0x02=%x\n", regh);
+			break;
+		}
+#endif
 		pr_info("Switch charger NORMALTEMP_VREG_4200 \n");
 		tps65200_i2c_read_byte(&regh, 0x02);
 		regh = (regh & 0xC0) | 0X23;
@@ -379,6 +415,18 @@ static int tps65200_detect(struct i2c_client *client, int kind,
 }
 #endif
 
+static irqreturn_t chg_stat_handler(int irq, void *data)
+{
+	pr_info("chg_stat_handler is triggered.\n");
+
+	disable_irq_nosync(chg_stat_int);
+
+	tps65200_i2c_write_byte(0x29, 0x01);
+	tps65200_i2c_write_byte(0x28, 0x00);
+
+	return IRQ_HANDLED;
+}
+
 static void tps65200_check_alarm_handler(struct alarm *alarm)
 {
 	queue_work(tps65200_wq, &tps65200_work);
@@ -393,6 +441,7 @@ static void tps65200_work_func(struct work_struct *work)
 static int tps65200_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
+	int rc = 0;
 	struct tps65200_i2c_client   *data = &tps65200_i2c_module;
 	struct tps65200_platform_data *pdata =
 					client->dev.platform_data;
@@ -410,6 +459,22 @@ static int tps65200_probe(struct i2c_client *client,
 		alarm_init(&tps65200_check_alarm,
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
 			tps65200_check_alarm_handler);
+	}
+
+	chg_stat_int = 0;
+	if (pdata->gpio_chg_stat > 0) {
+		set_irq_flags(pdata->gpio_chg_stat,
+					IRQF_VALID | IRQF_NOAUTOEN);
+		rc = request_threaded_irq(pdata->gpio_chg_stat,
+					NULL,
+					chg_stat_handler,
+					IRQF_TRIGGER_RISING,
+					"chg_stat", NULL);
+
+		if (rc)
+			pr_info("request chg_stat irq failed!\n");
+		else
+			chg_stat_int = pdata->gpio_chg_stat;
 	}
 
 	data->address = client->addr;

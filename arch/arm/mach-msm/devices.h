@@ -18,6 +18,9 @@
 #define __ARCH_ARM_MACH_MSM_DEVICES_H
 
 #include "clock.h"
+#ifdef CONFIG_ARCH_MSM8X60
+#include <asm/clkdev.h>
+#endif
 
 extern struct platform_device msm_ebi0_thermal;
 extern struct platform_device msm_ebi1_thermal;
@@ -47,6 +50,8 @@ extern struct platform_device msm_device_hsusb;
 
 extern struct platform_device msm_device_otg;
 extern struct platform_device usb_diag_device;
+extern struct platform_device usb_gadget_fserial_device;
+
 
 extern struct platform_device msm_device_i2c;
 
@@ -73,6 +78,13 @@ extern struct platform_device msm_rotator_device;
 #endif
 
 extern struct platform_device msm_device_tsif;
+#ifdef CONFIG_MSM8X60_SSBI
+extern struct platform_device msm_device_ssbi1;
+extern struct platform_device msm_device_ssbi2;
+extern struct platform_device msm_device_ssbi3;
+extern struct platform_device msm_device_pm8058;
+extern struct platform_device msm_device_pm8901;
+#else /*CONFIG_MSM8X60_SSBI*/
 #ifdef CONFIG_I2C_SSBI
 extern struct platform_device msm_device_ssbi1;
 extern struct platform_device msm_device_ssbi2;
@@ -80,6 +92,7 @@ extern struct platform_device msm_device_ssbi3;
 extern struct platform_device msm_device_ssbi6;
 extern struct platform_device msm_device_ssbi7;
 #endif
+#endif /*CONFIG_MSM8X60_SSBI*/
 extern struct platform_device msm_gsbi1_qup_spi_device;
 extern struct platform_device msm_gsbi8_qup_spi_device;
 extern struct platform_device msm_device_mddi0;
@@ -111,8 +124,10 @@ extern unsigned msm_num_clocks_7x30;
 extern struct clk msm_clocks_8x50[];
 extern unsigned msm_num_clocks_8x50;
 
-extern struct clk msm_clocks_8x60[];
+#ifdef CONFIG_ARCH_MSM8X60
+extern struct clk_lookup msm_clocks_8x60[];
 extern unsigned msm_num_clocks_8x60;
+#endif
 
 void __init msm_fb_register_device(char *name, void *data);
 void __init msm_camera_register_device(void *, uint32_t, void *);

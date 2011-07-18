@@ -18,6 +18,7 @@
 
 #include <linux/ioctl.h>
 
+#define A1026_I2C_NAME "audience_a1026"
 #define A1026_MAX_FW_SIZE	(32*1024)
 struct a1026img {
 	unsigned char *buf;

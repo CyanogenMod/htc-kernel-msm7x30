@@ -18,7 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/list.h>
 
-#if !defined(CONFIG_QCT_LTE)
+#if !defined(CONFIG_ARCH_MSM7X30_LTE)
 struct smd_alloc_elm {
 	char name[20];
 	uint32_t cid;

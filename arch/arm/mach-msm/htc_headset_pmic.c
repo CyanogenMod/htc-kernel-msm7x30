@@ -247,6 +247,10 @@ static void hs_pmic_register(void)
 		notifier.func = hs_pmic_remote_adc;
 		headset_notifier_register(&notifier);
 
+		notifier.id = HEADSET_REG_REMOTE_KEYCODE;
+		notifier.func = hs_pmic_adc_to_keycode;
+		headset_notifier_register(&notifier);
+
 		notifier.id = HEADSET_REG_RPC_KEY;
 		notifier.func = hs_pmic_rpc_key;
 		headset_notifier_register(&notifier);

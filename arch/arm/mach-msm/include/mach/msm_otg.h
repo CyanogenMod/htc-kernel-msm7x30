@@ -11,6 +11,9 @@
  *
  */
 
+#if defined(CONFIG_ARCH_MSM7X30_LTE)
+#include <mach/7x30-lte/msm_otg.h>
+#endif
 
 #ifndef __ARCH_ARM_MACH_MSM_OTG_H
 #define __ARCH_ARM_MACH_MSM_OTG_H

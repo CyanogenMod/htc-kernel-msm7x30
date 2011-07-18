@@ -168,7 +168,7 @@ struct kgsl_file_private {
 
 struct kgsl_device_private {
 	struct list_head list;
-	uint32_t ctxt_id_mask;
+	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
 	unsigned long pid;
 	struct kgsl_device *device;
 	struct kgsl_file_private *process_priv;

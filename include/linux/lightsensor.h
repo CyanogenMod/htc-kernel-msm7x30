@@ -25,11 +25,17 @@
 #define LIGHTSENSOR_IOCTL_GET_ENABLED _IOR(LIGHTSENSOR_IOCTL_MAGIC, 1, int *)
 #define LIGHTSENSOR_IOCTL_ENABLE _IOW(LIGHTSENSOR_IOCTL_MAGIC, 2, int *)
 
+struct lightsensor_mpp_config_data {
+	uint32_t lightsensor_mpp;
+	uint32_t lightsensor_amux;
+};
+
 struct lightsensor_smd_platform_data {
 	const char      *name;
 	uint16_t        levels[10];
 	uint16_t        golden_adc;
 	int             (*ls_power)(int, uint8_t);
+	struct lightsensor_mpp_config_data mpp_data;
 };
 
 #endif

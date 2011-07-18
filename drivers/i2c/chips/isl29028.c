@@ -214,10 +214,9 @@ static int I2C_TxData(char *txData, int length)
 
 static uint16_t get_ls_adc_value(uint16_t *raw_adc_value)
 {
-	uint16_t value, tmp_value;
+	uint16_t value, tmp_value, ret;
 	struct isl29028_info *lpi = lp_info;
 	char buffer[3];
-	int ret = 0;
 
 	buffer[0] = ISL29028_LS_DATA1;
 	ret = I2C_RxData(buffer, 2);
@@ -643,10 +642,10 @@ static void check_and_recover(struct isl29028_info *lpi)
 
 static void sensor_irq_do_work(struct work_struct *work)
 {
-	uint8_t intrrupt, reg_config;
+	uint8_t intrrupt, ret, reg_config;
 	struct isl29028_info *lpi = lp_info;
 	char buffer[2];
-	int ret = 0;
+
 	int value1 = -1;
 
 	uint16_t ps_adc = 0;
@@ -659,7 +658,6 @@ static void sensor_irq_do_work(struct work_struct *work)
 	if (ret < 0) {
 		EPS("%s: I2C_RxData fail (ISL29028_INTERRUPT)\n",
 			__func__);
-		enable_irq(lpi->irq);
 		return;
 	}
 	intrrupt = buffer[0];
@@ -669,7 +667,6 @@ static void sensor_irq_do_work(struct work_struct *work)
 	if (ret < 0) {
 		EPS("%s: I2C_RxData fail (ISL29028_CONFIGURE)\n",
 			__func__);
-		enable_irq(lpi->irq);
 		return;
 	}
 	reg_config = buffer[0];

@@ -2835,46 +2835,6 @@ wl_iw_mlme(
 }
 #endif
 
-void wl_iw_force_deauth(void)
-{
-    if(FALSE == ap_cfg_running)
-    {
-	int error  = -EINVAL;
-        scb_val_t scbval;
-        uint32 reason_code = 3;
-        struct sockaddr wapaddr;
-        uint8 cnt = 0;
-	uint8 maclen;
-        wapaddr.sa_family = ARPHRD_ETHER;
-        memset(&wapaddr.sa_data, 0, ETHER_ADDR_LEN);
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
-        rtnl_lock();
-#endif
-	(void) dev_wlc_ioctl(priv_dev, WLC_GET_BSSID, &wapaddr.sa_data, ETHER_ADDR_LEN);
-     
-        for(maclen = 0; maclen < ETHER_ADDR_LEN; maclen++)
-	    cnt = wapaddr.sa_data[maclen];
-      if(cnt)
-      {
-           scbval.val = reason_code;
-           bcopy(&wapaddr.sa_data, &scbval.ea, ETHER_ADDR_LEN);
-           scbval.val = htod32(scbval.val);
-           error = dev_wlc_ioctl(priv_dev, WLC_SCB_DEAUTHENTICATE_FOR_REASON, &scbval, sizeof(scb_val_t));
-           WL_TRACE(("%s Send WLC_SCB_DEAUTHENTICATE.\n",__FUNCTION__));
-      }
-      else
-      {
-           WL_TRACE(("%s Skip send WLC_SCB_DEAUTHENTICATE.\n",__FUNCTION__));
-      }
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
-        rtnl_unlock();
-#endif
-    }
-
-}
-
 static int
 wl_iw_get_aplist(
 	struct net_device *dev,
