@@ -514,6 +514,12 @@ static struct adie_codec_action_unit ifmradio_speaker_osr64_actions[] =
 
 static struct adie_codec_hwsetting_entry ifmradio_speaker_settings[] = {
 	{
+		.freq_plan = 8000,
+		.osr = 256,
+		.actions = ifmradio_speaker_osr64_actions,
+		.action_sz = ARRAY_SIZE(ifmradio_speaker_osr64_actions),
+	},
+	{
 		.freq_plan = 48000,
 		.osr = 256,
 		.actions = ifmradio_speaker_osr64_actions,
@@ -549,6 +555,12 @@ static struct adie_codec_action_unit ifmradio_headset_osr64_actions[] =
 	AUXPGA_HEADSET_STEREO_RX_CAPLESS;
 
 static struct adie_codec_hwsetting_entry ifmradio_headset_settings[] = {
+	{
+		.freq_plan = 8000,
+		.osr = 256,
+		.actions = ifmradio_headset_osr64_actions,
+		.action_sz = ARRAY_SIZE(ifmradio_headset_osr64_actions),
+	},
 	{
 		.freq_plan = 48000,
 		.osr = 256,
@@ -1022,7 +1034,7 @@ static struct snddev_icodec_data snddev_idual_mic_endfire_real_stereo_data = {
 	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
 	.name = "dual_mic_stereo_tx",
 	.copp_id = 0,
-	.acdb_id = 6,
+	.acdb_id = ACDB_ID_SPKR_PHONE_MIC,
 	.profile = &idual_mic_profile,
 	.channel_mode = REAL_STEREO_CHANNEL_MODE,
 	.pmctl_id = NULL,
