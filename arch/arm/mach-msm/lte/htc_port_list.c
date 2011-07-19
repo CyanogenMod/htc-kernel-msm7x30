@@ -20,13 +20,11 @@
 #include <linux/list.h>
 #include <mach/msm_iomap.h>
 #include <net/tcp.h>
+#include "smd_private.h"
 
 static struct mutex port_lock;
 static struct wake_lock port_suspend_lock;
-
-#define MAX_FILTER_PORT 127
-static int port_cnt = 0;
-
+static uint16_t *port_list = NULL;
 static int usb_enable = 0;
 struct p_list {
 	struct list_head list;
@@ -48,25 +46,6 @@ static ssize_t htc_show(struct device *dev,  struct device_attribute *attr,  cha
 	return s - buf;
 }
 
-/* report tcp/ip port info to the user space by sysfs */
-static ssize_t htcport_show(struct device *dev,  struct device_attribute *attr,  char *buf) {
-	char *s = buf;
-	struct list_head *listptr;
-	struct p_list *entry;
-
-	list_for_each(listptr, &curr_port_list.list) {
-		entry = list_entry(listptr, struct p_list, list);
-		if(entry != NULL)
-		{
-			mutex_lock(&port_lock);
-		    s += sprintf(s, "%d ", (entry->no));
-			mutex_unlock(&port_lock);
-		}
-	}
-	
-	return s - buf;
-}
-
 static ssize_t htc_store(struct device *dev, struct device_attribute *attr,  const char *buf, size_t count) {
 	int ret;
 
@@ -74,10 +53,18 @@ static ssize_t htc_store(struct device *dev, struct device_attribute *attr,  con
 	if (!strncmp(buf, "0", strlen("0"))) {
 		packet_filter_flag = 0;
 		printk(KERN_INFO "[Port list] Disable Packet filter\n");
+		if (port_list != NULL)
+			port_list[0] = packet_filter_flag;
+		else
+			printk(KERN_ERR "[Port list] port_list == NULL\n");
 		ret = count;
 	} else if (!strncmp(buf, "1", strlen("1"))) {
 		packet_filter_flag = 1;
 		printk(KERN_INFO "[Port list] Enable Packet filter\n");
+		if (port_list != NULL)
+			port_list[0] = packet_filter_flag;
+		else
+			printk(KERN_ERR "[Port list] port_list == NULL\n");
 		ret = count;
 	} else {
 		printk(KERN_ERR "[Port list] flag: invalid argument\n");
@@ -88,41 +75,44 @@ static ssize_t htc_store(struct device *dev, struct device_attribute *attr,  con
 	return ret;
 }
 
-static DEVICE_ATTR(flag, 0666, htc_show, htc_store);
-static DEVICE_ATTR(port, 0666, htcport_show, NULL);
+static DEVICE_ATTR(flag, 0664, htc_show, htc_store);
 
 static int port_list_enable(int enable) {
-	if (enable) {
-		packet_filter_flag = 1;
-		printk(KERN_INFO "[Port list] port_list is enabled.\n");
-	}
-	else {
-		packet_filter_flag = 0;
-		printk(KERN_INFO "[Port list] port_list is disabled.\n");
+	if (port_list[0] != enable) {
+		port_list[0] = enable;
+		if (enable)
+			printk(KERN_INFO "[Port list] port_list is enabled.\n");
+		else
+			printk(KERN_INFO "[Port list] port_list is disabled.\n");
 	}
 	return 0;
 }
 
 static void update_port_list(void) {
 	size_t count = 0;
+	size_t i = 0;
 	struct list_head *listptr;
 	struct p_list *entry;
 
 	list_for_each(listptr, &curr_port_list.list) {
 		entry = list_entry(listptr, struct p_list, list);
 		count++;
-		printk(KERN_INFO "[Port list] update_port_list [%d] = %d\n", count, entry->no);
+		printk(KERN_INFO "[Port list] [%d] = %d\n", count, entry->no);
+		if (count <= 127)
+			port_list[count] = entry->no;
 	}
+	if (count < 127)
+		for (i = count + 1; i <= 127; i++ )
+			port_list[i] = 0;
 
 	if (usb_enable) {
 		port_list_enable(0);
 	} else {
-		if (count <= MAX_FILTER_PORT)
+		if (count <= 127)
 			port_list_enable(1);
 		else
 			port_list_enable(0);
 	}
-	port_cnt = count;
 }
 
 static struct p_list *add_list(int no) {
@@ -171,10 +161,15 @@ static void remove_list(int no) {
 
 int add_or_remove_port(struct sock *sk, int add_or_remove) {
 	struct inet_sock *inet = inet_sk(sk);
+	uint32_t port_list_phy_addr;
 	__be32 src = inet->inet_rcv_saddr;
 	__u16 srcp = ntohs(inet->inet_sport);
 
 	wake_lock(&port_suspend_lock);
+	if (!packet_filter_flag) {
+		wake_unlock(&port_suspend_lock);
+		return 0;
+	}
 
 	if (sk->sk_state != TCP_LISTEN) {
 		wake_unlock(&port_suspend_lock);
@@ -183,17 +178,27 @@ int add_or_remove_port(struct sock *sk, int add_or_remove) {
 
 	/* if source IP != 127.0.0.1 */
 	if (src != 0x0100007F && srcp != 0) {
+		if (port_list == NULL) {
+			port_list = smem_alloc(SMEM_ID_VENDOR2, 256);
+			port_list_phy_addr = MSM_SHARED_RAM_PHYS + ((uint32_t)port_list - (uint32_t)MSM_SHARED_RAM_BASE);
+			printk(KERN_INFO "[Port list] Virtual Address of port_list: [%p]\n", port_list);
+			printk(KERN_INFO "[Port list] Physical Address of port_list: [%X]\n", port_list_phy_addr);
+			if (port_list == NULL) {
+				printk(KERN_INFO "[Port list] port_list is NULL.\n");
+				wake_unlock(&port_suspend_lock);
+				return 0;
+			} else {
+				port_list[0] = packet_filter_flag;
+			}
+		}
+
 		mutex_lock(&port_lock);
 		if (add_or_remove)
 			add_list(srcp);
 		else
 			remove_list(srcp);
 		update_port_list();
-
-		kobject_uevent(&portlist_misc.this_device->kobj, KOBJ_CHANGE);
-
 		mutex_unlock(&port_lock);
-		/* notify RIL that port info is updated. */
 	}
 	wake_unlock(&port_suspend_lock);
 	return 0;
@@ -201,9 +206,16 @@ int add_or_remove_port(struct sock *sk, int add_or_remove) {
 EXPORT_SYMBOL(add_or_remove_port);
 
 int update_port_list_charging_state(int enable) {
+	size_t count = 0;
 
 	wake_lock(&port_suspend_lock);
 	if (!packet_filter_flag) {
+		wake_unlock(&port_suspend_lock);
+		return 0;
+	}
+
+	if (port_list == NULL) {
+		printk(KERN_INFO "[Port list] port_list is NULL.\n");
 		wake_unlock(&port_suspend_lock);
 		return 0;
 	}
@@ -213,14 +225,16 @@ int update_port_list_charging_state(int enable) {
 	if (usb_enable) {
 		port_list_enable(0);
 	} else {
-		if (port_cnt <= MAX_FILTER_PORT)
+		for (count = 1; count <= 127; count++) {
+			if (!port_list[count]) {
+				break;
+			}
+		}
+		if (count <= 127)
 			port_list_enable(1);
 		else
 			port_list_enable(0);
 	}
-
-	kobject_uevent(&portlist_misc.this_device->kobj, KOBJ_CHANGE);
-
 	mutex_unlock(&port_lock);
 	wake_unlock(&port_suspend_lock);
 	return 0;
@@ -229,12 +243,17 @@ EXPORT_SYMBOL(update_port_list_charging_state);
 
 static int __init port_list_init(void) {
 	int ret;
+	uint32_t port_list_phy_addr;
 	wake_lock_init(&port_suspend_lock, WAKE_LOCK_SUSPEND, "port_list");
 	mutex_init(&port_lock);
-	printk(KERN_INFO "[Port list] init()\n");
-
+	port_list = smem_alloc(SMEM_ID_VENDOR2, 256);
 	memset(&curr_port_list, 0, sizeof(curr_port_list));
 	INIT_LIST_HEAD(&curr_port_list.list);
+
+	port_list_phy_addr = MSM_SHARED_RAM_PHYS + ((uint32_t)port_list - (uint32_t)MSM_SHARED_RAM_BASE);
+	printk(KERN_INFO "[Port list] init()\n");
+	printk(KERN_INFO "[Port list] Virtual Address for port_list: [%p]\n", port_list);
+	printk(KERN_INFO "[Port list] Physical Address for port_list: [%X]\n", port_list_phy_addr);
 
 	ret = misc_register(&portlist_misc);
 	if (ret < 0) {
@@ -263,14 +282,13 @@ static int __init port_list_init(void) {
 		printk(KERN_ERR "[Port list] devices_create_file failed!\n");
 		goto err_device_create_file;
 	}
-
-	/* add attr to export port info. */
-	ret = device_create_file(portlist_misc.this_device, &dev_attr_port);
-	if (ret < 0) {
-		printk(KERN_ERR "[Port list] devices_create_file failed!\n");
-		goto err_device_create_file;
+	if (port_list != NULL) {
+		port_list[0] = packet_filter_flag;
+	} else {
+		printk(KERN_INFO "[Port list] port_list is NULL.\n");
+		printk(KERN_INFO "[Port list] packet filter is disabled.\n");
 	}
-	
+
 	return 0;
 
 err_device_create_file:
@@ -289,7 +307,6 @@ static void __exit port_list_exit(void) {
 	struct p_list *entry;
 
 	device_remove_file(portlist_misc.this_device, &dev_attr_flag);
-	device_remove_file(portlist_misc.this_device, &dev_attr_port);
 	device_destroy(p_class, 0);
 	class_destroy(p_class);
 

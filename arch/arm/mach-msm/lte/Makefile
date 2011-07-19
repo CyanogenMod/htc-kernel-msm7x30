@@ -6,7 +6,6 @@ obj-$(CONFIG_MSM_SDIO_AL_TEST) += sdio_al_test.o
 obj-$(CONFIG_MSM_SMD) += smem_log.o
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o
 obj-$(CONFIG_MSM_SMD) += smd_tty.o smd_qmi.o
-obj-$(CONFIG_MSM_SMD_PKT) += smd_pkt.o
 obj-$(CONFIG_MSM_ONCRPCROUTER) += rpc_pmapp.o
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter.o
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_device.o
@@ -22,6 +21,7 @@ obj-$(CONFIG_MSM_RPC_SDIO_XPRT) += rpcrouter_sdio_xprt.o
 obj-$(CONFIG_MSM_SDIO_CTL) += sdio_ctl.o
 obj-$(CONFIG_MSM_SDIO_DIAG) += sdio_diag.o
 obj-$(CONFIG_MSM_SMD_NMEA) += smd_nmea.o
+obj-$(CONFIG_MSM_SMD_PKT) += smd_pkt.o
 
 quiet_cmd_mkrpcsym = MKCAP   $@
       cmd_mkrpcsym = $(PERL) $(srctree)/$(src)/mkrpcsym.pl $< $@
