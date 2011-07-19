@@ -308,7 +308,11 @@ int vivo_support_aic3254(void)
 
 int vivo_support_back_mic(void)
 {
+#ifdef CONFIG_HTC_VOICE_DUALMIC
 	return 1;
+#else
+	return 0;
+#endif
 }
 
 void vivo_get_acoustic_tables(struct acoustic_tables *tb)

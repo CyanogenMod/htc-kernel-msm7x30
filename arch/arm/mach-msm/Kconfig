@@ -1443,6 +1443,13 @@ config MSM7KV2_1X_AUDIO
           Enables QDSP5V2-based audio drivers for audio playbacks and
           voice call (for 1.x code base).
 
+config HTC_VOICE_DUALMIC
+	bool "HTC Dual Mic feature"
+	depends on MSM7KV2_1X_AUDIO
+	default n
+	help
+	  Enables Dual Mic features.
+
 config MSM_QDSP6
 	tristate "QDSP6 support"
 	depends on ARCH_QSD8X50

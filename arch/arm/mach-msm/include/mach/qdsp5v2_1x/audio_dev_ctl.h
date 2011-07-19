@@ -36,6 +36,8 @@
 #define DEVICE_IGNORE	0xff
 #define SESSION_IGNORE 0x00000000
 
+#define REAL_STEREO_CHANNEL_MODE	9
+
 struct msm_snddev_info {
 	const char *name;
 	u32 capability;
