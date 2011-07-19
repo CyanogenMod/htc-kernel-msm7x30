@@ -999,6 +999,45 @@ static struct platform_device msm_ihs_vr_mic_device = {
 	.dev = { .platform_data = &snddev_ihs_vr_mic_data },
 };
 
+#ifdef CONFIG_HTC_VOICE_DUALMIC
+static struct adie_codec_action_unit idual_mic_48KHz_osr256_actions[] =
+	DUAL_MIC_STEREO_TX_48000_OSR_256;
+
+static struct adie_codec_hwsetting_entry idual_mic_settings[] = {
+	{
+		.freq_plan = 48000,
+		.osr = 256,
+		.actions = idual_mic_48KHz_osr256_actions,
+		.action_sz = ARRAY_SIZE(idual_mic_48KHz_osr256_actions),
+	}
+};
+
+static struct adie_codec_dev_profile idual_mic_profile = {
+	.path_type = ADIE_CODEC_TX,
+	.settings = idual_mic_settings,
+	.setting_sz = ARRAY_SIZE(idual_mic_settings),
+};
+
+static struct snddev_icodec_data snddev_idual_mic_endfire_real_stereo_data = {
+	.capability = (SNDDEV_CAP_TX | SNDDEV_CAP_VOICE),
+	.name = "dual_mic_stereo_tx",
+	.copp_id = 0,
+	.acdb_id = 6,
+	.profile = &idual_mic_profile,
+	.channel_mode = REAL_STEREO_CHANNEL_MODE,
+	.pmctl_id = NULL,
+	.pmctl_id_sz = 0,
+	.default_sample_rate = 48000,
+	.pamp_on = int_mic_enable,
+};
+
+static struct platform_device msm_real_stereo_tx_device = {
+	.name = "snddev_icodec",
+	.id = 27,
+	.dev = { .platform_data = &snddev_idual_mic_endfire_real_stereo_data },
+};
+#endif
+
 static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_iearpiece_device,
 	&msm_imic_device,
@@ -1020,6 +1059,9 @@ static struct platform_device *snd_devices_surf[] __initdata = {
 	&msm_ialt_rx_device,
 	&msm_ivr_mic_device,
 	&msm_ihs_vr_mic_device,
+#ifdef CONFIG_HTC_VOICE_DUALMIC
+	&msm_real_stereo_tx_device,
+#endif
 	&gan_lite_iearpiece_device,
 	&gan_lite_ispeaker_rx_device
 };
