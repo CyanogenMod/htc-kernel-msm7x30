@@ -25,8 +25,8 @@
 #include <linux/msm_rpcrouter.h>
 #include <linux/wakelock.h>
 
-#include <mach/lte/msm_smd.h>
-#include <mach/lte/msm_rpcrouter.h>
+#include <mach/7x30-lte/msm_smd.h>
+#include <mach/7x30-lte/msm_rpcrouter.h>
 
 /* definitions for the R2R wire protcol */
 
