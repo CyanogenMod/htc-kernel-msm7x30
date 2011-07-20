@@ -2042,7 +2042,7 @@ static struct msm_spi_platform_data qsd_spi_pdata = {
 //	.dma_config = msm_qsd_spi_dma_config,
 };
 
-#ifdef CONFIG_SPI_QSD_NEW
+#ifdef CONFIG_SPI_QSD_NEW_VIVO
 static void __init msm_qsd_spi_init(void)
 {
 	qsdnew_device_spi.dev.platform_data = &qsd_spi_pdata;
@@ -2378,7 +2378,7 @@ static struct platform_device *devices[] __initdata = {
 	&msm_device_ssbi6,
 	&msm_device_ssbi7,
 #endif
-#ifdef CONFIG_SPI_QSD_NEW
+#ifdef CONFIG_SPI_QSD_NEW_VIVO
 	&qsdnew_device_spi,
 #endif
 	&msm_device_i2c,
@@ -2779,7 +2779,7 @@ static void __init mecha_init(void)
 	}
 	platform_device_register(&mecha_flashlight_device);
 
-#ifdef CONFIG_SPI_QSD_NEW
+#ifdef CONFIG_SPI_QSD_NEW_VIVO
 	msm_qsd_spi_init();
 #endif
 	spi_register_board_info(msm_spi_board_info, ARRAY_SIZE(msm_spi_board_info));
