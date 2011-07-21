@@ -27,7 +27,7 @@
 #include <linux/workqueue.h>
 #include <linux/usb/android_composite.h>
 
-#include <mach/lte/msm_smd.h>
+#include <mach/7x30-lte/msm_smd.h>
 #include <linux/miscdevice.h>
 #include <linux/sched.h>
 #include <asm/uaccess.h>

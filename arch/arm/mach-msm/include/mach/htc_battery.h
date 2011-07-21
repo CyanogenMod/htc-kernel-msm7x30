@@ -111,26 +111,6 @@ static int unregister_notifier_cable_status(struct notifier_block *nb) { return 
 extern int battery_charging_ctrl(enum batt_ctl_t ctl);
 #endif
 extern int get_cable_status(void);
-#ifdef CONFIG_HTC_BATTCHG
-extern int batt_register_client(struct notifier_block *nb);
-extern int batt_unregister_client(struct notifier_block *nb);
-extern int batt_notifier_call_chain(unsigned long val, void *v);
-#else
-static int batt_register_client(struct notifier_block *nb)
-{
-	return 0;
-}
-
-static int batt_unregister_client(struct notifier_block *nb)
-{
-	return 0;
-}
-
-static int batt_notifier_call_chain(unsigned long val, void *v)
-{
-	return 0;
-}
-#endif
 
 #if defined(CONFIG_HTC_BATTCHG) || defined(CONFIG_HTC_BATTCHG_VIVO)
 extern int batt_register_client(struct notifier_block *nb);
