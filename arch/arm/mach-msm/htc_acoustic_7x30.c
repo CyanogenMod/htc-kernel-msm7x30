@@ -402,7 +402,8 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			the_ops->enable_back_mic(en);
 		break;
 	}
-#ifndef CONFIG_MACH_MECHA
+#if (defined(CONFIG_MACH_MECHA) || defined(CONFIG_MACH_SAGA))
+#else
 	case ACOUSTIC_UPDATE_AIC3254_INFO:
 		if (copy_from_user(&cur_aic3254_info, (void *)arg,
 			sizeof(struct aic3254_info))) {
