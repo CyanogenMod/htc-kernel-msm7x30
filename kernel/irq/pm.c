@@ -72,8 +72,10 @@ int check_wakeup_irqs(void)
 
 	for_each_irq_desc(irq, desc)
 		if ((desc->status & IRQ_WAKEUP) && (desc->status & IRQ_PENDING)) {
-			TRACE_MASK(TRACE_PM_WARN,
-				"%s: %d is wakeup irq and pending\n", __func__, irq);
+			pr_info("Wakeup IRQ %d %s pending, suspend aborted\n",
+				irq,
+				desc->action && desc->action->name ?
+				desc->action->name : "");
 			return -EBUSY;
 		}
 
