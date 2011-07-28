@@ -106,6 +106,10 @@ static void afe_dsp_event(void *data, unsigned id, size_t len,
 		wake_up(&afe->wait);
 		break;
 	}
+	case AFE_APU_MSG_VOC_TIMING_SUCCESS:
+		MM_AUD_INFO("Received VOC_TIMING_SUCCESS message from AFETASK\n");
+		break;
+
 	case ADSP_MESSAGE_ID:
 		pr_aud_info("afe: enable/disable done\n");
 		break;

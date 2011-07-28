@@ -113,5 +113,29 @@ struct audpreproc_afe_cmd_audio_record_cfg_done {
 	unsigned short stream_id;
 } __attribute__((packed));
 
+/*
+ * Message to indicate Routing mode
+ * configuration success or failure
+ */
+
+#define AUDPREPROC_CMD_ROUTING_MODE_DONE_MSG  0x0007
+#define AUDPREPROC_CMD_ROUTING_MODE_DONE_MSG_LEN \
+        sizeof(struct audpreproc_cmd_routing_mode_done)
+
+struct audpreproc_cmd_routing_mode_done {
+        unsigned short stream_id;
+        unsigned short configuration;
+} __attribute__((packed));
+
+
+#define AUDPREPROC_CMD_PCM_CFG_ARM_TO_PREPROC_DONE_MSG  0x0008
+#define AUDPREPROC_CMD_PCM_CFG_ARM_TO_PREPROC_DONE_MSG_LEN \
+        sizeof(struct audreproc_cmd_pcm_cfg_arm_to_preproc_done)
+
+struct audreproc_cmd_pcm_cfg_arm_to_preproc_done {
+        unsigned short stream_id;
+        unsigned short configuration;
+} __attribute__((packed));
+
 #define ADSP_MESSAGE_ID 0xffff
 #endif /* QDSP5AUDPREPROCMSG_H */

@@ -218,7 +218,8 @@ struct audpreproc_afe_cmd_audio_record_cfg {
 	unsigned short stream_id;
 	unsigned short destination_activity;
 	unsigned short source_mix_mask;
-	unsigned short reserved[2];
+	unsigned short pipe_id;
+	unsigned short reserved;
 } __attribute__((packed));
 
 /*

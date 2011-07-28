@@ -32,6 +32,12 @@
 #include <mach/qdsp5v2_1x/qdsp5audpreproccmdi.h>
 #include <mach/qdsp5v2_1x/qdsp5audpreprocmsg.h>
 
+#define MSM_AUD_ENC_MODE_TUNNEL  0x00000100
+#define MSM_AUD_ENC_MODE_NONTUNNEL  0x00000200
+
+#define SOURCE_PIPE_1   0x0001
+#define SOURCE_PIPE_0   0x0000
+
 /* event callback routine prototype*/
 typedef void (*audpreproc_event_func)(void *private, unsigned id, void *msg);
 

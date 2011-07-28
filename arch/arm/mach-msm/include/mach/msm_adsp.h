@@ -57,7 +57,9 @@ int msm_adsp_write(struct msm_adsp_module *module,
 		   unsigned queue_id,
 		   void *data, size_t len);
 
+#if 0
 #define ADSP_MESSAGE_ID -1
+#endif
 
 #if 1
 /* Command Queue Indexes */

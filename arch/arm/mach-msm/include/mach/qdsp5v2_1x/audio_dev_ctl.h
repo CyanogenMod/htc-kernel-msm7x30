@@ -38,6 +38,10 @@
 
 #define REAL_STEREO_CHANNEL_MODE	9
 
+#define VOICE_STATE_INVALID 0x0
+#define VOICE_STATE_INCALL 0x1
+#define VOICE_STATE_OFFCALL 0x2
+
 struct msm_snddev_info {
 	const char *name;
 	u32 capability;
@@ -103,6 +107,7 @@ struct auddev_evt_audcal_info {
 	u32 acdb_id;
 	u32 sample_rate;
 	u32 dev_type;
+        u32 sessions;
 };
 
 union msm_vol_mute {
@@ -128,6 +133,7 @@ union auddev_evt_data {
 	struct auddev_evt_freq_info freq_info;
 	u32 routing_id;
 	s32 session_vol;
+	s32 voice_state;
 	struct auddev_evt_audcal_info audcal_info;
 };
 
@@ -145,6 +151,7 @@ struct message_header {
 #define AUDDEV_EVT_END_VOICE		0x40	/* voice call end */
 #define AUDDEV_EVT_STREAM_VOL_CHG	0x80 	/* device volume changed */
 #define AUDDEV_EVT_FREQ_CHG		0x100	/* Change in freq */
+#define AUDDEV_EVT_VOICE_STATE_CHG      0x200   /* Change in voice state */
 
 #define AUDDEV_CLNT_VOC 		0x1	/* Vocoder clients */
 #define AUDDEV_CLNT_DEC 		0x2	/* Decoder clients */
@@ -189,4 +196,5 @@ int msm_get_voc_freq(int *tx_freq, int *rx_freq);
 int msm_snddev_get_enc_freq(int session_id);
 int msm_set_voice_vol(int dir, s32 volume);
 int msm_set_voice_mute(int dir, int mute);
+int msm_get_voice_state(void);
 #endif

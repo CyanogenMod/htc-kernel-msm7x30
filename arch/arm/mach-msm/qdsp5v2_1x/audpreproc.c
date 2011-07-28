@@ -181,6 +181,20 @@ static void audpreproc_dsp_event(void *data, unsigned id, size_t len,
 			&record_cfg_done);
 		break;
 	}
+	case AUDPREPROC_CMD_ROUTING_MODE_DONE_MSG: {
+		struct audpreproc_cmd_routing_mode_done  routing_mode_done;
+
+		getevent(&routing_mode_done,
+			AUDPREPROC_CMD_ROUTING_MODE_DONE_MSG_LEN);
+		MM_DBG("AUDPREPROC_CMD_ROUTING_MODE_DONE_MSG: \
+			stream id %d\n", routing_mode_done.stream_id);
+		if ((routing_mode_done.stream_id < MAX_ENC_COUNT) &&
+				audpreproc->func[routing_mode_done.stream_id])
+			audpreproc->func[routing_mode_done.stream_id](
+			audpreproc->private[routing_mode_done.stream_id], id,
+			&routing_mode_done);
+		break;
+	}
 	case ADSP_MESSAGE_ID:
 		pr_aud_info("audpreproc: enable/disable done\n");
 		break;
