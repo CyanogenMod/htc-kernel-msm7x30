@@ -299,8 +299,8 @@ err:
 					__func__, cfg.data_len);
 			return -EINVAL;
 		}
-
-		config_data = kmalloc(cfg.data_len, GFP_KERNEL);
+		if (config_data == NULL)
+			config_data = kmalloc(cfg.data_len, GFP_KERNEL);
 		if (!config_data) {
 			pr_err("%s: out of memory\n", __func__);
 			return -ENOMEM;
@@ -308,6 +308,7 @@ err:
 		if (copy_from_user(config_data, cfg.cmd_data, cfg.data_len)) {
 			pr_err("%s: copy data from user failed.\n", __func__);
 			kfree(config_data);
+			config_data = NULL;
 			return -EFAULT;
 		}
 		tpa2051_mode_cnt = cfg.mode_num;
