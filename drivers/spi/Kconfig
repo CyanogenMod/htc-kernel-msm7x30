@@ -256,6 +256,14 @@ config SPI_AIC3254
 	help
 	  TI AIC3254 is external codec for audio RX
 
+config SPI_AIC3254_SELF_POWER_DOWN
+	tristate "TI AIC3254 self powerdown support"
+	depends on SPI_AIC3254
+	default y
+	help
+	  This option allow the driver to self power down when both
+	  up and down link are off
+
 config SPI_OMAP_UWIRE
 	tristate "OMAP1 MicroWire"
 	depends on ARCH_OMAP1

@@ -481,7 +481,6 @@ static void vivow_set_brightness(struct led_classdev *led_cdev,
 	unsigned int shrink_br = val;
 	struct mddi_cmd *pcmd = hitachi_renesas_backlight_cmd;
 
-	printk(KERN_DEBUG "set brightness = %d\n", val);
 	if (test_bit(GATE_ON, &cabc.status) == 0)
 		return;
 	shrink_br = vivow_shrink_pwm(val);

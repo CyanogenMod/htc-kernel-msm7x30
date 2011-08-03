@@ -311,6 +311,7 @@ void blk_unplug_timeout(unsigned long data)
 	trace_block_unplug_timer(q);
 	kblockd_schedule_work(q, &q->unplug_work);
 }
+EXPORT_SYMBOL(blk_put_queue);
 
 void blk_unplug(struct request_queue *q)
 {
@@ -640,6 +641,7 @@ int blk_get_queue(struct request_queue *q)
 
 	return 1;
 }
+EXPORT_SYMBOL(blk_get_queue);
 
 static inline void blk_free_request(struct request_queue *q, struct request *rq)
 {
@@ -890,6 +892,9 @@ static struct request *get_request_wait(struct request_queue *q, int rw_flags,
 struct request *blk_get_request(struct request_queue *q, int rw, gfp_t gfp_mask)
 {
 	struct request *rq;
+
+	if (unlikely(test_bit(QUEUE_FLAG_DEAD, &q->queue_flags)))
+		return NULL;
 
 	BUG_ON(rw != READ && rw != WRITE);
 
