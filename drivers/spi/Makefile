@@ -58,6 +58,7 @@ obj-$(CONFIG_SPI_QUP)			+= spi_qsdnew_vivo.o
 endif
 obj-$(CONFIG_SPI_CRUCIAL_OJ)	        += spi_oj.o
 obj-$(CONFIG_SPI_AIC3254)		+= spi_aic3254.o
+obj-$(CONFIG_SPI_AIC3254_SAGA)		+= spi_aic3254_saga.o
 
 # special build for s3c24xx spi driver with fiq support
 spi_s3c24xx_hw-y			:= spi_s3c24xx.o

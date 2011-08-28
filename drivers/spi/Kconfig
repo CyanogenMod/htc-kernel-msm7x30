@@ -249,12 +249,23 @@ config SPI_TOUCHSCREEN_NTRIG
 	help
 		SPI driver for N-trig Touchscreen
 
-config SPI_AIC3254
-	tristate "TI AIC3254 SPI support"
-        default n
+choice
 	depends on ARCH_MSM7X30 || ARCH_MSM8X60
+	prompt "Select SPI_AIC3254 Version"
+	default CPI_AIC3254
 	help
 	  TI AIC3254 is external codec for audio RX
+
+	config SPI_AIC3254
+		bool "7x30 Version"
+		help
+		  TI AIC3254 is external codec for audio RX
+
+	config SPI_AIC3254_SAGA
+		bool "Saga Version"
+		help
+		  TI AIC3254 is external codec for audio RX for saga
+endchoice
 
 config SPI_AIC3254_SELF_POWER_DOWN
 	tristate "TI AIC3254 self powerdown support"
