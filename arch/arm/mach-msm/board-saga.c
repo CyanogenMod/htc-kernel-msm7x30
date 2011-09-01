@@ -28,7 +28,7 @@
 #include <linux/i2c-msm.h>
 #include <linux/a1026.h>
 #include <linux/spi/spi.h>
-#include <mach/qdsp5v2/msm_lpa.h>
+#include <mach/qdsp5v2_1x/msm_lpa.h>
 #include <linux/akm8975.h>
 #include <linux/bma150.h>
 #include <linux/capella_cm3602.h>
@@ -888,7 +888,7 @@ static void __init msm7x30_init_marimba(void)
 		return;
 	}
 }
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 static struct resource msm_aictl_resources[] = {
 	{
 		.name = "aictl",
@@ -1171,7 +1171,7 @@ static int __init aux_pcm_gpio_init(void)
 	return 0;
 }
 
-#endif /* CONFIG_MSM7KV2_AUDIO */
+#endif /* CONFIG_MSM7KV2_1X_AUDIO */
 
 static struct i2c_board_info msm_marimba_board_info[] = {
 	{
@@ -1789,7 +1789,7 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_INPUT_CAPELLA_CM3602
 	&capella_cm3602,
 #endif
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	&msm_aictl_device,
 	&msm_mi2s_device,
 	&msm_lpa_device,
@@ -1800,7 +1800,7 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_MSM_GEMINI
 	&msm_gemini_device,
 #endif
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	&msm_aux_pcm_device,
 #endif
 	&msm_camera_sensor_s5k4e1gx,
@@ -2072,7 +2072,7 @@ static void __init saga_init(void)
 	msm_device_i2c_init();
 	qup_device_i2c_init();
 	msm7x30_init_marimba();
-#ifdef CONFIG_MSM7KV2_AUDIO
+#ifdef CONFIG_MSM7KV2_1X_AUDIO
 	msm_snddev_init();
 	aux_pcm_gpio_init();
 #endif
