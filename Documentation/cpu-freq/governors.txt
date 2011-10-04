@@ -28,6 +28,8 @@ Contents:
 2.3  Userspace
 2.4  Ondemand
 2.5  Conservative
+2.6  Interactive
+2.7  SmartassV2
 
 3.   The Governor Interface in the CPUfreq Core
 
@@ -181,6 +183,63 @@ down_threshold: same as the 'up_threshold' found for the "ondemand"
 governor but for the opposite direction.  For example when set to its
 default value of '20' it means that if the CPU usage needs to be below
 20% between samples to have the frequency decreased.
+
+
+2.6 Interactive
+---------------
+
+The CPUfreq governor "interactive" is designed for low latency,
+interactive workloads. This governor sets the CPU speed depending on
+usage, similar to "ondemand" and "conservative" governors. However
+there is no polling, or 'sample_rate' required to scale the CPU up.
+
+Sampling CPU load every X ms can lead to under powering the CPU
+for X ms, leading to dropped framerate, stuttering UI etc..
+
+Scaling the CPU up is done when coming out of idle, and like "ondemand"
+scaling up will always go to MAX, then step down based off of cpu load.
+
+There is only one tuneable value for this governor:
+
+min_sample_time: The ammount of time the CPU must spend (in uS)
+at the current frequency before scaling DOWN. This is done to
+more accurately determine the cpu workload and the best speed for that
+workload. The default is 50ms.
+
+
+2.7 SmartassV2
+---------------
+
+The CPUfreq governor "smartassV2", like other governors, aims to balance
+performance vs battery life by using low frequencies when load is low and
+ramping the frequency when necessary, fast enough to ensure responsiveness.
+
+The implementation of the governor is roughtly based on the idea of interactive.
+The idle loop is used to track when the CPU has idle cycles. The idle loop will
+set a relatively high rate timer to sample the load when appropriate, the timer
+will measure the load since it was set and schedule a work queue task to do the
+actual frequency change when necessary.
+
+The most important tunable is the "ideal" frequency: this governor will aim
+for this frequency, in the sense that it will ramp towards this frequency much
+more aggresively than beyond it - both when ramping up from below this frequency
+and when ramping down from above this frequency. Still, note, that when load is
+low enough the governor should choose the lowest available frequency regardless
+of the ideal frequency and similarly when load is consistently high enough the
+highest available frequency will be used.
+
+Smartass also tracks the state of the screen, and when screen is off (a.k.a
+sleep or suspended in the terms of this governor) a different ideal frequency
+is used. This is the only difference between the screen on and screen off
+states. Proper tuning of the awake_ideal_freq and sleep_ideal_freq should
+allow both high responsiveness when screen is on and utilizing the low
+frequency range when load is low, especially when screen is off.
+
+Finally, smartass is a highly customizable governor with almost everything
+tweakable through the sysfs. For a detailed explaination of each tunable,
+please see the inline comments at the begging of the code (smartass2.c).
+
+
 
 3. The Governor Interface in the CPUfreq Core
 =============================================
