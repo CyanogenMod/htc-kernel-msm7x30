@@ -28,6 +28,7 @@ Contents:
 2.3  Userspace
 2.4  Ondemand
 2.5  Conservative
+2.6  Interactive
 
 3.   The Governor Interface in the CPUfreq Core
 
@@ -181,6 +182,30 @@ down_threshold: same as the 'up_threshold' found for the "ondemand"
 governor but for the opposite direction.  For example when set to its
 default value of '20' it means that if the CPU usage needs to be below
 20% between samples to have the frequency decreased.
+
+
+2.6 Interactive
+---------------
+
+The CPUfreq governor "interactive" is designed for low latency,
+interactive workloads. This governor sets the CPU speed depending on
+usage, similar to "ondemand" and "conservative" governors. However
+there is no polling, or 'sample_rate' required to scale the CPU up.
+
+Sampling CPU load every X ms can lead to under powering the CPU
+for X ms, leading to dropped framerate, stuttering UI etc..
+
+Scaling the CPU up is done when coming out of idle, and like "ondemand"
+scaling up will always go to MAX, then step down based off of cpu load.
+
+There is only one tuneable value for this governor:
+
+min_sample_time: The ammount of time the CPU must spend (in uS)
+at the current frequency before scaling DOWN. This is done to
+more accurately determine the cpu workload and the best speed for that
+workload. The default is 50ms.
+
+
 
 3. The Governor Interface in the CPUfreq Core
 =============================================
