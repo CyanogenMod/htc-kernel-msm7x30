@@ -93,6 +93,7 @@ static int codec_spi_read(unsigned char addr, unsigned char *data)
 	return 0;
 }
 
+#ifndef CONFIG_MACH_SAGA
 static int32_t spi_write_table(CODEC_SPI_CMD *cmds, int num)
 {
 	int i;
@@ -118,6 +119,7 @@ static int32_t spi_write_table(CODEC_SPI_CMD *cmds, int num)
 		status = spi_sync(codec_dev, &m);
 	return status;
 }
+#endif
 
 static int aic3254_config(CODEC_SPI_CMD *cmds, int size)
 {
