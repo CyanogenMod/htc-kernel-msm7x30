@@ -225,6 +225,16 @@ static struct kgsl_platform_data kgsl_pdata = {
 	.imem_clk_name = "imem_clk",
 	.grp3d_clk_name = "grp_clk",
 	.grp2d0_clk_name = "grp_2d_clk",
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+	.pt_va_size = SZ_128M - SZ_64K,
+	/* Maximum of 32 concurrent processes */
+	.pt_max_count = 32,
+#else
+	.pt_va_size = SZ_128M,
+	/* We only ever have one pagetable for everybody */
+	.pt_max_count = 1,
+
+#endif
 };
 #endif
 
@@ -347,6 +357,48 @@ static struct platform_device *msm_serial_devices[] __initdata = {
 	#endif
 #endif
 };
+
+#ifdef CONFIG_ARCH_MSM8X60
+static struct msm_mem_settings mem_settings[] = {
+	/* First is default settings. */
+	{
+		.mem_size_mb = 768,
+		.mem_info = {
+			.nr_banks = 2,
+			.bank = {
+				[0] = {
+					.start = 0x40400000,
+					.node = PHYS_TO_NID(0x40400000),
+					.size = 0x42E00000 - 0x40400000,
+				},
+				[1] = {
+					.start = 0x48000000,
+					.node = PHYS_TO_NID(0x48000000),
+					.size = 0x70000000 - 0x48000000,
+				}
+			}
+		}
+	},
+	{
+		.mem_size_mb = 1024,
+		.mem_info = {
+			.nr_banks = 2,
+			.bank = {
+				[0] = {
+					.start = 0x40400000,
+					.node = PHYS_TO_NID(0x40400000),
+					.size = 0x42E00000 - 0x40400000,
+				},
+				[1] = {
+					.start = 0x48000000,
+					.node = PHYS_TO_NID(0x48000000),
+					.size = 0x80000000 - 0x48000000,
+				}
+			}
+		}
+	}
+};
+#endif
 
 int __init msm_add_serial_devices(unsigned num)
 {
@@ -690,6 +742,7 @@ __tagtable(ATAG_PS_TYPE, tag_ps_parsing);
 
 #define ATAG_ENGINEERID 0x4d534D75
 unsigned engineer_id;
+EXPORT_SYMBOL(engineer_id);
 int __init parse_tag_engineerid(const struct tag *tags)
 {
 	int engineerid = 0, find = 0;
@@ -787,7 +840,38 @@ int __init parse_tag_extdiag(const struct tag *tags)
 }
 
 #if defined(CONFIG_ARCH_MSM8X60)
-static unsigned int radio_flag;
+static struct msm_mem_settings *board_find_mem_settings(unsigned mem_size_mb)
+{
+	int index;
+	for (index = 0; index < sizeof(mem_settings) / sizeof(mem_settings[0]); index++) {
+		if (mem_settings[index].mem_size_mb == mem_size_mb) {
+			pr_info("%s: %d MB settings is found.\n", __func__, mem_size_mb);
+			return &mem_settings[index];
+		}
+	}
+	pr_info("%s: use default mem bank settigs.\n", __func__);
+	return &mem_settings[0];
+}
+
+int msm_fixup(struct tag *tags, struct meminfo *mi)
+{
+	unsigned mem_size_mb = parse_tag_memsize((const struct tag *)tags);
+	struct msm_mem_settings *settings = board_find_mem_settings(mem_size_mb);
+	int index = 0;
+
+	pr_info("%s: mem size = %d\n", __func__, mem_size_mb);
+
+	mi->nr_banks = settings->mem_info.nr_banks;
+	for (index = 0; index < settings->mem_info.nr_banks; index++) {
+		mi->bank[index].start = settings->mem_info.bank[index].start;
+		mi->bank[index].node = settings->mem_info.bank[index].node;
+		mi->bank[index].size = settings->mem_info.bank[index].size;
+	}
+	return 0;
+}
+#endif
+
+static unsigned int radio_flag = 0;
 int __init radio_flag_init(char *s)
 {
 	radio_flag = simple_strtoul(s, 0, 16);
@@ -799,7 +883,19 @@ unsigned int get_radio_flag(void)
 {
 	return radio_flag;
 }
-#endif
+
+static unsigned int kernel_flag = 0;
+int __init kernel_flag_init(char *s)
+{
+	kernel_flag = simple_strtoul(s, 0, 16);
+	return 1;
+}
+__setup("kernelflag=", kernel_flag_init);
+
+unsigned int get_kernel_flag(void)
+{
+	return kernel_flag;
+}
 
 BLOCKING_NOTIFIER_HEAD(psensor_notifier_list);
 

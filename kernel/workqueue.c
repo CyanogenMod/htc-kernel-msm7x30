@@ -36,6 +36,51 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/workqueue.h>
 
+#include <mach/board.h>
+
+#define WQ_NAME			"events"
+#define WQ_HIST_LEN			(20)
+
+static unsigned int workqueue_debug_level = 0;
+
+static int wq_pos = 0;
+static unsigned long wq_hist[WQ_HIST_LEN];
+
+static int store_workqueue(const char *wq_name, unsigned long f_addr)
+{
+	char func_sym[KSYM_SYMBOL_LEN];
+
+	if (strcmp(wq_name, WQ_NAME) == 0) {
+		if (wq_hist[0] && (++wq_pos >= WQ_HIST_LEN))
+			wq_pos = 0;
+
+		wq_hist[wq_pos] = f_addr;
+
+		if (workqueue_debug_level) {
+			sprint_symbol(func_sym, f_addr);
+			printk(KERN_INFO "[wq] %s: %s\n", wq_name, func_sym);
+		}
+	}
+
+	return 0;
+}
+
+int print_workqueue(void)
+{
+	char func_sym[KSYM_SYMBOL_LEN];
+	int i = wq_pos, count = 0;
+
+	do {
+		sprint_symbol(func_sym, wq_hist[i]);
+		printk(KERN_INFO "[wq_list] %s[%d]: %s\n", WQ_NAME, count--, func_sym);
+
+		if (--i < 0)
+			i = WQ_HIST_LEN - 1;
+	} while (wq_pos != i);
+
+	return 0;
+}
+
 /*
  * The per-CPU workqueue (if single thread, we always use the first
  * possible cpu).
@@ -410,6 +455,10 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
 		work_clear_pending(work);
 		lock_map_acquire(&cwq->wq->lockdep_map);
 		lock_map_acquire(&lockdep_map);
+
+		/* store workqueue func for history */
+		store_workqueue(cwq->wq->name, (unsigned long)f);
+
 		f(work);
 		lock_map_release(&lockdep_map);
 		lock_map_release(&cwq->wq->lockdep_map);
@@ -1103,6 +1152,28 @@ void destroy_workqueue(struct workqueue_struct *wq)
 }
 EXPORT_SYMBOL_GPL(destroy_workqueue);
 
+int is_workqueue_empty(struct workqueue_struct *wq)
+{
+	int ret = 1, cpu;
+	struct cpu_workqueue_struct *cwq;
+
+	if (wq->singlethread) {
+		cwq = per_cpu_ptr(wq->cpu_wq, singlethread_cpu);
+		ret = list_empty(&cwq->worklist);
+	} else {
+		for_each_possible_cpu(cpu) {
+			cwq = per_cpu_ptr(wq->cpu_wq, cpu);
+			ret = list_empty(&cwq->worklist);
+			if (!ret)
+				break;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(is_workqueue_empty);
+
+
 static int __devinit workqueue_cpu_callback(struct notifier_block *nfb,
 						unsigned long action,
 						void *hcpu)
@@ -1201,8 +1272,14 @@ long work_on_cpu(unsigned int cpu, long (*fn)(void *), void *arg)
 EXPORT_SYMBOL_GPL(work_on_cpu);
 #endif /* CONFIG_SMP */
 
+#include <mach/board_htc.h>
+
 void __init init_workqueues(void)
 {
+	/* Switch workqueue debug level by kernelflag */
+	if (get_kernel_flag() & BIT5)
+		workqueue_debug_level = 1;
+
 	alloc_cpumask_var(&cpu_populated_map, GFP_KERNEL);
 
 	cpumask_copy(cpu_populated_map, cpu_online_mask);

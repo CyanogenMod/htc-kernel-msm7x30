@@ -212,7 +212,7 @@ __create_workqueue_key(const char *name, int singlethread,
 #define create_singlethread_workqueue(name) __create_workqueue((name), 1, 0, 0)
 
 extern void destroy_workqueue(struct workqueue_struct *wq);
-
+extern int is_workqueue_empty(struct workqueue_struct *wq);
 extern int queue_work(struct workqueue_struct *wq, struct work_struct *work);
 extern int queue_work_on(int cpu, struct workqueue_struct *wq,
 			struct work_struct *work);
@@ -240,6 +240,7 @@ int execute_in_process_context(work_func_t fn, struct execute_work *);
 extern int flush_work(struct work_struct *work);
 
 extern int cancel_work_sync(struct work_struct *work);
+extern int print_workqueue(void);
 
 /*
  * Kill off a pending schedule_delayed_work().  Note that the work callback

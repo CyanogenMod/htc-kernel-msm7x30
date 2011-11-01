@@ -99,22 +99,22 @@ module_param_named(debug_mask, msm_smd_debug_mask,
 #if defined(CONFIG_MSM_SMD_DEBUG)
 #define SMD_DBG(x...) do {				\
 		if (msm_smd_debug_mask & MSM_SMD_DEBUG) \
-			printk(KERN_DEBUG x);		\
+			printk(KERN_DEBUG "[SMD] "x);		\
 	} while (0)
 
 #define SMSM_DBG(x...) do {					\
 		if (msm_smd_debug_mask & MSM_SMSM_DEBUG)	\
-			printk(KERN_DEBUG x);			\
+			printk(KERN_DEBUG "[SMD] "x);			\
 	} while (0)
 
 #define SMD_INFO(x...) do {			 	\
 		if (msm_smd_debug_mask & MSM_SMD_INFO)	\
-			printk(KERN_INFO x);		\
+			printk(KERN_INFO "[SMD] "x);		\
 	} while (0)
 
 #define SMSM_INFO(x...) do {				\
 		if (msm_smd_debug_mask & MSM_SMSM_INFO) \
-			printk(KERN_INFO x);		\
+			printk(KERN_INFO "[SMD] "x);		\
 	} while (0)
 #else
 #define SMD_DBG(x...) do { } while (0)
@@ -200,7 +200,7 @@ void smd_diag(void)
 	x = smem_get_entry(SMEM_ERR_CRASH_LOG, &size);
 	if (x != 0) {
 		x[size - 1] = 0;
-		pr_err("smem: CRASH LOG\n'%s'\n", x);
+		pr_err("[SMD] smem: CRASH LOG\n'%s'\n", x);
 	}
 }
 
@@ -209,7 +209,7 @@ extern int (*msm_check_for_modem_crash)(void);
 
 static void handle_modem_crash(void)
 {
-	pr_err("ARM9 has CRASHED\n");
+	pr_err("[SMD] ARM9 has CRASHED\n");
 	smd_diag();
 	msm_pm_flush_console();
 
@@ -230,6 +230,8 @@ int smsm_check_for_modem_crash(void)
 
 	if (readl(SMSM_STATE_ADDR(SMSM_MODEM_STATE)) & SMSM_RESET) {
 		dump_stack();
+		show_state_filter(TASK_UNINTERRUPTIBLE);
+		print_workqueue();
 		msm_pm_flush_console();
 		handle_modem_crash();
 		return -1;
@@ -312,7 +314,7 @@ static void smd_channel_probe_worker(struct work_struct *work)
 	shared = smem_find(ID_CH_ALLOC_TBL, sizeof(*shared) * 64);
 
 	if (!shared) {
-		pr_err("%s: allocation table not initialized\n", __func__);
+		pr_err("[SMD] %s: allocation table not initialized\n", __func__);
 		return;
 	}
 
@@ -843,7 +845,7 @@ static int smd_alloc_v1(struct smd_channel *ch)
 	struct smd_shared_v1 *shared1;
 	shared1 = smem_alloc(ID_SMD_CHANNELS + ch->n, sizeof(*shared1));
 	if (!shared1) {
-		pr_err("smd_alloc_channel() cid %d does not exist\n", ch->n);
+		pr_err("[SMD] smd_alloc_channel() cid %d does not exist\n", ch->n);
 		return -1;
 	}
 	ch->send = &shared1->ch0;
@@ -860,7 +862,7 @@ static int smd_alloc_channel(struct smd_alloc_elm *alloc_elm)
 
 	ch = kzalloc(sizeof(struct smd_channel), GFP_KERNEL);
 	if (ch == 0) {
-		pr_err("smd_alloc_channel() out of memory\n");
+		pr_err("[SMD] smd_alloc_channel() out of memory\n");
 		return -1;
 	}
 	ch->n = alloc_elm->cid;
@@ -941,7 +943,7 @@ static int smd_alloc_loopback_channel(void)
 
 	ch = kzalloc(sizeof(struct smd_channel), GFP_KERNEL);
 	if (ch == 0) {
-		pr_err("%s: out of memory\n", __func__);
+		pr_err("[SMD] %s: out of memory\n", __func__);
 		return -1;
 	}
 	ch->n = SMD_LOOPBACK_CID;
@@ -1217,7 +1219,7 @@ static void *smem_alloc2(unsigned id, unsigned size_in)
 	void *ret = NULL;
 
 	if (!shared->heap_info.initialized) {
-		pr_err("%s: smem heap info not initialized\n", __func__);
+		pr_err("[SMD] %s: smem heap info not initialized\n", __func__);
 		return NULL;
 	}
 
@@ -1229,7 +1231,7 @@ static void *smem_alloc2(unsigned id, unsigned size_in)
 	if (toc[id].allocated) {
 		SMD_DBG("%s: %u already allocated\n", __func__, id);
 		if (size_in != toc[id].size)
-			pr_err("%s: wrong size %u (expected %u)\n",
+			pr_err("[SMD] %s: wrong size %u (expected %u)\n",
 			       __func__, toc[id].size, size_in);
 		else
 			ret = (void *)(MSM_SHARED_RAM_BASE + toc[id].offset);
@@ -1244,7 +1246,7 @@ static void *smem_alloc2(unsigned id, unsigned size_in)
 			shared->heap_info.heap_remaining -= size_in;
 			ret = (void *)(MSM_SHARED_RAM_BASE + toc[id].offset);
 		} else
-			pr_err("%s: not enough memory %u (required %u)\n",
+			pr_err("[SMD] %s: not enough memory %u (required %u)\n",
 			       __func__, shared->heap_info.heap_remaining,
 			       size_in);
 	}
@@ -1283,7 +1285,7 @@ void *smem_find(unsigned id, unsigned size_in)
 
 	size_in = ALIGN(size_in, 8);
 	if (size_in != size) {
-		pr_err("smem_find(%d, %d): wrong size %d\n",
+		pr_err("[SMD] smem_find(%d, %d): wrong size %d\n",
 		       id, size_in, size);
 		return 0;
 	}
@@ -1298,7 +1300,7 @@ static int smsm_init(void)
 
 	i = remote_spin_lock_init(&remote_spinlock, SMEM_SPINLOCK_SMEM_ALLOC);
 	if (i) {
-		pr_err("%s: remote spinlock init failed %d\n", __func__, i);
+		pr_err("[SMD] %s: remote spinlock init failed %d\n", __func__, i);
 		return i;
 	}
 
@@ -1309,6 +1311,8 @@ static int smsm_init(void)
 
 		if (smsm_info.state) {
 			writel(0, SMSM_STATE_ADDR(SMSM_APPS_STATE));
+			pr_info("phy addr of smsm_info.state=0x%X\n",
+				MSM_SHARED_RAM_PHYS + ((uint32_t)smsm_info.state - (uint32_t)MSM_SHARED_RAM_BASE));
 			if ((shared->version[VERSION_MODEM] >> 16) >= 0xB)
 				writel(0, SMSM_STATE_ADDR(SMSM_APPS_DEM_I));
 		}
@@ -1436,13 +1440,13 @@ int smsm_change_intr_mask(uint32_t smsm_entry,
 	unsigned long flags;
 
 	if (smsm_entry >= SMSM_NUM_ENTRIES) {
-		pr_err("smsm_change_state: Invalid entry %d\n",
+		pr_err("[SMD] smsm_change_state: Invalid entry %d\n",
 		       smsm_entry);
 		return -EINVAL;
 	}
 
 	if (!smsm_info.intr_mask) {
-		pr_err("smsm_change_intr_mask <SM NO STATE>\n");
+		pr_err("[SMD] smsm_change_intr_mask <SM NO STATE>\n");
 		return -EIO;
 	}
 
@@ -1460,13 +1464,13 @@ int smsm_change_intr_mask(uint32_t smsm_entry,
 int smsm_get_intr_mask(uint32_t smsm_entry, uint32_t *intr_mask)
 {
 	if (smsm_entry >= SMSM_NUM_ENTRIES) {
-		pr_err("smsm_change_state: Invalid entry %d\n",
+		pr_err("[SMD] smsm_change_state: Invalid entry %d\n",
 		       smsm_entry);
 		return -EINVAL;
 	}
 
 	if (!smsm_info.intr_mask) {
-		pr_err("smsm_change_intr_mask <SM NO STATE>\n");
+		pr_err("[SMD] smsm_change_intr_mask <SM NO STATE>\n");
 		return -EIO;
 	}
 
@@ -1481,13 +1485,13 @@ int smsm_change_state(uint32_t smsm_entry,
 	uint32_t  old_state, new_state;
 
 	if (smsm_entry >= SMSM_NUM_ENTRIES) {
-		pr_err("smsm_change_state: Invalid entry %d",
+		pr_err("[SMD] smsm_change_state: Invalid entry %d",
 		       smsm_entry);
 		return -EINVAL;
 	}
 
 	if (!smsm_info.state) {
-		pr_err("smsm_change_state <SM NO STATE>\n");
+		pr_err("[SMD] smsm_change_state <SM NO STATE>\n");
 		return -EIO;
 	}
 	spin_lock_irqsave(&smem_lock, flags);
@@ -1509,13 +1513,13 @@ uint32_t smsm_get_state(uint32_t smsm_entry)
 
 	/* needs interface change to return error code */
 	if (smsm_entry >= SMSM_NUM_ENTRIES) {
-		pr_err("smsm_change_state: Invalid entry %d",
+		pr_err("[SMD] smsm_change_state: Invalid entry %d",
 		       smsm_entry);
 		return 0;
 	}
 
 	if (!smsm_info.state)
-		pr_err("smsm_get_state <SM NO STATE>\n");
+		pr_err("[SMD] smsm_get_state <SM NO STATE>\n");
 	else
 		rv = readl(SMSM_STATE_ADDR(smsm_entry));
 
@@ -1531,11 +1535,11 @@ int smsm_set_sleep_duration(uint32_t delay)
 
 	ptr = smem_find(SMEM_APPS_DEM_SLAVE_DATA, sizeof(*ptr));
 	if (ptr == NULL) {
-		pr_err("smsm_set_sleep_duration <SM NO APPS_DEM_SLAVE_DATA>\n");
+		pr_err("[SMD] smsm_set_sleep_duration <SM NO APPS_DEM_SLAVE_DATA>\n");
 		return -EIO;
 	}
 	if (msm_smd_debug_mask & MSM_SMSM_DEBUG)
-		pr_info("smsm_set_sleep_duration %d -> %d\n",
+		pr_info("[SMD] smsm_set_sleep_duration %d -> %d\n",
 		       ptr->sleep_time, delay);
 	ptr->sleep_time = delay;
 	return 0;
@@ -1547,11 +1551,11 @@ int smsm_set_sleep_limit(uint32_t sleep_limit)
 
 	ptr = smem_find(SMEM_APPS_DEM_SLAVE_DATA, sizeof(*ptr));
 	if (ptr == NULL) {
-		pr_err("smsm_set_sleep_limit <SM NO APPS_DEM_SLAVE_DATA>\n");
+		pr_err("[SMD] smsm_set_sleep_limit <SM NO APPS_DEM_SLAVE_DATA>\n");
 		return -EIO;
 	}
 	if (msm_smd_debug_mask & MSM_SMSM_DEBUG)
-		pr_info("smsm_set_sleep_limit %d -> %d\n",
+		pr_info("[SMD] smsm_set_sleep_limit %d -> %d\n",
 		       ptr->resources_used, sleep_limit);
 	ptr->resources_used = sleep_limit;
 	return 0;
@@ -1564,11 +1568,11 @@ int smsm_set_sleep_duration(uint32_t delay)
 
 	ptr = smem_find(SMEM_SMSM_SLEEP_DELAY, sizeof(*ptr));
 	if (ptr == NULL) {
-		pr_err("smsm_set_sleep_duration <SM NO SLEEP_DELAY>\n");
+		pr_err("[SMD] smsm_set_sleep_duration <SM NO SLEEP_DELAY>\n");
 		return -EIO;
 	}
 	if (msm_smd_debug_mask & MSM_SMSM_DEBUG)
-		pr_info("smsm_set_sleep_duration %d -> %d\n",
+		pr_info("[SMD] smsm_set_sleep_duration %d -> %d\n",
 		       *ptr, delay);
 	*ptr = delay;
 	return 0;
@@ -1592,7 +1596,7 @@ int smd_core_init(void)
 		return r;
 	r = enable_irq_wake(INT_A9_M2A_0);
 	if (r < 0)
-		pr_err("smd_core_init: "
+		pr_err("[SMD] smd_core_init: "
 		       "enable_irq_wake failed for INT_A9_M2A_0\n");
 
 	r = request_irq(INT_A9_M2A_5, smsm_irq_handler,
@@ -1603,7 +1607,7 @@ int smd_core_init(void)
 	}
 	r = enable_irq_wake(INT_A9_M2A_5);
 	if (r < 0)
-		pr_err("smd_core_init: "
+		pr_err("[SMD] smd_core_init: "
 		       "enable_irq_wake failed for INT_A9_M2A_5\n");
 
 #if defined(CONFIG_QDSP6)
@@ -1628,7 +1632,7 @@ int smd_core_init(void)
 
 	r = enable_irq_wake(INT_ADSP_A11);
 	if (r < 0)
-		pr_err("smd_core_init: "
+		pr_err("[SMD] smd_core_init: "
 		       "enable_irq_wake failed for INT_ADSP_A11\n");
 #endif
 
@@ -1646,7 +1650,7 @@ int smd_core_init(void)
 
 	r = enable_irq_wake(INT_DSPS_A11);
 	if (r < 0)
-		pr_err("smd_core_init: "
+		pr_err("[SMD] smd_core_init: "
 		       "enable_irq_wake failed for INT_ADSP_A11\n");
 #endif
 
@@ -1671,12 +1675,12 @@ static int __devinit msm_smd_probe(struct platform_device *pdev)
 	INIT_WORK(&probe_work, smd_channel_probe_worker);
 
 	if (smsm_init()) {
-		pr_err("smsm_init() failed\n");
+		pr_err("[SMD] smsm_init() failed\n");
 		return -1;
 	}
 
 	if (smd_core_init()) {
-		pr_err("smd_core_init() failed\n");
+		pr_err("[SMD] smd_core_init() failed\n");
 		return -1;
 	}
 

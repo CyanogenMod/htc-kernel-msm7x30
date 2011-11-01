@@ -247,9 +247,6 @@ DEVICE_ATTR(awake_time_ms, 0444, awake_time_show, NULL);
 
 #endif
 
-static void smd_net_data_handler(unsigned long arg);
-static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
-
 /* Called in soft-irq context */
 static void smd_net_data_handler(unsigned long arg)
 {
@@ -265,23 +262,19 @@ static void smd_net_data_handler(unsigned long arg)
 		if (smd_read_avail(p->ch) < sz) break;
 
 		if (sz > 1514) {
-			pr_err("rmnet_recv() discarding %d len\n", sz);
+			pr_err("[RIL] rmnet_recv() discarding %d len\n", sz);
 			ptr = 0;
 		} else {
 			skb = dev_alloc_skb(sz + NET_IP_ALIGN);
 			if (skb == NULL) {
-				pr_err("rmnet_recv() cannot allocate skb\n");
-				/* out of memory, reschedule a later attempt */
-				smd_net_data_tasklet.data = (unsigned long)dev;
-				tasklet_schedule(&smd_net_data_tasklet);
-				break;
+				pr_err("[RIL] rmnet_recv() cannot allocate skb\n");
 			} else {
 				skb->dev = dev;
 				skb_reserve(skb, NET_IP_ALIGN);
 				ptr = skb_put(skb, sz);
 				wake_lock_timeout(&p->wake_lock, HZ / 2);
 				if (smd_read(p->ch, ptr, sz) != sz) {
-					pr_err("rmnet_recv() smd lied about avail?!");
+					pr_err("[RIL] rmnet_recv() smd lied about avail?!");
 					ptr = 0;
 					dev_kfree_skb_irq(skb);
 				} else {
@@ -300,9 +293,11 @@ static void smd_net_data_handler(unsigned long arg)
 			}
 		}
 		if (smd_read(p->ch, ptr, sz) != sz)
-			pr_err("rmnet_recv() smd lied about avail?!");
+			pr_err("[RIL] rmnet_recv() smd lied about avail?!");
 	}
 }
+
+static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
 
 static void smd_net_notify(void *_dev, unsigned event)
 {
@@ -319,7 +314,7 @@ static int rmnet_open(struct net_device *dev)
 	int r;
 	struct rmnet_private *p = netdev_priv(dev);
 
-	pr_info("rmnet_open()\n");
+	pr_info("[RIL] rmnet_open()\n");
 	if (!p->ch) {
 		r = smd_open(p->chname, &p->ch, dev, smd_net_notify);
 
@@ -333,7 +328,7 @@ static int rmnet_open(struct net_device *dev)
 
 static int rmnet_stop(struct net_device *dev)
 {
-	pr_info("rmnet_stop()\n");
+	pr_info("[RIL] rmnet_stop()\n");
 	netif_stop_queue(dev);
 	return 0;
 }
@@ -344,7 +339,7 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	smd_channel_t *ch = p->ch;
 
 	if (smd_write_atomic(ch, skb->data, skb->len) != skb->len) {
-		pr_err("rmnet fifo full, dropping packet\n");
+		pr_err("[RIL] rmnet fifo full, dropping packet\n");
 	} else {
 		if (count_this_packet(skb->data, skb->len)) {
 			p->stats.tx_packets++;
@@ -371,7 +366,7 @@ static void rmnet_set_multicast_list(struct net_device *dev)
 
 static void rmnet_tx_timeout(struct net_device *dev)
 {
-	pr_info("rmnet_tx_timeout()\n");
+	pr_info("[RIL] rmnet_tx_timeout()\n");
 }
 
 static struct net_device_ops rmnet_ops = {

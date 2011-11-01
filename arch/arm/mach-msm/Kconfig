@@ -1204,6 +1204,13 @@ config MSM_SDIO_DIAG
 	help
 	  Provides a DIAG port interface over SDIO.
 
+config MSM_NONSMD_PACKET_FILTER
+	bool "Non-SMD based Packet Filter"
+	default n
+	help
+	  The white TCP port list is updated in attribute
+	  relying on RIL to notify modem.
+
 config MSM_RPC_LOOPBACK_XPRT
 	depends on MSM_ONCRPCROUTER
 	default n

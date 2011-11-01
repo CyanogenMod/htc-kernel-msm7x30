@@ -90,6 +90,11 @@ else
 
 ifeq ($(CONFIG_ARCH_MSM7X30_LTE),y)
 obj-$(CONFIG_ARCH_MSM7X30_LTE) += 7x30-lte/
+ifdef CONFIG_MSM_NONSMD_PACKET_FILTER
+obj-$(CONFIG_MSM_SMD) += htc_port_list_lte.o
+else
+obj-$(CONFIG_MSM_SMD) += htc_port_list.o
+endif
 else
 # non MSM8X60/MSM7x30_LTE (MSM7x30, QSD8X50)
 obj-$(CONFIG_MSM_SMD) += htc_port_list.o
