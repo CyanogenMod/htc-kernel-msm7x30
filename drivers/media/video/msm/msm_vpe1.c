@@ -314,8 +314,8 @@ static int vpe_update_scaler(struct video_crop_t *pcrop)
 
 	msm_io_w(src_roi, vpe_device->vpebase + VPE_SRC_SIZE_OFFSET);
 
-	src_x = (out_ROI_width - src_ROI_width + 1)/2 - 1;
-	src_y = (out_ROI_height - src_ROI_height + 1)/2 - 1;
+	src_x = (out_ROI_width - src_ROI_width)/2;
+	src_y = (out_ROI_height - src_ROI_height)/2;
 
 	CDBG("src_x = %d, src_y=%d.\n", src_x, src_y);
 
@@ -1100,7 +1100,7 @@ static irqreturn_t vpe_parse_irq(int irq_num, void *data)
 		qcmd = kzalloc(sizeof(struct vpe_isr_queue_cmd_type),
 			GFP_ATOMIC);
 		if (!qcmd) {
-			CDBG("vpe_parse_irq: qcmd malloc failed!\n");
+			pr_err("[CAM] vpe_parse_irq: qcmd malloc failed!\n");
 			return IRQ_HANDLED;
 		}
 		/* must be 0x1 now. so in bottom half we don't really
@@ -1160,7 +1160,7 @@ int msm_vpe_release(void)
 	/* don't change the order of clock and irq.*/
 	int rc = 0;
 
-	CDBG("%s: In \n", __func__);
+	pr_info("[CAM] %s: In\n", __func__);
 
 	free_irq(vpe_device->vpeirq, 0);
 #ifdef CONFIG_MSM_CAMERA_7X30
@@ -1170,7 +1170,7 @@ int msm_vpe_release(void)
 #endif	
 	kfree(vpe_ctrl);
 
-	CDBG("%s: Out \n", __func__);
+	pr_info("[CAM] %s: Out\n", __func__);
 
 	return 0;
 }
