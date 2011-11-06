@@ -27,6 +27,7 @@
 #include <mach/qdsp5v2_1x/voice.h>
 #include <mach/htc_acoustic_7x30.h>
 #include <linux/spi/spi_aic3254.h>
+#include <mach/board_htc.h>
 
 static struct mutex bt_sco_lock;
 static struct mutex mic_lock;
@@ -304,8 +305,14 @@ int spade_support_aic3254(void)
 int spade_support_back_mic(void)
 {
 #ifdef CONFIG_HTC_VOICE_DUALMIC
-	/* the flag is only enabled by ATT config file */
-	return 1;
+	char *get_mid;
+
+	board_get_mid_tag(&get_mid);
+	if (strstr("PD9812000", get_mid) != NULL ||
+	    strstr("PD9814000", get_mid) != NULL)
+		return 1;
+	else
+		return 0;
 #else
 	return 0;
 #endif

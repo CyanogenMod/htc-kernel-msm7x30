@@ -783,6 +783,23 @@ char * board_get_mfg_sleep_gpio_table(void)
 }
 EXPORT_SYMBOL(board_get_mfg_sleep_gpio_table);
 
+static char *mid_tag;
+static int __init board_set_mid_tag(char *get_hboot_mid)
+{
+	if (strlen(get_hboot_mid))
+		mid_tag = get_hboot_mid;
+	else
+		mid_tag = NULL;
+	return 1;
+}
+__setup("androidboot.mid=", board_set_mid_tag);
+
+void board_get_mid_tag(char **ret_data)
+{
+        *ret_data = mid_tag;
+}
+EXPORT_SYMBOL(board_get_mid_tag);
+
 static char *emmc_tag;
 static int __init board_set_emmc_tag(char *get_hboot_emmc)
 {
