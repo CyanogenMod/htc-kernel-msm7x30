@@ -662,13 +662,14 @@ static struct msm_queue_cmd *__msm_control(struct msm_sync *sync,
 		int timeout)
 {
 	int rc;
-
+	int loop = 0;
 	msm_enqueue(&sync->event_q, &qcmd->list_config);
 
 	if (!queue)
 		return NULL;
 
 	/* wait for config status */
+wait_event:
 	rc = wait_event_interruptible_timeout(
 			queue->wait,
 			!list_empty_careful(&queue->list),
@@ -676,7 +677,12 @@ static struct msm_queue_cmd *__msm_control(struct msm_sync *sync,
 	if (list_empty_careful(&queue->list)) {
 		if (!rc)
 			rc = -ETIMEDOUT;
-		if (rc < 0) {
+		if (rc == -512 && loop < 100) {
+			loop++;
+			msleep(5);
+			pr_info("[CAM]%s: goto wait_event loop %d\n", __func__, loop);
+			goto wait_event;
+		} else if (rc < 0) {
 			pr_err("[CAM]%s: wait_event error %d\n", __func__, rc);
 			/* HTC */
 			/* qcmd may be still on the event_q, in which case we
