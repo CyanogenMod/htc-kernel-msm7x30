@@ -49,6 +49,15 @@ struct afe_cmd_codec_config{
 	uint16_t reserved;
 } __attribute__ ((packed));
 
+#define AFE_CMD_DEVICE_VOLUME_CTRL      0x2
+#define AFE_CMD_DEVICE_VOLUME_CTRL_LEN sizeof(struct afe_cmd_device_volume_ctrl)
+struct afe_cmd_device_volume_ctrl {
+	uint16_t cmd_id;
+	uint16_t device_id;
+	uint16_t device_volume;
+	uint16_t reserved;
+} __attribute__ ((packed));
+
 #define AFE_CMD_AUX_CODEC_CONFIG_CMD 	0x3
 #define AFE_CMD_AUX_CODEC_CONFIG_LEN sizeof(struct afe_cmd_aux_codec_config)
 
@@ -60,7 +69,5 @@ struct afe_cmd_aux_codec_config{
 	uint16_t aux_codec_intf_ctl;
 	uint16_t data_format_padding_info;
 } __attribute__ ((packed));
-
-
 
 #endif

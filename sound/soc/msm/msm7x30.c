@@ -40,6 +40,7 @@
 #include <linux/mfd/msm-adie-codec.h>
 #include <mach/qdsp5v2/audio_dev_ctl.h>
 #include <mach/debug_mm.h>
+#include <mach/qdsp5v2_1x/afe.h>
 #include <linux/rtc.h>
 
 static struct platform_device *msm_audio_snd_device;
@@ -157,7 +158,7 @@ static int msm_v_volume_put(struct snd_kcontrol *kcontrol,
 	if (volume < 0) /*set rx mute/unmute.*/
 		return msm_set_voice_mute(1, volume == -100 ? 1 : 0);
 	else
-			return msm_set_voice_vol(dir, volume);
+		return msm_set_voice_vol(dir, volume);
 }
 
 static int msm_volume_info(struct snd_kcontrol *kcontrol,
@@ -649,6 +650,111 @@ static int msm_device_volume_put(struct snd_kcontrol *kcontrol,
 	return rc;
 }
 
+static int msm_reset_info(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0;
+	return 0;
+}
+
+static int msm_reset_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = 0;
+	return 0;
+}
+
+static int msm_reset_put(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	pr_aud_info("[ALSA] msm_reset_all_device: Resetting all devices\n");
+	return msm_reset_all_device();
+}
+
+static int msm_dual_mic_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2;
+	uinfo->value.integer.min = 0;
+	/*Max value is decided based on MAX ENC sessions*/
+	uinfo->value.integer.max = MAX_AUDREC_SESSIONS - 1;
+	return 0;
+}
+
+static int msm_dual_mic_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int enc_session_id = ucontrol->value.integer.value[0];
+	ucontrol->value.integer.value[1] = 0; /* Enable this function in audio_dev_ctl.c and use if needed*/
+	//ucontrol->value.integer.value[1]  = msm_get_dual_mic_config(enc_session_id);
+	pr_aud_info("[ALSA] msm_dual_mic_get: session id = %d, config = %ld\n", enc_session_id,
+				ucontrol->value.integer.value[1]);
+	return 0;
+}
+
+static int msm_dual_mic_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int enc_session_id = ucontrol->value.integer.value[0];
+	int dual_mic_config = ucontrol->value.integer.value[1];
+	pr_aud_info("[ALSA] msm_dual_mic_put: session id = %d, config = %d\n", enc_session_id,
+					dual_mic_config);
+	return  0;
+	/* Enable this function in audio_dev_ctl.c and use if needed*/
+	//return msm_set_dual_mic_config(enc_session_id, dual_mic_config);
+}
+
+static int msm_device_mute_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 2;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = msm_snddev_devcount();
+	return 0;
+}
+
+static int msm_device_mute_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int msm_device_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int dev_id = ucontrol->value.integer.value[0];
+	int mute = ucontrol->value.integer.value[1];
+	struct msm_snddev_info *dev_info;
+	int afe_dev_id = 0;
+	int volume = 0x4000;
+
+	dev_info = audio_dev_ctrl_find_dev(dev_id);
+	if (IS_ERR(dev_info)) {
+		MM_ERR("pass invalid dev_id %d\n", dev_id);
+		return PTR_ERR(dev_info);
+	}
+
+	if (dev_info->capability & SNDDEV_CAP_RX)
+		return -EPERM;
+
+	pr_aud_info("[ALSA] msm_device_mute_put: Muting device id %d(%s)\n", dev_id, dev_info->name);
+
+	if (dev_info->copp_id == 0)
+		afe_dev_id = AFE_HW_PATH_CODEC_TX;
+	if (dev_info->copp_id == 1)
+		afe_dev_id = AFE_HW_PATH_AUXPCM_TX;
+	if (dev_info->copp_id == 2)
+		afe_dev_id = AFE_HW_PATH_MI2S_TX;
+	if (mute)
+		volume = 0;
+	afe_device_volume_ctrl(afe_dev_id, volume);
+	return 0;
+}
 
 static struct snd_kcontrol_new snd_dev_controls[AUDIO_DEV_CTL_MAX_DEV];
 
@@ -692,23 +798,28 @@ static int snd_dev_ctl_index(int idx)
 
 static struct snd_kcontrol_new snd_msm_controls[] = {
 	MSM_EXT("Count", 1, msm_scontrol_count_info, msm_scontrol_count_get, \
-						NULL, 0),
+		NULL, 0),
 	MSM_EXT("Stream", 2, msm_route_info, msm_route_get, \
-						 msm_route_put, 0),
+		 msm_route_put, 0),
 	MSM_EXT("Record", 3, msm_route_info, msm_route_get, \
-						 msm_route_put, 0),
+		 msm_route_put, 0),
 	MSM_EXT("Voice", 4, msm_voice_info, msm_voice_get, \
-						 msm_voice_put, 0),
+		 msm_voice_put, 0),
 	MSM_EXT("Volume", 5, msm_volume_info, msm_volume_get, \
-						 msm_volume_put, 0),
+		 msm_volume_put, 0),
 	MSM_EXT("VoiceVolume", 6, msm_v_volume_info, msm_v_volume_get, \
-						 msm_v_volume_put, 0),
+		 msm_v_volume_put, 0),
 	MSM_EXT("VoiceMute", 7, msm_v_mute_info, msm_v_mute_get, \
-						 msm_v_mute_put, 0),
+		 msm_v_mute_put, 0),
 	MSM_EXT("Voice Call", 8, msm_v_call_info, msm_v_call_get, \
-						msm_v_call_put, 0),
+		msm_v_call_put, 0),
 	MSM_EXT("Device_Volume", 9, msm_device_volume_info,
-			msm_device_volume_get, msm_device_volume_put, 0),
+		msm_device_volume_get, msm_device_volume_put, 0),
+	MSM_EXT("Reset", 10, msm_reset_info, msm_reset_get, msm_reset_put, 0),
+	MSM_EXT("Device_Mute", 11, msm_device_mute_info,
+		msm_device_mute_get, msm_device_mute_put, 0),
+	MSM_EXT("DualMic Switch", 12, msm_dual_mic_info,
+		msm_dual_mic_get, msm_dual_mic_put, 0),
 };
 
 static int msm_new_mixer(struct snd_card *card)
