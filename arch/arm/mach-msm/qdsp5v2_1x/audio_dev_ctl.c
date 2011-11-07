@@ -113,6 +113,43 @@ struct audio_routing_info {
 
 static struct audio_routing_info routing_info;
 
+int msm_reset_all_device(void)
+{
+	int rc = 0;
+	int dev_id = 0;
+	struct msm_snddev_info *dev_info = NULL;
+
+	for (dev_id = 0; dev_id < audio_dev_ctrl.num_dev; dev_id++) {
+		dev_info = audio_dev_ctrl_find_dev(dev_id);
+		if (IS_ERR(dev_info)) {
+			MM_ERR("pass invalid dev_id %d\n", dev_id);
+			rc = PTR_ERR(dev_info);
+			return rc;
+		}
+		if (!dev_info->opened)
+			continue;
+		MM_DBG("Resetting device %d active on COPP %d"
+			"with  0x%08x as routing\n",
+			dev_id, dev_info->copp_id, dev_info->sessions);
+		broadcast_event(AUDDEV_EVT_REL_PENDING,
+				dev_id,
+				SESSION_IGNORE);
+		rc = dev_info->dev_ops.close(dev_info);
+		if (rc < 0) {
+			MM_ERR("Snd device %d failed close!\n", dev_id);
+			return rc;
+		} else {
+			dev_info->opened = 0;
+			broadcast_event(AUDDEV_EVT_DEV_RLS,
+				        dev_id,
+				        SESSION_IGNORE);
+		}
+		dev_info->sessions = 0;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(msm_reset_all_device);
+
 int msm_get_voice_state(void)
 {
         MM_DBG("voice state %d\n", routing_info.voice_state);
