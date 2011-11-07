@@ -141,6 +141,21 @@ static void afe_dsp_codec_config(struct msm_afe_state *afe,
 	afe_send_queue(afe, &cmd, sizeof(cmd));
 }
 
+void afe_device_volume_ctrl(u16 device_id, u16 device_volume)
+{
+	struct afe_cmd_device_volume_ctrl cmd;
+	struct msm_afe_state *afe;
+
+	afe = &the_afe_state;
+	MM_DBG("device 0x%4x volume 0x%4x\n", device_id, device_volume);
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd_id = AFE_CMD_DEVICE_VOLUME_CTRL;
+	cmd.device_id = device_id;
+	cmd.device_volume = device_volume;
+	afe_send_queue(afe, &cmd, sizeof(cmd));
+}
+EXPORT_SYMBOL(afe_device_volume_ctrl);
+
 int afe_enable(u8 path_id, struct msm_afe_config *config)
 {
 	struct msm_afe_state *afe = &the_afe_state;

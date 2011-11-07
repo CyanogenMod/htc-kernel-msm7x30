@@ -53,4 +53,5 @@ int afe_disable(u8 path_id);
 int afe_config_aux_codec(int pcm_ctl_value, int aux_codec_intf_value,
 			int data_format_pad);
 
+void afe_device_volume_ctrl(u16 device_id, u16 device_volume);
 #endif
