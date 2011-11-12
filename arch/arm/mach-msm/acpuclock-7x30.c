@@ -130,7 +130,7 @@ static struct cpufreq_frequency_table freq_table[] = {
 #define SRC_AXI  (-1)
 static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 #ifdef CONFIG_ACPUCLOCK_OVERCLOCKING
-        { 24576,  SRC_LPXO, 0, 0,  30720000,  900, VDD_RAW(850) },
+        { 24576,  SRC_LPXO, 0, 0,  30720000,  900, VDD_RAW(900) },
         { 61440,  PLL_3,    5, 11, 61440000,  900, VDD_RAW(900) },
         { 122880, PLL_3,    5, 5,  61440000,  900, VDD_RAW(900) },
         { 184320, PLL_3,    5, 4,  61440000,  900, VDD_RAW(900) },
@@ -145,7 +145,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
         { 1113600, PLL_2,   3, 0,  192000000, 1200, VDD_RAW(1200) },
         { 1209600, PLL_2,   3, 0,  192000000, 1200, VDD_RAW(1200) },
         { 1305600, PLL_2,   3, 0,  192000000, 1200, VDD_RAW(1200) },
-        { 1401600, PLL_2,   3, 0,  192000000, 1300, VDD_RAW(1300) },
+        { 1401600, PLL_2,   3, 0,  192000000, 1250, VDD_RAW(1250) },
         { 1497600, PLL_2,   3, 0,  192000000, 1300, VDD_RAW(1300) },
         { 1516800, PLL_2,   3, 0,  192000000, 1300, VDD_RAW(1300) },
 #ifdef CONFIG_JESUS_PHONE
