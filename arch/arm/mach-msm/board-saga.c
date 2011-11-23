@@ -124,6 +124,7 @@ static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.usb_id_pin_gpio	= SAGA_GPIO_USB_ID_PIN,
 	.accessory_detect	= 1, /* detect by ID pin gpio */
 	.disable_usb_charger	= saga_disable_usb_charger,
+	.config_usb_id_gpios	= config_saga_usb_id_gpios,
 };
 
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
@@ -1207,17 +1208,17 @@ static int msm_qsd_spi_gpio_config(void)
 	   prevent from power leakage through OJ compoment */
 
 	unsigned id;
-	id = PCOM_GPIO_CFG(45, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA);
+	id = PCOM_GPIO_CFG(45, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
-	id = PCOM_GPIO_CFG(47, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA);
+	id = PCOM_GPIO_CFG(47, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
-	id = PCOM_GPIO_CFG(48, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_6MA);
+	id = PCOM_GPIO_CFG(48, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
 	id = PCOM_GPIO_CFG(87, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_6MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
 
 	/* SPI GPIO for AIC3254 */
-	id = PCOM_GPIO_CFG(89, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_6MA);
+	id = PCOM_GPIO_CFG(89, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
 
 	return 0;

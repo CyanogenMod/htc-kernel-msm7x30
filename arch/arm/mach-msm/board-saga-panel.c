@@ -66,9 +66,9 @@ struct mddi_cmd {
 #define PWM_USER_DIM			 9
 #define PWM_USER_MAX			255
 
-#define PWM_HITACHI_DEF			147
-#define PWM_HITACHI_MIN			 9
-#define PWM_HITACHI_MAX			217
+#define PWM_HITACHI_DEF			174
+#define PWM_HITACHI_MIN			 10
+#define PWM_HITACHI_MAX			255
 enum {
 	GATE_ON = 1 << 0,
 };

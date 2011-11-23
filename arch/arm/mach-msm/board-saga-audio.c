@@ -44,9 +44,9 @@ static atomic_t aic3254_ctl = ATOMIC_INIT(0);
 static struct q5v2_hw_info q5v2_audio_hw[Q5V2_HW_COUNT] = {
 	[Q5V2_HW_HANDSET] = {
 		.max_gain[VOC_NB_INDEX] = 200,
-		.min_gain[VOC_NB_INDEX] = -1400,
+		.min_gain[VOC_NB_INDEX] = -1800,
 		.max_gain[VOC_WB_INDEX] = -200,
-		.min_gain[VOC_WB_INDEX] = -1800,
+		.min_gain[VOC_WB_INDEX] = -1700,
 	},
 	[Q5V2_HW_HEADSET] = {
 		.max_gain[VOC_NB_INDEX] = 400,
@@ -119,6 +119,7 @@ void saga_snddev_poweramp_on(int en)
 	pr_aud_info("%s %d\n", __func__, en);
 	if (en) {
 		gpio_set_value(PM8058_GPIO_PM_TO_SYS(SAGA_AUD_SPK_EN), 1);
+		mdelay(30);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode |= BIT_SPEAKER;
 		mdelay(5);
