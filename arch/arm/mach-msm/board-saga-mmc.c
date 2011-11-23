@@ -159,7 +159,7 @@ static struct mmc_platform_data saga_sdslot_data = {
 	.status		= saga_sdslot_status,
 	.translate_vdd	= saga_sdslot_switchvdd,
 	.slot_type	= &saga_sdslot_type,
-	.dat0_gpio	= 63,
+	.dat0_gpio	= 69,
 };
 
 static unsigned int saga_emmcslot_type = MMC_TYPE_MMC;

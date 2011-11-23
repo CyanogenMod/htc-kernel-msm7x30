@@ -124,6 +124,7 @@ static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.usb_id_pin_gpio	= SAGA_GPIO_USB_ID_PIN,
 	.accessory_detect	= 1, /* detect by ID pin gpio */
 	.disable_usb_charger	= saga_disable_usb_charger,
+	.config_usb_id_gpios	= config_saga_usb_id_gpios,
 };
 
 static struct usb_mass_storage_platform_data mass_storage_pdata = {
@@ -469,6 +470,7 @@ struct atmel_i2c_platform_data saga_ts_atmel_data[] = {
 		.abs_width_max = 20,
 		.gpio_irq = SAGA_GPIO_TP_ATT_N,
 		.power = saga_ts_atmel_power,
+		.unlock_attr = 1,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {50, 15, 25},
 		.config_T8 = {8, 0, 5, 5, 0, 0, 5, 40, 5, 192},
@@ -484,7 +486,7 @@ struct atmel_i2c_platform_data saga_ts_atmel_data[] = {
 		.config_T28 = {0, 0, 2, 8, 16, 60},
 		.object_crc = {0x77, 0xA1, 0x0A},
 		.cable_config = {40, 20, 8, 16},
-		.cal_tchthr = {45, 45},
+		.call_tchthr = {45, 45},
 		.GCAF_level = {20, 24, 28, 40, 63},
 		.filter_level = {30, 60, 963, 993},
 	},
@@ -500,6 +502,7 @@ struct atmel_i2c_platform_data saga_ts_atmel_data[] = {
 		.abs_width_max = 20,
 		.gpio_irq = SAGA_GPIO_TP_ATT_N,
 		.power = saga_ts_atmel_power,
+		.unlock_attr = 1,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {50, 15, 25},
 		.config_T8 = {8, 0, 5, 5, 0, 0, 5, 40},
@@ -1207,17 +1210,17 @@ static int msm_qsd_spi_gpio_config(void)
 	   prevent from power leakage through OJ compoment */
 
 	unsigned id;
-	id = PCOM_GPIO_CFG(45, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA);
+	id = PCOM_GPIO_CFG(45, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
-	id = PCOM_GPIO_CFG(47, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_6MA);
+	id = PCOM_GPIO_CFG(47, 1, GPIO_OUTPUT, GPIO_NO_PULL, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
-	id = PCOM_GPIO_CFG(48, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_6MA);
+	id = PCOM_GPIO_CFG(48, 1, GPIO_INPUT, GPIO_NO_PULL, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
 	id = PCOM_GPIO_CFG(87, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_6MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
 
 	/* SPI GPIO for AIC3254 */
-	id = PCOM_GPIO_CFG(89, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_6MA);
+	id = PCOM_GPIO_CFG(89, 2, GPIO_OUTPUT, GPIO_PULL_UP, GPIO_8MA);
 	msm_proc_comm(PCOM_RPC_GPIO_TLMM_CONFIG_EX, &id, 0);
 
 	return 0;
