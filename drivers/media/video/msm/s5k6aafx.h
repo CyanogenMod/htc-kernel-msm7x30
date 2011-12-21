@@ -58,8 +58,7 @@
 #define S5K6AAFX_ADJ_FULL_SIZE_HEIGHT S5K6AAFX_QTR_SIZE_HEIGHT*2
 
 extern struct s5k6aafx_reg s5k6aafx_regs;
-
-#if defined(CONFIG_MACH_SHOOTER) || defined(CONFIG_MACH_SHOOTER_U) || defined(CONFIG_MACH_RIDER) || defined(CONFIG_MACH_HOLIDAY) || defined(CONFIG_MACH_VERDI_LTE) || defined(CONFIG_MACH_KINGDOM)
+#if defined(CONFIG_MACH_FLYER)
 extern struct s5k6aafx_reg s5k6aafx_regs_cob;
 #else
 #define s5k6aafx_regs_cob s5k6aafx_regs
@@ -91,6 +90,5 @@ struct s5k6aafx_reg {
 	const struct s5k6aafx_i2c_reg_conf *prev_snap_conf_init_tb2;
 	uint16_t prev_snap_conf_init_tb2_size;
 };
-
 
 #endif /* S5K6AAFX_H */
