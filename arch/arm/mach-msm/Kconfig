@@ -488,7 +488,7 @@ config MACH_MECHA
        help
          Support for the Qualcomm MSM7x30 Mecha board.
 
-config ARCH_MSM7X30_LTE
+config QCT_LTE
        bool "Support QCT LTE function"
        default n
        help
@@ -1050,7 +1050,7 @@ config MSM_ONCRPCROUTER_DEBUG
 	  Support for debugging the ONCRPC router for communication
 	  between the ARM9 and ARM11
 
-if ARCH_MSM7X30_LTE || ARCH_MSM8X60
+if QCT_LTE
 choice
 	prompt "MSM Shared memory interface version"
 	depends on MSM_SMD
@@ -1096,27 +1096,20 @@ config MSM_SDIO_AL
 	  Support MSM<->MDM Communication over SDIO bus.
 	  MDM SDIO-Client should have pipes support.
 
-config MSM_SDIO_DMUX
-	bool "SDIO Data Mux Driver"
+config MSM_SDIO_AL_TEST
 	depends on MSM_SDIO_AL
 	default n
+	tristate "SDIO-Abstraction-Layer Test"
 	help
-	  Support Muxed Data Channels over SDIO interface.
+	  SDIO-AL functionality and performance test.
 
 config MSM_N_WAY_SMSM
-	depends on (MSM_SMD && (ARCH_MSM_SCORPION || ARCH_MSM_SCORPIONMP || ARCH_MSM7X27 || ARCH_MSM7X25))
+	depends on (MSM_SMD && (ARCH_MSM_SCORPION || ARCH_MSM_SCORPIONMP || ARCH_MSM7X27))
 	default y
 	bool "MSM N-WAY SMSM support"
 	help
 	  Supports APPS-QDSP SMSM communication along with
 	  normal APPS-MODEM SMSM communication.
-
-config MSM_RESET_MODEM
-	tristate "Reset Modem Driver"
-	depends on MSM_SMD
-	default m
-	help
-	  Allows the user to reset the modem through a device node.
 
 config MSM_SMD_LOGGING
 	depends on MSM_SMD
@@ -1137,24 +1130,6 @@ config MSM_SMD_NMEA
 
 	  If in doubt, say yes.
 
-config MSM_SMD_TTY
-	bool "SMD TTY Driver"
-	depends on MSM_SMD
-	default y
-	help
-	  Provides TTY interfaces to interact with the modem.
-
-	  If in doubt, say yes.
-
-config MSM_SMD_QMI
-	bool "SMD QMI Driver"
-	depends on MSM_SMD
-	default y
-	help
-	  Manages network data connections.
-
-	  If in doubt, say yes.
-
 config MSM_SMD_PKT
 	bool "SMD Packet Driver"
 	depends on MSM_SMD
@@ -1163,25 +1138,6 @@ config MSM_SMD_PKT
 	  Provides a binary SMD non-muxed packet port interface.
 
 	  If in doubt, say yes.
-
-config MSM_SDIO_CMUX
-	bool "SDIO CMUX Driver"
-	depends on MSM_SDIO_AL
-	default n
-	help
-	  Provides a Muxed port interface over SDIO QMI
-
-config MSM_DSPS
-	bool "Sensors DSPS driver"
-	depends on (MSM_PIL && ARCH_MSM8X60)
-	default n
-	help
-	  Provides user-space interface to the sensors manager
-	  to turn on/off the Sensors Processor system clocks.
-	  It is the DSPS responsibility to turn on/off the sensors
-	  themself.
-	  The number of clocks and their name may vary between targets.
-	  It also triggers the PIL to load the DSPS firmware.
 
 config MSM_SDIO_CTL
 	bool "SDIO CTL Driver"
@@ -1203,13 +1159,6 @@ config MSM_SDIO_DIAG
 	default y
 	help
 	  Provides a DIAG port interface over SDIO.
-
-config MSM_NONSMD_PACKET_FILTER
-	bool "Non-SMD based Packet Filter"
-	default n
-	help
-	  The white TCP port list is updated in attribute
-	  relying on RIL to notify modem.
 
 config MSM_RPC_LOOPBACK_XPRT
 	depends on MSM_ONCRPCROUTER
@@ -1234,33 +1183,12 @@ config MSM_RPCSERVER_WATCHDOG
 	help
 	  The dog_keepalive server handles watchdog events.
 
-config MSM_RPC_WATCHDOG
-	depends on MSM_ONCRPCROUTER
-	default n
-	bool "Watchdog RPC client"
-	help
-	  The dog_keepalive client module.
-
-config MSM_RPC_PING
-	depends on MSM_ONCRPCROUTER && DEBUG_FS
-	default m
-	bool "MSM rpc ping"
-	help
-	  Implements MSM rpc ping test module.
-
 config MSM_RPC_PROC_COMM_TEST
 	depends on DEBUG_FS && MSM_PROC_COMM
 	default m
 	bool "MSM rpc proc comm test"
 	help
 	  Implements MSM rpc proc comm test module.
-
-config MSM_RPC_OEM_RAPI
-	depends on MSM_ONCRPCROUTER
-	default m
-	bool "MSM oem rapi"
-	help
-	  Implements MSM oem rapi client module.
 
 config MSM_RPCSERVER_HANDSET
 	depends on MSM_ONCRPCROUTER

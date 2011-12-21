@@ -26,10 +26,8 @@
  *
  */
 
-#if defined(CONFIG_ARCH_MSM7X30_LTE)
-#include <mach/7x30-lte/smem_log.h>
-#elif defined(CONFIG_ARCH_MSM8X60)
-#include <mach/smem_log-8x60.h>
+#if defined(CONFIG_QCT_LTE)
+#include <mach/lte/smem_log.h>
 #endif
 
 #ifndef __ASM_ARCH_MSM_SMEM_LOG_H

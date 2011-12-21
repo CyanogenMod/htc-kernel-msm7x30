@@ -31,10 +31,8 @@
  * SDIO-Abstraction-Layer API.
  */
 
-#if defined(CONFIG_ARCH_MSM7X30_LTE)
-#include <mach/7x30-lte/sdio_al.h>
-#elif defined(CONFIG_ARCH_MSM8X60_LTE)
-#include <mach/8x60-lte/sdio_al.h>
+#if defined(CONFIG_QCT_LTE)
+#include <mach/lte/sdio_al.h>
 #endif
 
 #ifndef __SDIO_AL__

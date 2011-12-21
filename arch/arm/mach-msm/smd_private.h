@@ -14,10 +14,8 @@
  *
  */
 
-#if defined(CONFIG_ARCH_MSM7X30_LTE)
-#include "7x30-lte/smd_private.h"
-#elif defined(CONFIG_ARCH_MSM8X60)
-#include "smd_private-8x60.h"
+#if defined(CONFIG_QCT_LTE)
+#include "lte/smd_private.h"
 #endif
 
 #ifndef _ARCH_ARM_MACH_MSM_MSM_SMD_PRIVATE_H_
@@ -95,33 +93,6 @@ struct smsm_interrupt_info {
 	uint32_t wakeup_reason;*/
 };
 #endif
-
-#if defined(CONFIG_MSM_N_WAY_SMSM)
-enum {
-	SMSM_APPS_STATE,
-	SMSM_MODEM_STATE,
-	SMSM_Q6_STATE,
-	SMSM_APPS_DEM,
-	SMSM_MODEM_DEM,
-	SMSM_Q6_DEM,
-	SMSM_POWER_MASTER_DEM,
-	SMSM_TIME_MASTER_DEM,
-	SMSM_NUM_ENTRIES,
-};
-#else
-enum {
-	SMSM_APPS_STATE = 1,
-	SMSM_MODEM_STATE = 3,
-	SMSM_NUM_ENTRIES,
-};
-#endif
-
-enum {
-	SMSM_APPS,
-	SMSM_MODEM,
-	SMSM_Q6,
-	SMSM_NUM_HOSTS,
-};
 
 #define SZ_DIAG_ERR_MSG 0xC8
 #define ID_DIAG_ERR_MSG SMEM_DIAG_ERR_MESSAGE

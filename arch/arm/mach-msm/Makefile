@@ -19,11 +19,7 @@ obj-$(CONFIG_ACPUCLOCK_DEBUG) += acpuclock_debug.o
 obj-$(CONFIG_ARCH_MSM7X30) += clock-7x30.o arch-init-7x30.o socinfo.o
 obj-$(CONFIG_ARCH_MSM7X30) += spm.o
 
-ifdef CONFIG_ARCH_MSM8X60
-obj-$(CONFIG_CPU_V7) += idle-v7-8x60.o msm_fault_handlers.o
-else
 obj-$(CONFIG_CPU_V7) += idle-v7.o msm_fault_handlers.o
-endif
 
 obj-y += nand_partitions.o
 obj-y += drv_callback.o
@@ -50,74 +46,27 @@ obj-$(CONFIG_ARCH_MSM7X30) += rpc_hsusb.o
 
 obj-y += remote_spinlock.o
 
-ifdef CONFIG_ARCH_MSM8X60
-quiet_cmd_mkrpcsym = MKCAP   $@
-	cmd_mkrpcsym = $(PERL) $(srctree)/$(src)/mkrpcsym.pl $< $@
-
-target += smd_rpc_sym.c
-$(obj)/smd_rpc_sym.c: $(src)/smd_rpc_sym $(src)/mkrpcsym.pl
-	$(call if_changed,mkrpcsym)
-
-obj-y += modem_notifier.o
-obj-$(CONFIG_MSM_SMD_LOGGING) += smem_log-8x60.o
-obj-$(CONFIG_MSM_SMD) += smd-8x60.o smd_debug-8x60.o
-obj-$(CONFIG_MSM_SMD_TTY) += smd_tty-8x60.o
-obj-$(CONFIG_MSM_SMD_QMI) += smd_qmi-8x60.o
-
-ifeq ($(CONFIG_ARCH_MSM8X60_LTE),y)
-obj-$(CONFIG_ARCH_MSM8X60_LTE) += 8x60-lte/
-endif
-
-obj-$(CONFIG_MSM_SMD_PKT) += smd_pkt-8x60.o
-obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter-8x60.o
-obj-$(CONFIG_MSM_SMD_NMEA) += smd_nmea-8x60.o
-obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_device-8x60.o
-obj-$(CONFIG_DEBUG_FS) += smd_rpc_sym.o
-obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_servers-8x60.o
-obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_clients-8x60.o
-obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_xdr-8x60.o
-obj-$(CONFIG_MSM_ONCRPCROUTER) += rpcrouter_smd_xprt-8x60.o
-obj-$(CONFIG_MSM_RPC_PING) += ping_mdm_rpc_client-8x60.o
-obj-$(CONFIG_MSM_RPC_PING) += ping_mdm_rpc_client-8x60.o ping_apps_server-8x60.o
-obj-$(CONFIG_MSM_RPC_OEM_RAPI) += oem_rapi_client-8x60.o
-obj-$(CONFIG_MSM_RPC_WATCHDOG) += rpc_dog_keepalive-8x60.o
-obj-$(CONFIG_MSM_RPCSERVER_WATCHDOG) += rpc_server_dog_keepalive-8x60.o
-obj-$(CONFIG_MSM_RPCSERVER_TIME_REMOTE) += rpc_server_time_remote-8x60.o
-obj-$(CONFIG_MSM_RPCSERVER_HANDSET) += rpc_server_handset-8x60.o
-
-else
-# non MSM8X60 (MSM7x30, MSM7x30_LTE, QSD8X50)
-
-ifeq ($(CONFIG_ARCH_MSM7X30_LTE),y)
-obj-$(CONFIG_ARCH_MSM7X30_LTE) += 7x30-lte/
-ifdef CONFIG_MSM_NONSMD_PACKET_FILTER
-obj-$(CONFIG_MSM_SMD) += htc_port_list_lte.o
-else
-obj-$(CONFIG_MSM_SMD) += htc_port_list.o
-endif
-else
-# non MSM8X60/MSM7x30_LTE (MSM7x30, QSD8X50)
+obj-y += remote_spinlock.o
+ifndef CONFIG_QCT_LTE
 obj-$(CONFIG_MSM_SMD) += htc_port_list.o
 obj-$(CONFIG_ARCH_MSM7X30) += rpc_pmapp.o smd_rpcrouter_clients.o
 obj-$(CONFIG_MSM_SMD) += smd.o smd_debug.o
 obj-$(CONFIG_MSM_SMD) += smem_log.o
 obj-$(CONFIG_MSM_SMD) += last_radio_log.o
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_device.o
-
 ifndef CONFIG_ARCH_MSM7X30
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter.o
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_servers.o
 else
-# non MSM8X60/MSM7X30/MSM7x30_LTE (QSD8X50)
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter-7x30.o
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_servers-7x30.o
 endif
-
 obj-$(CONFIG_MSM_ONCRPCROUTER) += smd_rpcrouter_xdr.o
 obj-$(CONFIG_MSM_RPCSERVERS) += rpc_server_dog_keepalive.o
 obj-$(CONFIG_MSM_RPCSERVERS) += rpc_server_time_remote.o
 obj-$(CONFIG_MSM_SMD) += smd_tty.o smd_qmi.o
-endif
+else
+obj-$(CONFIG_QCT_LTE) += lte/
 endif
 
 obj-$(CONFIG_MSM_DALRPC) += dal.o

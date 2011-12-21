@@ -47,67 +47,6 @@
 
 #define HEADROOM_FOR_QOS    8
 
-#define DATA_DEBUG 0
-#if DATA_DEBUG
-#define MAX_DUMP_BYTES 12
-static
-void print_data_msg (
-  char                    *direction,
-  unsigned char           *msg,
-  int                     msg_len
-)
-{
-  #define MAX_BUFFER_BYTES_PER_LINE 12
-  #define MAX_OUTPUT_BUF_SIZE ((MAX_BUFFER_BYTES_PER_LINE * 3) + 2)
-  char output_buf [MAX_OUTPUT_BUF_SIZE];
-
-  int i;
-  char *p;
-  while (msg_len > 0)
-  {
-    p = output_buf;
-
-    /* Collect MAX_BUFFER_BYTES_PER_LINE bytes of buffer for display */
-    for (i=0; (i<MAX_BUFFER_BYTES_PER_LINE) && (msg_len > 0); i++)
-    {
-      unsigned char val;
-
-      /* First digit */
-      val = (*msg >> 4) & 0x0F;
-      if (val <= 9)
-      {
-        *p++ = val + '0';
-      }
-      else
-      {
-        *p++ = (val - 10) + 'A';
-      }
-
-      /* Second digit... ugly copied code */
-      val = *msg & 0x0F;
-      if (val <= 9)
-      {
-        *p++ = val + '0';
-      }
-      else
-      {
-        *p++ = (val - 10) + 'A';
-      }
-
-      /* Add a space, and increment msg pointer */
-      *p++ = ' ';
-      msg++;
-      msg_len--;
-    }
-
-    /* Add \n and NULL terminator and print out */
-    *p++ = '\n';
-    *p = '\0';
-    pr_info("[RIL] %s: %s", direction, output_buf);
-  }
-}
-#endif
-
 static const char *ch_name[8] = {
 	"SMD_DATA5",
 	"SMD_DATA6",
@@ -291,7 +230,7 @@ static __be16 rmnet_ip_type_trans(struct sk_buff *skb, struct net_device *dev)
 		protocol = htons(ETH_P_IPV6);
 		break;
 	default:
-		pr_err("[RIL] rmnet_recv() L3 protocol decode error: 0x%02x",
+		pr_err("rmnet_recv() L3 protocol decode error: 0x%02x",
 		       skb->data[0] & 0xf0);
 		/* skb will be dropped in uppder layer for unknown protocol */
 	}
@@ -316,14 +255,14 @@ static void smd_net_data_handler(unsigned long arg)
 
 		skb = dev_alloc_skb(sz + NET_IP_ALIGN);
 		if (skb == NULL) {
-			pr_err("[RIL] rmnet_recv() cannot allocate skb\n");
+			pr_err("rmnet_recv() cannot allocate skb\n");
 		} else {
 			skb->dev = dev;
 			skb_reserve(skb, NET_IP_ALIGN);
 			ptr = skb_put(skb, sz);
 			wake_lock_timeout(&p->wake_lock, HZ / 2);
 			if (smd_read(p->ch, ptr, sz) != sz) {
-				pr_err("[RIL] rmnet_recv() smd lied about avail?!");
+				pr_err("rmnet_recv() smd lied about avail?!");
 				ptr = 0;
 				dev_kfree_skb_irq(skb);
 			} else {
@@ -341,9 +280,6 @@ static void smd_net_data_handler(unsigned long arg)
 					skb->protocol =
 					  eth_type_trans(skb, dev);
 				}
-#if DATA_DEBUG
-				print_data_msg("RX", (unsigned char *)ptr, MAX_DUMP_BYTES);
-#endif
 				if (RMNET_IS_MODE_IP(opmode) ||
 				    count_this_packet(ptr, skb->len)) {
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -358,7 +294,7 @@ static void smd_net_data_handler(unsigned long arg)
 			continue;
 		}
 		if (smd_read(p->ch, ptr, sz) != sz)
-			pr_err("[RIL] rmnet_recv() smd lied about avail?!");
+			pr_err("rmnet_recv() smd lied about avail?!");
 	}
 }
 
@@ -386,13 +322,10 @@ static int _rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 		qmih->flow_id = skb->mark;
 	}
 
-#if DATA_DEBUG
-	print_data_msg("TX", (unsigned char *)skb->data, MAX_DUMP_BYTES);
-#endif
 	dev->trans_start = jiffies;
 	smd_ret = smd_write(ch, skb->data, skb->len);
 	if (smd_ret != skb->len) {
-		pr_err("[RIL] %s: smd_write returned error %d", __func__, smd_ret);
+		pr_err("%s: smd_write returned error %d", __func__, smd_ret);
 		goto xmit_out;
 	}
 
@@ -434,7 +367,7 @@ static void _rmnet_resume_flow(unsigned long param)
 static void msm_rmnet_unload_modem(void *pil)
 {
 	/* printk("%s() ++\n", __func__); */
-	pr_info("[RIL] pil: %s", ( pil? "true" : "false" ));
+	printk("pil: %s", ( pil? "true" : "false" ));
 	if (pil)
 		pil_put(pil);
 	/* printk("%s() --\n", __func__); */
@@ -450,19 +383,19 @@ static void *msm_rmnet_load_modem(struct net_device *dev)
 
 	pil = pil_get("modem");
 	if (IS_ERR(pil))
-		pr_err("[RIL] %s: modem load failed\n", __func__);
+		pr_err("%s: modem load failed\n", __func__);
 	else if (msm_rmnet_modem_wait) {
-		pr_info("[RIL] wait_for_completion_interruptible_timeout ..\n");
+		printk("wait_for_completion_interruptible_timeout ..\n");
 		rc = wait_for_completion_interruptible_timeout(
 			&p->complete,
 			msecs_to_jiffies(msm_rmnet_modem_wait * 1000));
-		pr_info("[RIL] wait_for_completion_interruptible_timeout .. Done\n");
+		printk("wait_for_completion_interruptible_timeout .. Done\n");
 		if (!rc){
 			rc = -ETIMEDOUT;
-			pr_info("[RIL] Modem load timeout\n");
+			printk("Modem load timeout\n");
 		}
 		if (rc < 0) {
-			pr_err("[RIL] %s: wait for rmnet port failed %d\n",
+			pr_err("%s: wait for rmnet port failed %d\n",
 			       __func__, rc);
 			msm_rmnet_unload_modem(pil);
 			pil = ERR_PTR(rc);
@@ -543,7 +476,7 @@ static int rmnet_open(struct net_device *dev)
 {
 	int rc = 0;
 
-	pr_info("[RIL] msm_rmnet: %s\n",  __func__);
+	pr_info("msm_rmnet: %s\n",  __func__);
 
 	rc = __rmnet_open(dev);
 
@@ -556,7 +489,7 @@ static int rmnet_stop(struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
 
-	pr_info("[RIL] rmnet_stop()\n");
+	pr_info("rmnet_stop()\n");
 
 	netif_stop_queue(dev);
 	tasklet_kill(&p->tsklt);
@@ -590,7 +523,7 @@ static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
 	unsigned long flags;
 
 	if (netif_queue_stopped(dev)) {
-		pr_err("[RIL] fatal: rmnet_xmit called when netif_queue is stopped");
+		pr_err("fatal: rmnet_xmit called when netif_queue is stopped");
 		return 0;
 	}
 
@@ -620,7 +553,7 @@ static void rmnet_set_multicast_list(struct net_device *dev)
 
 static void rmnet_tx_timeout(struct net_device *dev)
 {
-	pr_info("[RIL] rmnet_tx_timeout()\n");
+	pr_info("rmnet_tx_timeout()\n");
 }
 
 
@@ -672,7 +605,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			p->operation_mode &= ~RMNET_MODE_LLP_IP;
 			p->operation_mode |= RMNET_MODE_LLP_ETH;
 			spin_unlock_irqrestore(&p->lock, flags);
-			pr_info("[RIL] rmnet_ioctl(): "
+			pr_info("rmnet_ioctl(): "
 				"set Ethernet protocol mode\n");
 		}
 		break;
@@ -695,7 +628,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			p->operation_mode &= ~RMNET_MODE_LLP_ETH;
 			p->operation_mode |= RMNET_MODE_LLP_IP;
 			spin_unlock_irqrestore(&p->lock, flags);
-			pr_info("[RIL] rmnet_ioctl(): set IP protocol mode\n");
+			pr_info("rmnet_ioctl(): set IP protocol mode\n");
 		}
 		break;
 
@@ -709,14 +642,14 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		spin_lock_irqsave(&p->lock, flags);
 		p->operation_mode |= RMNET_MODE_QOS;
 		spin_unlock_irqrestore(&p->lock, flags);
-		pr_info("[RIL] rmnet_ioctl(): set QMI QOS header enable\n");
+		pr_info("rmnet_ioctl(): set QMI QOS header enable\n");
 		break;
 
 	case RMNET_IOCTL_SET_QOS_DISABLE:   /* Set QoS header disabled */
 		spin_lock_irqsave(&p->lock, flags);
 		p->operation_mode &= ~RMNET_MODE_QOS;
 		spin_unlock_irqrestore(&p->lock, flags);
-		pr_info("[RIL] rmnet_ioctl(): set QMI QOS header disable\n");
+		pr_info("rmnet_ioctl(): set QMI QOS header disable\n");
 		break;
 
 	case RMNET_IOCTL_GET_QOS:           /* Get QoS header state    */
@@ -730,20 +663,20 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	case RMNET_IOCTL_OPEN:              /* Open transport port     */
 		rc = __rmnet_open(dev);
-		pr_info("[RIL] rmnet_ioctl(): open transport port\n");
+		pr_info("rmnet_ioctl(): open transport port\n");
 		break;
 
 	case RMNET_IOCTL_CLOSE:             /* Close transport port    */
 		rc = __rmnet_close(dev);
-		pr_info("[RIL] rmnet_ioctl(): close transport port\n");
+		pr_info("rmnet_ioctl(): close transport port\n");
 		break;
 
 	default:
-		pr_err("[RIL] error: rmnet_ioct called for unsupported cnd %d", cmd);
+		pr_err("error: rmnet_ioct called for unsupported cnd %d", cmd);
 		return -EINVAL;
 	}
 
-	pr_debug("[RIL] %s: dev=%s cmd=0x%x opmode old=0x%08x new=0x%08x\n",
+	pr_debug("%s: dev=%s cmd=0x%x opmode old=0x%08x new=0x%08x\n",
 		__func__, p->chname, cmd, old_opmode, p->operation_mode);
 	return rc;
 }
@@ -751,7 +684,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 static void __init rmnet_setup(struct net_device *dev)
 {
-	pr_info("[RIL] msm_rmnet: %s\n",  __func__);
+	pr_info("msm_rmnet: %s\n",  __func__);
 
 	/* Using Ethernet mode by default */
 	dev->netdev_ops = &rmnet_ops_ether;
@@ -764,21 +697,21 @@ static void __init rmnet_setup(struct net_device *dev)
 	random_ether_addr(dev->dev_addr);
 
 	dev->watchdog_timeo = 1000; /* 10 seconds? */
-	pr_info("[RIL] msm_rmnet: %s complete\n",  __func__);
+	pr_info("msm_rmnet: %s complete\n",  __func__);
 }
 
 static int msm_rmnet_smd_probe(struct platform_device *pdev)
 {
 	int i;
 
-	pr_info("[RIL] msm_rmnet: %s\n",  __func__);
+	pr_info("msm_rmnet: %s\n",  __func__);
 	for (i = 0; i < 8; i++)
 		if (!strcmp(pdev->name, ch_name[i])) {
 			complete_all(port_complete[i]);
 			break;
 		}
 
-	pr_info("[RIL] msm_rmnet: %s complete\n",  __func__);
+	pr_info("msm_rmnet: %s complete\n",  __func__);
 	return 0;
 }
 
@@ -790,7 +723,7 @@ static int __init rmnet_init(void)
 	struct rmnet_private *p;
 	unsigned n;
 
-	pr_info("[RIL] msm_rmnet: %s\n",  __func__);
+	pr_info("msm_rmnet: %s\n",  __func__);
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 	timeout_us = 0;
@@ -829,7 +762,7 @@ static int __init rmnet_init(void)
 		p->pdrv.driver.owner = THIS_MODULE;
 		ret = platform_driver_register(&p->pdrv);
 		if (ret) {
-			pr_err("[RIL] rmnet_init platform_driver_register, fail\n");
+			printk("rmnet_init platform_driver_register, fail\n");
 			free_netdev(dev);
 			return ret;
 		}
@@ -859,7 +792,7 @@ static int __init rmnet_init(void)
 #endif
 	}
 
-	pr_info("[RIL] msm_rmnet: %s complete\n",  __func__);
+	pr_info("msm_rmnet: %s complete\n",  __func__);
 	return 0;
 }
 

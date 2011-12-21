@@ -1,5 +1,6 @@
 obj-y += modem_notifier.o
 
+obj-$(CONFIG_MSM_SMD) += htc_port_list.o
 obj-$(CONFIG_MSM_SDIO_AL) += sdio_al.o
 obj-$(CONFIG_MSM_SDIO_AL_TEST) += sdio_al_test.o
 obj-$(CONFIG_MSM_SMD) += smem_log.o
@@ -18,11 +19,7 @@ obj-$(CONFIG_MSM_ONCRPCROUTER) += rpcrouter_smd_xprt.o
 obj-$(CONFIG_MSM_RPC_SDIO_XPRT) += rpcrouter_sdio_xprt.o
 
 obj-$(CONFIG_MSM_SDIO_CTL) += sdio_ctl.o
-
-ifeq ($(CONFIG_MACH_MECHA),y)
 obj-$(CONFIG_MSM_SDIO_DIAG) += sdio_diag.o
-endif
-
 obj-$(CONFIG_MSM_SMD_NMEA) += smd_nmea.o
 obj-$(CONFIG_MSM_SMD_PKT) += smd_pkt.o
 

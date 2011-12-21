@@ -50,6 +50,8 @@
 #include "modem_notifier.h"
 #include "smd_rpc_sym.h"
 
+static unsigned kernel_flag;
+
 enum {
 	SMEM_LOG = 1U << 0,
 	RTR_DBG = 1U << 1,
@@ -69,55 +71,55 @@ static int smd_rpcrouter_debug_mask;
 module_param_named(debug_mask, smd_rpcrouter_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-#define DIAG(x...) printk(KERN_ERR "[SMD][RR] ERROR " x)
+#define DIAG(x...) printk(KERN_ERR "[RR] ERROR " x)
 
 #if defined(CONFIG_MSM_ONCRPCROUTER_DEBUG)
 #define D(x...) do { \
 if (smd_rpcrouter_debug_mask & RTR_DBG) \
-	printk(KERN_DEBUG "[SMD] "x); \
+	printk(KERN_ERR x); \
 } while (0)
 
 #define RR(x...) do { \
 if (smd_rpcrouter_debug_mask & R2R_MSG) \
-	printk(KERN_DEBUG "[RR] "x); \
+	printk(KERN_ERR "[RR] "x); \
 } while (0)
 
 #define RAW(x...) do { \
 if (smd_rpcrouter_debug_mask & R2R_RAW) \
-	printk(KERN_DEBUG "[SMD][RAW] "x); \
+	printk(KERN_ERR "[RAW] "x); \
 } while (0)
 
 #define RAW_HDR(x...) do { \
 if (smd_rpcrouter_debug_mask & R2R_RAW_HDR) \
-	printk(KERN_DEBUG "[SMD][HDR] "x); \
+	printk(KERN_ERR "[HDR] "x); \
 } while (0)
 
 #define RAW_PMR(x...) do { \
 if (smd_rpcrouter_debug_mask & RAW_PMR) \
-	printk(KERN_DEBUG "[SMD][PMR] "x); \
+	printk(KERN_ERR "[PMR] "x); \
 } while (0)
 
 #define RAW_PMR_NOMASK(x...) do { \
-	printk(KERN_DEBUG "[SMD][PMR] "x); \
+	printk(KERN_ERR "[PMR] "x); \
 } while (0)
 
 #define RAW_PMW(x...) do { \
 if (smd_rpcrouter_debug_mask & RAW_PMW) \
-	printk(KERN_DEBUG "[SMD][PMW] "x); \
+	printk(KERN_ERR "[PMW] "x); \
 } while (0)
 
 #define RAW_PMW_NOMASK(x...) do { \
-	printk(KERN_DEBUG "[SMD][PMW] "x); \
+	printk(KERN_ERR "[PMW] "x); \
 } while (0)
 
 #define IO(x...) do { \
 if (smd_rpcrouter_debug_mask & RPC_MSG) \
-	printk(KERN_DEBUG "[SMD][RPC] "x); \
+	printk(KERN_ERR "[RPC] "x); \
 } while (0)
 
 #define NTFY(x...) do { \
 if (smd_rpcrouter_debug_mask & NTFY_MSG) \
-	printk(KERN_DEBUG "[SMD][NOTIFY] "x); \
+	printk(KERN_ERR "[NOTIFY] "x); \
 } while (0)
 #else
 #define D(x...) do { } while (0)
@@ -163,11 +165,6 @@ static DECLARE_WORK(work_create_rpcrouter_pdev, do_create_rpcrouter_pdev);
 #define RR_STATE_HEADER  1
 #define RR_STATE_BODY    2
 #define RR_STATE_ERROR   3
-
-#define RMT_STORAGE_APIPROG_BE32		0xa7000030
-#define RMT_STORAGE_SRV_APIPROG_BE32	0x9c000030
-#define BATT_A2M_PROG					0x30100001
-#define BATT_M2A_PROG					0x30100000
 
 /* After restart notification, local ep keep
  * state for server restart and for ep notify.
@@ -216,7 +213,8 @@ struct rpcrouter_xprt_info {
 	uint32_t need_len;
 	struct work_struct read_data;
 	struct workqueue_struct *workqueue;
-	unsigned char r2r_buf[RPCROUTER_MSGSIZE_MAX];
+
+	uint32_t r2r_buf[RPCROUTER_MSGSIZE_MAX];
 };
 
 static LIST_HEAD(xprt_info_list);
@@ -641,6 +639,7 @@ static struct rr_remote_endpoint *rpcrouter_lookup_remote_endpoint(uint32_t pid,
 	list_for_each_entry(ept, &remote_endpoints, list) {
 		if ((ept->pid == pid) && (ept->cid == cid)) {
 			spin_unlock_irqrestore(&remote_endpoints_lock, flags);
+			D("%s: Found r_ept %p for %d:%08x\n", __func__, ept, pid, cid);
 			return ept;
 		}
 	}
@@ -704,12 +703,14 @@ static int process_control_msg(struct rpcrouter_xprt_info *xprt_info,
 	case RPCROUTER_CTRL_CMD_HELLO:
 		RR("o HELLO PID %d\n", xprt_info->remote_pid);
 
-		/* HTC add this to avoid the duplicate RPCROUTER_CTRL_CMD_HELLO issue */
+		/* FIX ME */
+		/* Andy added this for workaround duplicated RPCROUTER_CTRL_CMD_HELLO issue on Mecha */
+#ifdef CONFIG_MACH_MECHA
 		if (xprt_info->initialized) {
-			pr_err("\n\n\nWarning! Receive RPCROUTER_CTRL_CMD_HELLO twice! (Remote_PID=0x%x)\n\n\n", xprt_info->remote_pid);
+			pr_err("\n\nWarning! Receive RPCROUTER_CTRL_CMD_HELLO twice!\n\n");
 			break;
 		}
-		/*--------------------------------------------------------------*/
+#endif
 
 		memset(&ctl, 0, sizeof(ctl));
 		ctl.cmd = RPCROUTER_CTRL_CMD_HELLO;
@@ -1010,8 +1011,7 @@ static void do_read_data(struct work_struct *work)
 
 		if (rr_read(xprt_info, xprt_info->r2r_buf, hdr.size))
 			goto fail_io;
-		process_control_msg(xprt_info,
-				    (void *) xprt_info->r2r_buf, hdr.size);
+		process_control_msg(xprt_info, (void *) xprt_info->r2r_buf, hdr.size);
 		goto done;
 	}
 
@@ -1475,16 +1475,6 @@ int msm_rpc_write(struct msm_rpc_endpoint *ept, void *buffer, int count)
 	uint32_t mid;
 	unsigned long flags;
 
-	if (((rq->prog&0xFFFFFFF0) == RMT_STORAGE_APIPROG_BE32) ||
-		((rq->prog&0xFFFFFFF0) == RMT_STORAGE_SRV_APIPROG_BE32) ||
-		(be32_to_cpu(rq->prog) == BATT_A2M_PROG) ||
-		(be32_to_cpu(rq->prog) == BATT_M2A_PROG)) {
-		printk(KERN_DEBUG
-			"%s: prog = 0x%X, procedure = %d, type = %d, xid = %d\n",
-			__func__, be32_to_cpu(rq->prog), be32_to_cpu(rq->procedure)
-			, be32_to_cpu(rq->type), be32_to_cpu(rq->xid));
-	}
-
 	/* snoop the RPC packet and enforce permissions */
 
 	/* has to have at least the xid and type fields */
@@ -1815,17 +1805,6 @@ int __msm_rpc_read(struct msm_rpc_endpoint *ept,
 
 	*frag_ret = pkt->first;
 	rq = (void*) pkt->first->data;
-
-	if (((rq->prog&0xFFFFFFF0) == RMT_STORAGE_APIPROG_BE32) ||
-		((rq->prog&0xFFFFFFF0) == RMT_STORAGE_SRV_APIPROG_BE32) ||
-		(be32_to_cpu(rq->prog) == BATT_A2M_PROG) ||
-		(be32_to_cpu(rq->prog) == BATT_M2A_PROG)) {
-		printk(KERN_DEBUG
-			"%s: prog = 0x%X, procedure = %d, type = %d, xid = %d\n",
-			__func__, be32_to_cpu(rq->prog), be32_to_cpu(rq->procedure)
-			, be32_to_cpu(rq->type), be32_to_cpu(rq->xid));
-	}
-
 	if ((rc >= (sizeof(uint32_t) * 3)) && (rq->type == 0)) {
 		/* RPC CALL */
 		reply = get_avail_reply(ept);
@@ -2340,7 +2319,45 @@ void msm_rpcrouter_xprt_notify(struct rpcrouter_xprt *xprt, unsigned event)
 	wake_up(&xprt_info->read_wait);
 }
 
-#include <mach/board_htc.h>
+#if 1 /* HTC */
+#define MODULE_NAME "smd_rpcrouter"
+static int kernel_flag_boot_config(char *str)
+{
+	unsigned check_bit_start = 0x100;
+	int i = 0 ;
+
+	if (!str)
+		return -EINVAL;
+
+	kernel_flag = simple_strtoul(str, NULL, 16);
+
+	pr_info(MODULE_NAME ": %s(): get kernel_flag=0x%x\n", __func__, kernel_flag);
+
+	/* kernel_flag <-> smd_rpcrouter_debug_mask mapping */
+	for (i = 0; i < 4; i++) {
+		switch (kernel_flag & (check_bit_start << i)) {
+		case BIT8:
+			smd_rpcrouter_debug_mask |= (RTR_DBG | NTFY_MSG);
+			break;
+		case BIT9:
+			smd_rpcrouter_debug_mask |= R2R_MSG;
+			break;
+		case BIT10:
+			smd_rpcrouter_debug_mask |= (R2R_RAW_HDR | RAW_PMR | RAW_PMW);
+			break;
+		case BIT11:
+			smd_rpcrouter_debug_mask |= RPC_MSG;
+			break;
+		default:
+			break;
+		}
+	}
+
+	pr_info(MODULE_NAME ": %s(): get smd_rpcrouter_debug_mask=0x%x\n", __func__, smd_rpcrouter_debug_mask);
+	return 0;
+}
+early_param("kernelflag", kernel_flag_boot_config);
+#endif  /* HTC */
 
 static int __init rpcrouter_init(void)
 {
@@ -2348,23 +2365,11 @@ static int __init rpcrouter_init(void)
 
 	msm_rpc_connect_timeout_ms = 0;
 	smd_rpcrouter_debug_mask |= SMEM_LOG;
-	/* Switch smd_rpcrouter_debug_mask by kernelflag */
-	if (get_kernel_flag() & BIT8)
-		smd_rpcrouter_debug_mask |= (RTR_DBG | NTFY_MSG);
-	if (get_kernel_flag() & BIT9)
-		smd_rpcrouter_debug_mask |= R2R_MSG;
-	if (get_kernel_flag() & BIT10)
-		smd_rpcrouter_debug_mask |= (R2R_RAW_HDR | RAW_PMR | RAW_PMW);
-	if (get_kernel_flag() & BIT11)
-		smd_rpcrouter_debug_mask |= RPC_MSG;
-	pr_info("%s(): get smd_rpcrouter_debug_mask=0x%x\n", __func__, smd_rpcrouter_debug_mask);
-
 	debugfs_init();
 
 	/* Initialize what we need to start processing */
 	INIT_LIST_HEAD(&local_endpoints);
 	INIT_LIST_HEAD(&remote_endpoints);
-	INIT_LIST_HEAD(&xprt_info_list);
 
 	init_waitqueue_head(&newserver_wait);
 

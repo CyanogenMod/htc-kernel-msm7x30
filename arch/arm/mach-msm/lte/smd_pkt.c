@@ -84,7 +84,7 @@ module_param_named(modem_wait_timeout, smd_pkt_modem_wait,
 #define D_DUMP_BUFFER(prestr, cnt, buf) \
 do { \
 	int i; \
-	printk(KERN_ERR "[SMD] %s", prestr); \
+	printk(KERN_ERR "%s", prestr); \
 	for (i = 0; i < cnt; i++) \
 		printk(KERN_ERR "%.2x", buf[i]); \
 	printk(KERN_ERR "\n"); \
@@ -94,7 +94,7 @@ do { \
 #endif
 
 #ifdef DEBUG
-#define D(x...) printk("[SMD] "x)
+#define D(x...) printk(x)
 #else
 #define D(x...) do {} while (0)
 #endif
@@ -125,12 +125,12 @@ static int modem_notifier(struct notifier_block *this,
 
 	switch (code) {
 	case MODEM_NOTIFIER_START_RESET:
-		printk(KERN_ERR "[SMD] Notify: start reset ch:%i\n",
+		printk(KERN_ERR "Notify: start reset ch:%i\n",
 		       smd_pkt_devp->i);
 		clean_and_signal(smd_pkt_devp);
 		break;
 	case MODEM_NOTIFIER_END_RESET:
-		printk(KERN_ERR "[SMD] Notify: end reset\n");
+		printk(KERN_ERR "Notify: end reset\n");
 		break;
 	default:
 		printk(KERN_ERR "Notify: general\n");
@@ -196,7 +196,7 @@ wait_for_packet:
 		/* qualify error message */
 		if (r != -ERESTARTSYS) {
 			/* we get this anytime a signal comes in */
-			printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+			printk(KERN_ERR "ERROR:%s:%i:%s: "
 			       "wait_event_interruptible ret %i\n",
 			       __FILE__,
 			       __LINE__,
@@ -237,14 +237,14 @@ wait_for_packet:
 		if (smd_pkt_devp->has_reset)
 			return -ENETRESET;
 
-		printk(KERN_ERR "[SMD] user read: not enough data?!\n");
+		printk(KERN_ERR "user read: not enough data?!\n");
 		return -EINVAL;
 	}
 	D_DUMP_BUFFER("read: ", bytes_read, smd_pkt_devp->rx_buf);
 	r = copy_to_user(buf, smd_pkt_devp->rx_buf, bytes_read);
 	mutex_unlock(&smd_pkt_devp->rx_lock);
 	if (r > 0) {
-		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+		printk(KERN_ERR "ERROR:%s:%i:%s: "
 		       "copy_to_user could not copy %i bytes.\n",
 		       __FILE__,
 		       __LINE__,
@@ -292,7 +292,7 @@ ssize_t smd_pkt_write(struct file *file,
 		/* qualify error message */
 		if (r != -ERESTARTSYS) {
 			/* we get this anytime a signal comes in */
-			printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+			printk(KERN_ERR "ERROR:%s:%i:%s: "
 			       "wait_event_interruptible ret %i\n",
 			       __FILE__,
 			       __LINE__,
@@ -308,7 +308,7 @@ ssize_t smd_pkt_write(struct file *file,
 	mutex_lock(&smd_pkt_devp->tx_lock);
 	r = copy_from_user(smd_pkt_devp->tx_buf, buf, count);
 	if (r > 0) {
-		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+		printk(KERN_ERR "ERROR:%s:%i:%s: "
 		       "copy_from_user could not copy %i bytes.\n",
 		       __FILE__,
 		       __LINE__,
@@ -327,7 +327,7 @@ ssize_t smd_pkt_write(struct file *file,
 		if (smd_pkt_devp->has_reset)
 			return -ENETRESET;
 
-		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+		printk(KERN_ERR "ERROR:%s:%i:%s: "
 		       "smd_write(ch,buf,count = %i) ret %i.\n",
 		       __FILE__,
 		       __LINE__,
@@ -390,7 +390,7 @@ static void ch_notify(void *priv, unsigned event)
 		break;
 	case SMD_EVENT_CLOSE:
 		smd_pkt_devp->is_open = 0;
-		printk(KERN_ERR "[SMD] %s: smd closed\n",
+		printk(KERN_ERR "%s: smd closed\n",
 		       __func__);
 		break;
 	}
@@ -509,7 +509,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 				if (r == 0)
 					r = -ETIMEDOUT;
 				if (r < 0) {
-					pr_err("[SMD] %s: wait failed for smd port:"
+					pr_err("%s: wait failed for smd port:"
 					       " %d\n", __func__, r);
 					goto release_pil;
 				}
@@ -522,7 +522,7 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			     smd_pkt_devp,
 			     ch_notify);
 		if (r < 0) {
-			pr_err("[SMD] %s: %s open failed %d\n", __func__,
+			pr_err("%s: %s open failed %d\n", __func__,
 			       smd_ch_name[smd_pkt_devp->i], r);
 			goto release_pil;
 		}
@@ -534,10 +534,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 			r = -ETIMEDOUT;
 
 		if (r < 0) {
-			pr_err("[SMD] %s: wait failed for smd open: %d\n",
+			pr_err("%s: wait failed for smd open: %d\n",
 					__func__, r);
 		} else if (!smd_pkt_devp->is_open) {
-			pr_err("[SMD] %s: Invalid open notification\n", __func__);
+			pr_err("%s: Invalid open notification\n", __func__);
 			r = -ENODEV;
 		} else
 			r = 0;
@@ -596,7 +596,7 @@ static int __init smd_pkt_init(void)
 			       NUM_SMD_PKT_PORTS,
 			       DEVICE_NAME);
 	if (IS_ERR_VALUE(r)) {
-		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+		printk(KERN_ERR "ERROR:%s:%i:%s: "
 		       "alloc_chrdev_region() ret %i.\n",
 		       __FILE__,
 		       __LINE__,
@@ -607,7 +607,7 @@ static int __init smd_pkt_init(void)
 
 	smd_pkt_classp = class_create(THIS_MODULE, DEVICE_NAME);
 	if (IS_ERR(smd_pkt_classp)) {
-		printk(KERN_ERR "[SMD] ERROR:%s:%i:%s: "
+		printk(KERN_ERR "ERROR:%s:%i:%s: "
 		       "class_create() ENOMEM\n",
 		       __FILE__,
 		       __LINE__,
@@ -620,7 +620,7 @@ static int __init smd_pkt_init(void)
 		smd_pkt_devp[i] = kzalloc(sizeof(struct smd_pkt_dev),
 					 GFP_KERNEL);
 		if (IS_ERR(smd_pkt_devp[i])) {
-			printk(KERN_ERR "[SMD] ERROR:%s:%i:%s kmalloc() ENOMEM\n",
+			printk(KERN_ERR "ERROR:%s:%i:%s kmalloc() ENOMEM\n",
 			       __FILE__,
 			       __LINE__,
 			       __func__);
@@ -647,7 +647,7 @@ static int __init smd_pkt_init(void)
 			     1);
 
 		if (IS_ERR_VALUE(r)) {
-			printk(KERN_ERR "[SMD] %s:%i:%s: cdev_add() ret %i\n",
+			printk(KERN_ERR "%s:%i:%s: cdev_add() ret %i\n",
 			       __FILE__,
 			       __LINE__,
 			       __func__,
@@ -664,7 +664,7 @@ static int __init smd_pkt_init(void)
 				      smd_pkt_dev_name[i]);
 
 		if (IS_ERR(smd_pkt_devp[i]->devicep)) {
-			printk(KERN_ERR "[SMD] %s:%i:%s: "
+			printk(KERN_ERR "%s:%i:%s: "
 			       "device_create() ENOMEM\n",
 			       __FILE__,
 			       __LINE__,
@@ -687,7 +687,7 @@ static int __init smd_pkt_init(void)
 			goto error2;
 	}
 
-	printk(KERN_INFO "[SMD] SMD Packet Port Driver Initialized.\n");
+	printk(KERN_INFO "SMD Packet Port Driver Initialized.\n");
 	return 0;
 
  error2:

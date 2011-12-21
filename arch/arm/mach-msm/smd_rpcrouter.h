@@ -15,8 +15,8 @@
  *
  */
 
-#if defined(CONFIG_ARCH_MSM7X30_LTE)
-#include "7x30-lte/smd_rpcrouter.h"
+#if defined(CONFIG_QCT_LTE)
+#include "lte/smd_rpcrouter.h"
 #endif
 
 #ifndef _ARCH_ARM_MACH_MSM_SMD_RPCROUTER_H
