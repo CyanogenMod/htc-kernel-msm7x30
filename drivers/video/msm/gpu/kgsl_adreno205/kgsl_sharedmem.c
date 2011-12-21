@@ -19,8 +19,6 @@
 #include <linux/spinlock.h>
 #include <linux/genalloc.h>
 #include <linux/dma-mapping.h>
-#include <linux/slab.h>
-#include <linux/vmalloc.h>
 #include <asm/cacheflush.h>
 
 #include "kgsl_sharedmem.h"
@@ -275,64 +273,19 @@ done:
 	return result;
 }
 
-int
-kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
-		       struct kgsl_pagetable *pagetable, size_t size)
-{
-	int result;
-
-	size = ALIGN(size, KGSL_PAGESIZE * 2);
-
-	memdesc->hostptr = vmalloc(size);
-	if (memdesc->hostptr == NULL)
-		return -ENOMEM;
-
-	memdesc->size = size;
-	memdesc->pagetable = pagetable;
-	memdesc->priv = KGSL_MEMFLAGS_VMALLOC_MEM | KGSL_MEMFLAGS_CACHE_CLEAN;
-
-	kgsl_cache_range_op((unsigned int) memdesc->hostptr,
-			    size, KGSL_MEMFLAGS_CACHE_INV |
-			    KGSL_MEMFLAGS_VMALLOC_MEM);
-
-	result = kgsl_mmu_map(pagetable, (unsigned long) memdesc->hostptr,
-			      memdesc->size,
-			      GSL_PT_PAGE_RV | GSL_PT_PAGE_WV,
-			      &memdesc->gpuaddr,
-			      KGSL_MEMFLAGS_ALIGN8K |
-			      KGSL_MEMFLAGS_VMALLOC_MEM);
-
-	if (result) {
-		vfree(memdesc->hostptr);
-		memset(memdesc, 0, sizeof(*memdesc));
-	}
-
-	return result;
-}
-
 void
-kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
-{
-	KGSL_MEM_VDBG("enter (memdesc=%p, physaddr=%08x, size=%d)\n",
-			memdesc, memdesc->physaddr, memdesc->size);
-
-	BUG_ON(memdesc == NULL);
-
+kgsl_sharedmem_free(struct kgsl_memdesc *memdesc) {
+	struct kgsl_sharedmem  *shmem =  &kgsl_driver.shmem;
+	KGSL_MEM_VDBG("enter (shmem=%p, memdesc=%p, physaddr=%08x, size=%d)\n",
+			shmem, memdesc, memdesc->physaddr, memdesc->size);
+        BUG_ON(memdesc == NULL);
 	if (memdesc->size > 0) {
-		if (memdesc->priv & KGSL_MEMFLAGS_VMALLOC_MEM) {
-			if (memdesc->gpuaddr)
-				kgsl_mmu_unmap(memdesc->pagetable,
-					       memdesc->gpuaddr,
-					       memdesc->size);
-
-			if (memdesc->hostptr)
-				vfree(memdesc->hostptr);
-		} else if (memdesc->priv & KGSL_MEMFLAGS_CONPHYS)
+		if (memdesc->priv & KGSL_MEMFLAGS_CONPHYS)
 			dma_free_coherent(NULL, memdesc->size,
 					  memdesc->hostptr,
 					  memdesc->physaddr);
 		else
-			BUG();
+			gen_pool_free(shmem->pool, memdesc->physaddr, memdesc->size);
 	}
 
 	memset(memdesc, 0, sizeof(struct kgsl_memdesc));

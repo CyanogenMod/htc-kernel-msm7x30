@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,49 +33,43 @@
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/mutex.h>
 #include <linux/msm_kgsl.h>
+#include <linux/idr.h>
+#include <linux/wakelock.h>
 
 #include <asm/atomic.h>
 
 #include "kgsl_mmu.h"
-#include "kgsl_ringbuffer.h"
-
-#define KGSL_CONTEXT_MAX       (CONFIG_MSM_KGSL_CONTEXTS)
+#include "kgsl_pwrctrl.h"
+#include "kgsl_log.h"
 
 #define KGSL_TIMEOUT_NONE       0
 #define KGSL_TIMEOUT_DEFAULT    0xFFFFFFFF
 
 #define FIRST_TIMEOUT (HZ / 2)
 
-#define KGSL_DEV_FLAGS_INITIALIZED0	0x00000001
-#define KGSL_DEV_FLAGS_INITIALIZED	0x00000002
-#define KGSL_DEV_FLAGS_STARTED		0x00000004
-#define KGSL_DEV_FLAGS_ACTIVE		0x00000008
-
-/*****************************************************************************
-** power flags
-*****************************************************************************/
-#define KGSL_PWRFLAGS_YAMATO_POWER_OFF		0x00000001
-#define KGSL_PWRFLAGS_YAMATO_POWER_ON		0x00000002
-#define KGSL_PWRFLAGS_YAMATO_CLK_ON		0x00000004
-#define KGSL_PWRFLAGS_YAMATO_CLK_OFF		0x00000008
-#define KGSL_PWRFLAGS_OVERRIDE_ON		0x00000010
-#define KGSL_PWRFLAGS_OVERRIDE_OFF		0x00000020
-#define KGSL_PWRFLAGS_YAMATO_IRQ_ON		0x00000040
-#define KGSL_PWRFLAGS_YAMATO_IRQ_OFF		0x00000080
-#define KGSL_PWRFLAGS_G12_CLK_ON		0x00000100
-#define KGSL_PWRFLAGS_G12_CLK_OFF		0x00000200
-#define KGSL_PWRFLAGS_G12_IRQ_ON		0x00000400
-#define KGSL_PWRFLAGS_G12_IRQ_OFF		0x00000800
-#define KGSL_PWRFLAGS_G12_POWER_OFF		0x00001000
-#define KGSL_PWRFLAGS_G12_POWER_ON		0x00002000
-
 #define KGSL_CHIPID_YAMATODX_REV21  0x20100
 #define KGSL_CHIPID_YAMATODX_REV211 0x20101
 #define KGSL_CHIPID_LEIA_REV470_TEMP 0x10001
 #define KGSL_CHIPID_LEIA_REV470 0x2010000
 
+/* KGSL device state is initialized to INIT when platform_probe		*
+ * sucessfully initialized the device.  Once a device has been opened	*
+ * (started) it becomes active.  NAP implies that only low latency	*
+ * resources (for now clocks on some platforms) are off.  SLEEP implies	*
+ * that the KGSL module believes a device is idle (has been inactive	*
+ * past its timer) and all system resources are released.  SUSPEND is	*
+ * requested by the kernel and will be enforced upon all open devices.	*/
 
+#define KGSL_STATE_NONE		0x00000000
+#define KGSL_STATE_INIT		0x00000001
+#define KGSL_STATE_ACTIVE	0x00000002
+#define KGSL_STATE_NAP		0x00000004
+#define KGSL_STATE_SLEEP	0x00000008
+#define KGSL_STATE_SUSPEND	0x00000010
+#define KGSL_STATE_HUNG		0x00000020
+#define KGSL_STATE_DUMP_AND_RECOVER	0x00000040
 
 #define KGSL_GRAPHICS_MEMORY_LOW_WATERMARK  0x1000000
 
@@ -84,20 +78,28 @@
 struct kgsl_device;
 struct platform_device;
 struct kgsl_device_private;
+struct kgsl_context;
+struct kgsl_power_stats;
 
 struct kgsl_functable {
-	int (*device_regread) (struct kgsl_device *device,
+	void (*device_regread) (struct kgsl_device *device,
 					unsigned int offsetwords,
 					unsigned int *value);
-	int (*device_regwrite) (struct kgsl_device *device,
+	void (*device_regwrite) (struct kgsl_device *device,
 					unsigned int offsetwords,
 					unsigned int value);
+	void (*device_regread_isr) (struct kgsl_device *device,
+				    unsigned int offsetwords,
+				    unsigned int *value);
+	void (*device_regwrite_isr) (struct kgsl_device *device,
+				     unsigned int offsetwords,
+				     unsigned int value);
 	int (*device_setstate) (struct kgsl_device *device, uint32_t flags);
 	int (*device_idle) (struct kgsl_device *device, unsigned int timeout);
-	int (*device_suspend) (struct kgsl_device *device);
-	int (*device_sleep) (struct kgsl_device *device, const int idle);
-	int (*device_wake) (struct kgsl_device *device);
-	int (*device_start) (struct kgsl_device *device);
+	unsigned int (*device_isidle) (struct kgsl_device *device);
+	int (*device_suspend_context) (struct kgsl_device *device);
+	int (*device_resume_context) (struct kgsl_device *device);
+	int (*device_start) (struct kgsl_device *device, unsigned int init_ram);
 	int (*device_stop) (struct kgsl_device *device);
 	int (*device_getproperty) (struct kgsl_device *device,
 					enum kgsl_property_type type,
@@ -110,24 +112,25 @@ struct kgsl_functable {
 					struct kgsl_device *device,
 					enum kgsl_timestamp_type type);
 	int (*device_issueibcmds) (struct kgsl_device_private *dev_priv,
-				int drawctxt_index,
-				uint32_t ibaddr, int sizedwords,
+				struct kgsl_context *context,
+				struct kgsl_ibdesc *ibdesc,
+				unsigned int sizedwords,
 				uint32_t *timestamp,
 				unsigned int flags);
 	int (*device_drawctxt_create) (struct kgsl_device_private *dev_priv,
 					uint32_t flags,
-					unsigned int *drawctxt_id);
+					struct kgsl_context *context);
 	int (*device_drawctxt_destroy) (struct kgsl_device *device,
-					unsigned int drawctxt_id);
+					struct kgsl_context *context);
 	long (*device_ioctl) (struct kgsl_device_private *dev_priv,
-					unsigned int cmd,
-					unsigned long arg);
+					unsigned int cmd, void *data);
 	int (*device_setup_pt)(struct kgsl_device *device,
 			       struct kgsl_pagetable *pagetable);
 
 	int (*device_cleanup_pt)(struct kgsl_device *device,
 				 struct kgsl_pagetable *pagetable);
-
+	void (*device_power_stats)(struct kgsl_device *device,
+		struct kgsl_power_stats *stats);
 };
 
 struct kgsl_memregion {
@@ -138,40 +141,81 @@ struct kgsl_memregion {
 };
 
 struct kgsl_device {
+	struct device *dev;
+	const char *name;
+	unsigned int ver_major;
+	unsigned int ver_minor;
 	uint32_t       flags;
 	enum kgsl_deviceid    id;
 	unsigned int      chip_id;
 	struct kgsl_memregion regspace;
 	struct kgsl_memdesc memstore;
+	const char *iomemname;
 
 	struct kgsl_mmu 	  mmu;
-	struct kgsl_ringbuffer ringbuffer;
-	unsigned int hwaccess_blocked;
 	struct completion hwaccess_gate;
 	struct kgsl_functable ftbl;
 	struct work_struct idle_check_ws;
 	struct timer_list idle_timer;
-	unsigned int interval_timeout;
-	atomic_t open_count;
+	struct kgsl_pwrctrl pwrctrl;
+	int open_count;
 
 	struct atomic_notifier_head ts_notifier_list;
+	struct mutex mutex;
+	uint32_t		state;
+	uint32_t		requested_state;
+
+	struct list_head memqueue;
+	unsigned int active_cnt;
+	struct completion suspend_gate;
+
+	wait_queue_head_t wait_queue;
+	struct workqueue_struct *work_queue;
+	struct platform_device *pdev;
+	struct completion recovery_gate;
+	struct dentry *d_debugfs;
+	struct idr context_idr;
+
+	/* Logging levels */
+	int cmd_log;
+	int ctxt_log;
+	int drv_log;
+	int mem_log;
+	int pwr_log;
+	struct wake_lock idle_wakelock;
 };
 
-struct kgsl_file_private {
+struct kgsl_context {
+	uint32_t id;
+
+	/* Pointer to the owning device instance */
+	struct kgsl_device_private *dev_priv;
+
+	/* Pointer to the device specific context information */
+	void *devctxt;
+};
+
+struct kgsl_process_private {
 	unsigned int refcnt;
+	pid_t pid;
+	spinlock_t mem_lock;
 	struct list_head mem_list;
 	struct kgsl_pagetable *pagetable;
-	unsigned long vmalloc_size;
-	struct list_head preserve_entry_list;
-	int preserve_list_size;
+	struct list_head list;
+	struct kobject *kobj;
+
+	struct {
+		unsigned int vmalloc;
+		unsigned int vmalloc_max;
+		unsigned int exmem;
+		unsigned int exmem_max;
+		unsigned int flushes;
+	} stats;
 };
 
 struct kgsl_device_private {
-	struct list_head list;
-	unsigned long pid;
-	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
 	struct kgsl_device *device;
-	struct kgsl_file_private *process_priv;
+	struct kgsl_process_private *process_priv;
 };
 
 struct kgsl_devconfig {
@@ -186,12 +230,40 @@ struct kgsl_devconfig {
 	struct kgsl_memregion gmemspace;
 };
 
+struct kgsl_power_stats {
+	s64 total_time;
+	s64 busy_time;
+};
+
 struct kgsl_device *kgsl_get_device(int dev_idx);
 
 static inline struct kgsl_mmu *
 kgsl_get_mmu(struct kgsl_device *device)
 {
 	return (struct kgsl_mmu *) (device ? &device->mmu : NULL);
+}
+
+static inline int kgsl_create_device_workqueue(struct kgsl_device *device)
+{
+	device->work_queue = create_workqueue(device->name);
+	if (!device->work_queue) {
+		KGSL_DRV_ERR(device, "create_workqueue(%s) failed\n",
+			device->name);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static inline struct kgsl_context *
+kgsl_find_context(struct kgsl_device_private *dev_priv, uint32_t id)
+{
+	struct kgsl_context *ctxt =
+		idr_find(&dev_priv->device->context_idr, id);
+
+	/* Make sure that the context belongs to the current instance so
+	   that other processes can't guess context IDs and mess things up */
+
+	return  (ctxt && ctxt->dev_priv == dev_priv) ? ctxt : NULL;
 }
 
 #endif  /* _KGSL_DEVICE_H */

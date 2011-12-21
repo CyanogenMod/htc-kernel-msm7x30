@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,43 +26,40 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _KGSL_G12_H
-#define _KGSL_G12_H
+#ifndef _KGSL_YAMATO_H
+#define _KGSL_YAMATO_H
 
-#define INTERVAL_G12_TIMEOUT (HZ / 10)
+#include "kgsl_drawctxt.h"
+#include "kgsl_ringbuffer.h"
 
-struct kgsl_g12_ringbuffer {
-	unsigned int prevctx;
-	unsigned int numcontext;
-	struct kgsl_memdesc      cmdbufdesc;
-	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
-};
+#define DEVICE_3D_NAME "kgsl-3d"
+#define DEVICE_3D0_NAME "kgsl-3d0"
 
-struct kgsl_g12_device {
+struct kgsl_yamato_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
-	int current_timestamp;
-	int timestamp;
-	wait_queue_head_t wait_timestamp_wq;
-	struct kgsl_g12_ringbuffer ringbuffer;
+	struct kgsl_memregion gmemspace;
+	struct kgsl_yamato_context *drawctxt_active;
+	wait_queue_head_t ib1_wq;
+	unsigned int *pfp_fw;
+	size_t pfp_fw_size;
+	unsigned int *pm4_fw;
+	size_t pm4_fw_size;
+	struct kgsl_ringbuffer ringbuffer;
 };
 
-irqreturn_t kgsl_g12_isr(int irq, void *data);
-int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags);
-struct kgsl_device *kgsl_get_g12_generic_device(void);
-int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
+
+irqreturn_t kgsl_yamato_isr(int irq, void *data);
+
+int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout);
+void kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);
-int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
-			unsigned int value);
+void kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int value);
+void kgsl_yamato_regread_isr(struct kgsl_device *device,
+			     unsigned int offsetwords,
+			     unsigned int *value);
+void kgsl_yamato_regwrite_isr(struct kgsl_device *device,
+			      unsigned int offsetwords,
+			      unsigned int value);
 
-int __init kgsl_g12_config(struct kgsl_devconfig *,
-				struct platform_device *pdev);
-
-int __init kgsl_g12_init(struct kgsl_device *device,
-			 struct kgsl_devconfig *config);
-
-int kgsl_g12_close(struct kgsl_device *device);
-
-int kgsl_g12_getfunctable(struct kgsl_functable *ftbl);
-
-
-#endif /* _KGSL_G12_H */
+#endif /*_KGSL_YAMATO_H */

@@ -424,6 +424,7 @@ kgsl_yamato_init(struct kgsl_device *device, struct kgsl_devconfig *config)
 								device;
 	int status = -EINVAL;
 	struct kgsl_memregion *regspace = &device->regspace;
+	struct kgsl_platform_data *pdata = NULL;
 	//unsigned int memflags = KGSL_MEMFLAGS_ALIGNPAGE | KGSL_MEMFLAGS_CONPHYS;
 
 	KGSL_DRV_VDBG("enter (device=%p, config=%p)\n", device, config);
@@ -481,6 +482,7 @@ kgsl_yamato_init(struct kgsl_device *device, struct kgsl_devconfig *config)
 	device->interval_timeout = INTERVAL_YAMATO_TIMEOUT;
 
 	ATOMIC_INIT_NOTIFIER_HEAD(&device->ts_notifier_list);
+	pdata = kgsl_driver.pdev->dev.platform_data;
 
 	kgsl_yamato_getfunctable(&device->ftbl);
 	if (config->mmu_config) {
@@ -488,7 +490,7 @@ kgsl_yamato_init(struct kgsl_device *device, struct kgsl_devconfig *config)
 		device->mmu.mpu_base  = config->mpu_base;
 		device->mmu.mpu_range = config->mpu_range;
 		device->mmu.va_base	  = config->va_base;
-		device->mmu.va_range  = config->va_range;
+		device->mmu.va_range  = pdata->pt_va_size;
 	}
 
 	status = kgsl_mmu_init(device);
@@ -1136,7 +1138,7 @@ int __init kgsl_yamato_config(struct kgsl_devconfig *devconfig,
 	 * stuff */
 	devconfig->va_base = 0x66000000;
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-	devconfig->va_range = SZ_32M;
+	devconfig->va_range = SZ_128M;
 #else
 	devconfig->va_range = 0x0F000000;
 #endif
@@ -1168,7 +1170,6 @@ static long kgsl_yamato_ioctl(struct kgsl_device_private *dev_priv,
 			result = -EFAULT;
 			break;
 		}
-
 		if (test_bit(binbase.drawctxt_id, dev_priv->ctxt_bitmap)) {
 			result = kgsl_drawctxt_set_bin_base_offset(
 					dev_priv->device,

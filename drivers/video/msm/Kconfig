@@ -22,11 +22,6 @@ config FB_MSM_LCDC
 	depends on FB_MSM && (MSM_MDP31 || MSM_MDP302 || MSM_MDP40)
 	default y
 
-config FB_MSM_DTV
-	bool "Support for TV-Out in qsd8x50"
-	depends on FB_MSM && MSM_MDP40
-	default n
-
 config FB_MSM_TVOUT
 	bool "Support for TV-Out in qsd8x50"
 	depends on FB_MSM && (MSM_MDP31 || MSM_MDP40)
@@ -58,9 +53,18 @@ config GPU_MSM_KGSL
 	  use hardware accelerated OpenGL ES 2.0 and 1.1 on these
 	  chips.
 
+config GPU_MSM_KGSL_ADRENO205_HC
+        bool "MSM 3D Graphics driver for Adreno205 honeycomb"
+        depends on FB_MSM && GPU_MSM_KGSL && ARCH_MSM7X30
+        default n
+        help
+          3D graphics driver for Adreno205. Required to
+          use hardware accelerated OpenGL ES 2.0 and 1.1 on these
+          chips.
+
 config GPU_MSM_KGSL_ADRENO205
         bool "MSM 3D Graphics driver for Adreno205"
-        depends on FB_MSM && GPU_MSM_KGSL && ARCH_MSM7X30
+        depends on FB_MSM && GPU_MSM_KGSL && ARCH_MSM7X30 && !GPU_MSM_KGSL_ADRENO205_HC
         default y
         help
           3D graphics driver for Adreno205. Required to
@@ -108,10 +112,44 @@ config MSM_KGSL_PER_FD_PAGETABLE
          If enabled, the MMU unit of GPU driver will use seperate
          pagetables for each file descriptor
 
+config KGSL_PER_PROCESS_PAGE_TABLE
+        bool "Enable Per Process page tables for the KGSL driver"
+        default y
+        depends on MSM_KGSL_MMU && !MSM_KGSL_DRM
+
+config MSM_KGSL_PAGE_TABLE_SIZE
+        hex "Size of pagetables"
+        default 0xFFF0000
+        depends on MSM_KGSL_MMU && GPU_MSM_KGSL_ADRENO205_HC
+        ---help---
+          Sets the pagetable size used by the MMU.  The max value
+          is 0xFFF0000 or (256M - 64K).
+
+config MSM_KGSL_PAGE_TABLE_COUNT
+        int "Number of concurrent pagetables to support"
+        default 8
+        depends on KGSL_PER_PROCESS_PAGE_TABLE
+        ---help---
+          Specify the number of pagetables to allocate at init time
+
 config MSM_KGSL_MMU_PAGE_FAULT
 	bool "Force the GPU MMU to page fault for unmapped regions"
 	default n
 	depends on MSM_KGSL_MMU && !MSM_KGSL_DRM
+
+config MSM_KGSL_DISABLE_SHADOW_WRITES
+        bool "Disable register shadow writes for context switches"
+        default n
+        depends on MSM_KGSL
+
+config MSM_KGSL_CONTEXTS
+	int "Maximum number of GPU HW contexts"
+	default 32
+	depends on GPU_MSM_KGSL
+	help
+	  Set the maximum number of possible concurrent GPU HW contexts.
+	  The actual number of contexts that can be allocated depends
+	  on available system memory.
 
 config MSM_KGSL_PSTMRTMDMP_CP_STAT_NO_DETAIL
 	bool "Disable human readable CP_STAT fields in post-mortem dump"

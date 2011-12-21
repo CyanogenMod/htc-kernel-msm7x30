@@ -29,24 +29,11 @@
 #ifndef __GSL_SHAREDMEM_H
 #define __GSL_SHAREDMEM_H
 
-#include <linux/types.h>
-#include <linux/msm_kgsl.h>
 #include <linux/dma-mapping.h>
 
-#define KGSL_PAGESIZE           0x1000
-#define KGSL_PAGESIZE_SHIFT     12
-#define KGSL_PAGEMASK           (~(KGSL_PAGESIZE - 1))
-
 struct kgsl_pagetable;
-
-struct platform_device;
-struct gen_pool;
-
-/* memory allocation flags */
-#define KGSL_MEMFLAGS_ANY	0x00000000 /*dont care*/
-
-#define KGSL_MEMFLAGS_APERTUREANY 0x00000000
-#define KGSL_MEMFLAGS_EMEM	0x00000000
+struct kgsl_device;
+struct kgsl_process_private;
 
 /* Memflags for caching operations */
 #define KGSL_MEMFLAGS_CACHE_INV		0x00000001
@@ -74,13 +61,8 @@ struct gen_pool;
 #define KGSL_MEMFLAGS_ALIGN64K	0x00100000
 #define KGSL_MEMFLAGS_ALIGNPAGE	KGSL_MEMFLAGS_ALIGN4K
 
-/* fail the alloc if the flags cannot be honored */
-#define KGSL_MEMFLAGS_STRICTREQUEST 0x80000000
 
-#define KGSL_MEMFLAGS_APERTURE_MASK	0x0000F000
 #define KGSL_MEMFLAGS_ALIGN_MASK 	0x00FF0000
-
-#define KGSL_MEMFLAGS_APERTURE_SHIFT	12
 #define KGSL_MEMFLAGS_ALIGN_SHIFT	16
 
 
@@ -94,63 +76,34 @@ struct kgsl_memdesc {
 	unsigned int priv;
 };
 
-struct kgsl_sharedmem {
-	void *baseptr;
-	unsigned int physbase;
-	unsigned int size;
-	struct gen_pool *pool;
-};
+int kgsl_sharedmem_vmalloc(struct kgsl_memdesc *memdesc,
+			   struct kgsl_pagetable *pagetable, size_t size);
 
-int kgsl_sharedmem_alloc(uint32_t flags, int size,
-			struct kgsl_memdesc *memdesc);
-
-static inline int
-kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size)
-{
-	size = ALIGN(size, KGSL_PAGESIZE);
-
-	memdesc->hostptr = dma_alloc_coherent(NULL, size, &memdesc->physaddr,
-					      GFP_KERNEL);
-	if (!memdesc->hostptr)
-		return -ENOMEM;
-	memdesc->size = size;
-	memdesc->priv = KGSL_MEMFLAGS_CONPHYS;
-	return 0;
-}
-
-/*TODO: add protection flags */
-int kgsl_sharedmem_import(struct kgsl_pagetable *,
-				uint32_t phys_addr,
-				uint32_t size,
-				struct kgsl_memdesc *memdesc);
-
+int kgsl_sharedmem_alloc_coherent(struct kgsl_memdesc *memdesc, size_t size);
 
 void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
+
+uint kgsl_get_physaddr(const struct kgsl_memdesc *memdesc);
 
 int kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 			uint32_t *dst,
 			unsigned int offsetbytes);
 
-int kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst,
-			unsigned int offsetbytes, unsigned int sizebytes);
-
 int kgsl_sharedmem_writel(const struct kgsl_memdesc *memdesc,
 			unsigned int offsetbytes,
 			uint32_t src);
-
-int kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc,
-			unsigned int offsetbytes,
-			void *src, unsigned int sizebytes);
 
 int kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc,
 			unsigned int offsetbytes, unsigned int value,
 			unsigned int sizebytes);
 
-int kgsl_sharedmem_init(struct kgsl_sharedmem *shmem);
-
-int kgsl_sharedmem_close(struct kgsl_sharedmem *shmem);
-
 void kgsl_cache_range_op(unsigned long addr, int size,
 			 unsigned int flags);
+
+void kgsl_process_init_sysfs(struct kgsl_process_private *private);
+void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
+
+int kgsl_sharedmem_init_sysfs(void);
+void kgsl_sharedmem_uninit_sysfs(void);
 
 #endif /* __GSL_SHAREDMEM_H */

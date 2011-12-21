@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -42,19 +42,9 @@
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 
-#define DRIVER_NAME "kgsl"
-#define CLASS_NAME "msm_kgsl"
-#define CHIP_REV_251 0x020501
+#define KGSL_NAME "kgsl"
 
-enum kgsl_clk_freq {
-	KGSL_AXI_HIGH_2D = 0,
-	KGSL_AXI_HIGH_3D = 1,
-	KGSL_2D_MIN_FREQ = 2,
-	KGSL_2D_MAX_FREQ = 3,
-	KGSL_3D_MIN_FREQ = 4,
-	KGSL_3D_MAX_FREQ = 5,
-	KGSL_NUM_FREQ
-};
+#define CHIP_REV_251 0x020501
 
 /* Flags to control whether to flush or invalidate a cached memory range */
 #define KGSL_CACHE_INV		0x00000000
@@ -67,72 +57,83 @@ enum kgsl_clk_freq {
 /*cache coherency ops */
 #define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
 #define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
-/* The size of each entry in a page table */
 
+#define KGSL_NUM_2D_DEVICES 2
+#define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
+
+/* The size of each entry in a page table */
 #define KGSL_PAGETABLE_ENTRY_SIZE  4
+
+/* Pagetable Virtual Address base */
+#define KGSL_PAGETABLE_BASE	0x66000000
+
 /* Extra accounting entries needed in the pagetable */
 #define KGSL_PT_EXTRA_ENTRIES      16
-#define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> KGSL_PAGESIZE_SHIFT) + KGSL_PT_EXTRA_ENTRIES)
 
+#define KGSL_PAGETABLE_ENTRIES(_sz) (((_sz) >> PAGE_SHIFT) + \
+				     KGSL_PT_EXTRA_ENTRIES)
+
+#define KGSL_PAGETABLE_SIZE \
+ALIGN(KGSL_PAGETABLE_ENTRIES(CONFIG_MSM_KGSL_PAGE_TABLE_SIZE) * \
+KGSL_PAGETABLE_ENTRY_SIZE, PAGE_SIZE)
+
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
+#define KGSL_PAGETABLE_COUNT (CONFIG_MSM_KGSL_PAGE_TABLE_COUNT)
+#else
+#define KGSL_PAGETABLE_COUNT 1
+#endif
+extern int kgsl_pagetable_count;
+
+/* Casting using container_of() for structures that kgsl owns. */
+#define KGSL_CONTAINER_OF(ptr, type, member) \
+		container_of(ptr, type, member)
+#define KGSL_YAMATO_DEVICE(device) \
+		KGSL_CONTAINER_OF(device, struct kgsl_yamato_device, dev)
+#define KGSL_G12_DEVICE(device) \
+		KGSL_CONTAINER_OF(device, struct kgsl_g12_device, dev)
+
+/* A macro for memory statistics - add the new size to the stat and if
+   the statisic is greater then _max, set _max
+*/
+
+#define KGSL_STATS_ADD(_size, _stat, _max) \
+	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
 
 struct kgsl_driver {
 	struct cdev cdev;
-	dev_t dev_num;
+	dev_t major;
 	struct class *class;
+	/* Virtual device for managing the core */
+	struct device virtdev;
+	/* Kobjects for storing pagetable and process statistics */
+	struct kobject *ptkobj;
+	struct kobject *prockobj;
+	atomic_t device_count;
 	struct kgsl_device *devp[KGSL_DEVICE_MAX];
-	struct device *base_dev[KGSL_DEVICE_MAX];
-	int num_devs;
-	struct platform_device *pdev;
-	struct mutex mutex;
-
-	int yamato_interrupt_num;
-	int yamato_have_irq;
-	int g12_interrupt_num;
-	int g12_have_irq;
-
-	struct clk *g12_grp_pclk;
-	struct clk *g12_grp_clk;
-	struct clk *yamato_grp_pclk;
-	struct clk *yamato_grp_clk;
-	struct clk *yamato_grp_src_clk;
-	struct clk *imem_clk;
-	unsigned int power_flags;
-	unsigned int is_suspended;
-	unsigned int clk_freq[KGSL_NUM_FREQ];
-
-	struct regulator *yamato_reg;
-	struct regulator *g12_reg;
-
-	struct kgsl_devconfig g12_config;
-	struct kgsl_devconfig yamato_config;
 
 	uint32_t flags_debug;
 
-	struct kgsl_sharedmem shmem;
-
-	/* Global list of device_private struct one per open file descriptor */
-	struct list_head dev_priv_list;
+	/* Global lilst of open processes */
+	struct list_head process_list;
 	/* Global list of pagetables */
 	struct list_head pagetable_list;
 	/* Mutex for accessing the pagetable list */
 	struct mutex pt_mutex;
+	/* Mutex for accessing the process list */
+	struct mutex process_mutex;
 
-	struct kgsl_pagetable *global_pt;
-	/* Size (in bytes) for each pagetable */
-	unsigned int ptsize;
-	/* The virtual address range for each pagetable as set by the
-	   platform */
+	/* Mutex for protecting the device list */
+	struct mutex devlock;
 
-	unsigned int pt_va_size;
-	/* A structure for information about the pool of
-	   pagetable memory */
+	struct kgsl_ptpool ptpool;
+
 	struct {
-		unsigned long *bitmap;
-		int entries;
-		spinlock_t lock;
-		void *hostptr;
-		unsigned int physaddr;
-	} ptpool;
+		unsigned int vmalloc;
+		unsigned int vmalloc_max;
+		unsigned int coherent;
+		unsigned int coherent_max;
+		unsigned int histogram[16];
+	} stats;
 };
 
 extern struct kgsl_driver kgsl_driver;
@@ -141,39 +142,11 @@ struct kgsl_mem_entry {
 	struct kgsl_memdesc memdesc;
 	struct file *file_ptr;
 	struct list_head list;
-	struct list_head free_list;
 	uint32_t free_timestamp;
 	/* back pointer to private structure under whose context this
 	* allocation is made */
-	struct kgsl_file_private *priv;
+	struct kgsl_process_private *priv;
 };
-
-enum kgsl_status {
-	KGSL_SUCCESS = 0,
-	KGSL_FAILURE = 1
-};
-
-#define KGSL_TRUE 1
-#define KGSL_FALSE 0
-
-#define KGSL_PRE_HWACCESS() \
-while (1) { \
-	if (device == NULL) \
-		break; \
-	if (device->hwaccess_blocked == KGSL_FALSE) { \
-		break; \
-	} \
-	if (kgsl_driver.is_suspended != KGSL_TRUE) { \
-		device->ftbl.device_wake(device); \
-		break; \
-	} \
-	mutex_unlock(&kgsl_driver.mutex); \
-	wait_for_completion(&device->hwaccess_gate); \
-	mutex_lock(&kgsl_driver.mutex); \
-}
-
-#define KGSL_POST_HWACCESS() \
-	mutex_unlock(&kgsl_driver.mutex)
 
 #ifdef CONFIG_MSM_KGSL_MMU_PAGE_FAULT
 #define MMU_CONFIG 2
@@ -181,20 +154,45 @@ while (1) { \
 #define MMU_CONFIG 1
 #endif
 
-void kgsl_remove_mem_entry(struct kgsl_mem_entry *entry, bool preserve);
-
-int kgsl_pwrctrl(unsigned int pwrflag);
-void kgsl_timer(unsigned long data);
+void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry);
+uint8_t *kgsl_gpuaddr_to_vaddr(const struct kgsl_memdesc *memdesc,
+	unsigned int gpuaddr, unsigned int *size);
+struct kgsl_mem_entry *kgsl_sharedmem_find_region(
+	struct kgsl_process_private *private, unsigned int gpuaddr,
+	size_t size);
 uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
-       unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
-
-void kgsl_idle_check(struct work_struct *work);
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
 int kgsl_idle(struct kgsl_device *device, unsigned int timeout);
 int kgsl_setstate(struct kgsl_device *device, uint32_t flags);
-int kgsl_regread(struct kgsl_device *device, unsigned int offsetwords,
-			unsigned int *value);
-int kgsl_regwrite(struct kgsl_device *device, unsigned int offsetwords,
-			unsigned int value);
+
+static inline void kgsl_regread(struct kgsl_device *device,
+				unsigned int offsetwords,
+				unsigned int *value)
+{
+	device->ftbl.device_regread(device, offsetwords, value);
+}
+
+static inline void kgsl_regwrite(struct kgsl_device *device,
+				 unsigned int offsetwords,
+				 unsigned int value)
+{
+	device->ftbl.device_regwrite(device, offsetwords, value);
+}
+
+static inline void kgsl_regread_isr(struct kgsl_device *device,
+				unsigned int offsetwords,
+				unsigned int *value)
+{
+	device->ftbl.device_regread_isr(device, offsetwords, value);
+}
+
+static inline void kgsl_regwrite_isr(struct kgsl_device *device,
+				 unsigned int offsetwords,
+				 unsigned int value)
+{
+	device->ftbl.device_regwrite_isr(device, offsetwords, value);
+}
+
 int kgsl_check_timestamp(struct kgsl_device *device, unsigned int timestamp);
 
 int kgsl_setup_pt(struct kgsl_pagetable *);
@@ -206,6 +204,19 @@ int kgsl_register_ts_notifier(struct kgsl_device *device,
 
 int kgsl_unregister_ts_notifier(struct kgsl_device *device,
 				struct notifier_block *nb);
+
+int kgsl_device_probe(struct kgsl_device *device,
+		irqreturn_t (*dev_isr) (int, void*));
+void kgsl_device_remove(struct kgsl_device *device);
+
+int kgsl_suspend(struct device *dev);
+int kgsl_resume(struct device *dev);
+int kgsl_runtime_suspend(struct device *dev);
+int kgsl_runtime_resume(struct device *dev);
+extern const struct dev_pm_ops kgsl_pm_ops;
+
+int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
+int kgsl_resume_driver(struct platform_device *pdev);
 
 #ifdef CONFIG_MSM_KGSL_DRM
 extern int kgsl_drm_init(struct platform_device *dev);
@@ -230,6 +241,24 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 		return 1;
 	}
 	return 0;
+}
+
+static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
+{
+	int i;
+
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		if (kgsl_driver.devp[i] && kgsl_driver.devp[i]->dev == dev)
+			return kgsl_driver.devp[i];
+	}
+
+	return NULL;
+}
+
+static inline bool timestamp_cmp(unsigned int new, unsigned int old)
+{
+	int ts_diff = new - old;
+	return (ts_diff >= 0) || (ts_diff < -20000);
 }
 
 #endif /* _GSL_DRIVER_H */

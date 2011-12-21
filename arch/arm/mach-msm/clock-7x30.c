@@ -920,6 +920,12 @@ static long soc_clk_round_rate(unsigned id, unsigned rate)
 	return -EPERM;
 }
 
+long clk_round_rate(struct clk *clk, unsigned long rate)
+{
+	return soc_clk_round_rate(clk->id, rate);
+}
+//EXPORT_SYMBOL(clk_round_rate);
+
 static int soc_clk_set_rate(unsigned id, unsigned rate)
 {
 	struct clk_local *t = &clk_local_tbl[id];

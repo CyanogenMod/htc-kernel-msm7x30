@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,40 +29,35 @@
 #ifndef _KGSL_G12_H
 #define _KGSL_G12_H
 
-#define INTERVAL_G12_TIMEOUT (HZ / 10)
+#define IDX_2D(X) ((X)-KGSL_DEVICE_2D0)
+
+#define DEVICE_2D_NAME "kgsl-2d"
+#define DEVICE_2D0_NAME "kgsl-2d0"
+#define DEVICE_2D1_NAME "kgsl-2d1"
 
 struct kgsl_g12_ringbuffer {
 	unsigned int prevctx;
-	unsigned int numcontext;
 	struct kgsl_memdesc      cmdbufdesc;
-	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
 };
 
 struct kgsl_g12_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	int current_timestamp;
 	int timestamp;
-	wait_queue_head_t wait_timestamp_wq;
 	struct kgsl_g12_ringbuffer ringbuffer;
+	spinlock_t cmdwin_lock;
 };
 
 irqreturn_t kgsl_g12_isr(int irq, void *data);
 int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags);
-struct kgsl_device *kgsl_get_g12_generic_device(void);
-int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
+int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
+void kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
 				unsigned int *value);
-int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+void kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 			unsigned int value);
-
-int __init kgsl_g12_config(struct kgsl_devconfig *,
-				struct platform_device *pdev);
-
-int __init kgsl_g12_init(struct kgsl_device *device,
-			 struct kgsl_devconfig *config);
-
-int kgsl_g12_close(struct kgsl_device *device);
-
-int kgsl_g12_getfunctable(struct kgsl_functable *ftbl);
-
+void kgsl_g12_regread_isr(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int *value);
+void kgsl_g12_regwrite_isr(struct kgsl_device *device, unsigned int offsetwords,
+			unsigned int value);
 
 #endif /* _KGSL_G12_H */

@@ -56,7 +56,11 @@ obj-$(CONFIG_FB_MSM_TVOUT) += tvenc.o tvfb.o
 ifeq ($(CONFIG_GPU_MSM_KGSL_ADRENO205),y)
 obj-$(CONFIG_GPU_MSM_KGSL) += gpu/kgsl_adreno205/
 else
+ifeq ($(CONFIG_GPU_MSM_KGSL_ADRENO205_HC),y)
+obj-$(CONFIG_GPU_MSM_KGSL) += gpu/kgsl_adreno205_hc/
+else
 obj-$(CONFIG_GPU_MSM_KGSL) += gpu/kgsl/
+endif
 endif
 
 obj-$(CONFIG_MSM_HDMI_COMMON) += hdmi_common.o

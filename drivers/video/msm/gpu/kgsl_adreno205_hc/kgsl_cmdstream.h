@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,43 +26,45 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef _KGSL_G12_H
-#define _KGSL_G12_H
 
-#define INTERVAL_G12_TIMEOUT (HZ / 10)
+#ifndef __KGSL_CMDSTREAM_H
+#define __KGSL_CMDSTREAM_H
 
-struct kgsl_g12_ringbuffer {
-	unsigned int prevctx;
-	unsigned int numcontext;
-	struct kgsl_memdesc      cmdbufdesc;
-	unsigned long ctxt_bitmap[BITS_TO_LONGS(KGSL_CONTEXT_MAX)];
-};
+#include <linux/msm_kgsl.h>
+#include "kgsl_device.h"
 
-struct kgsl_g12_device {
-	struct kgsl_device dev;    /* Must be first field in this struct */
-	int current_timestamp;
-	int timestamp;
-	wait_queue_head_t wait_timestamp_wq;
-	struct kgsl_g12_ringbuffer ringbuffer;
-};
+#ifdef KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+#define KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
+#endif /* KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
 
-irqreturn_t kgsl_g12_isr(int irq, void *data);
-int kgsl_g12_setstate(struct kgsl_device *device, uint32_t flags);
-struct kgsl_device *kgsl_get_g12_generic_device(void);
-int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords,
-				unsigned int *value);
-int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords,
-			unsigned int value);
+#ifdef KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
+#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data) 	\
+		kgsl_sharedmem_readl(&device->memstore, (data),	\
+				KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp))
+#else
+#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)	\
+		kgsl_yamato_regread(device, REG_CP_TIMESTAMP, (data))
+#endif /* KGSL_CMDSTREAM_USE_MEM_TIMESTAMP */
 
-int __init kgsl_g12_config(struct kgsl_devconfig *,
-				struct platform_device *pdev);
+#define KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)	\
+		kgsl_sharedmem_readl(&device->memstore, (data),	\
+				KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp))
 
-int __init kgsl_g12_init(struct kgsl_device *device,
-			 struct kgsl_devconfig *config);
+/* Flags to control command packet settings */
+#define KGSL_CMD_FLAGS_PMODE			0x00000001
+#define KGSL_CMD_FLAGS_NO_TS_CMP		0x00000002
+#define KGSL_CMD_FLAGS_NOT_KERNEL_CMD		0x00000004
 
-int kgsl_g12_close(struct kgsl_device *device);
+/* Command identifiers */
+#define KGSL_CONTEXT_TO_MEM_IDENTIFIER		0xDEADBEEF
+#define KGSL_CMD_IDENTIFIER			0xFEEDFACE
 
-int kgsl_g12_getfunctable(struct kgsl_functable *ftbl);
+struct kgsl_mem_entry;
 
+int kgsl_cmdstream_close(struct kgsl_device *device);
 
-#endif /* _KGSL_G12_H */
+uint32_t
+kgsl_cmdstream_readtimestamp(struct kgsl_device *device,
+			     enum kgsl_timestamp_type type);
+
+#endif /* __KGSL_CMDSTREAM_H */

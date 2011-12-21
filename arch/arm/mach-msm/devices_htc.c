@@ -61,13 +61,13 @@ void __init msm_add_devices(void)
 
 static struct android_pmem_platform_data pmem_pdata = {
 	.name = "pmem",
-	.no_allocator = PMEM_ALLOCATORTYPE_ALLORNOTHING,
+	.allocator_type = PMEM_ALLOCATORTYPE_ALLORNOTHING,
 	.cached = 1,
 };
 
 static struct android_pmem_platform_data pmem_adsp_pdata = {
 	.name = "pmem_adsp",
-	.no_allocator = PMEM_ALLOCATORTYPE_BITMAP,
+	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
 #if defined(CONFIG_ARCH_MSM7227)
 	.cached = 1,
 #else
@@ -77,7 +77,7 @@ static struct android_pmem_platform_data pmem_adsp_pdata = {
 
 static struct android_pmem_platform_data pmem_camera_pdata = {
 	.name = "pmem_camera",
-	.no_allocator = PMEM_ALLOCATORTYPE_BITMAP,
+	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
 	.cached = 0,
 };
 
@@ -166,7 +166,7 @@ static struct platform_device hw3d_device = {
 };
 #endif
 
-#if defined(CONFIG_GPU_MSM_KGSL) && !defined(CONFIG_ARCH_MSM8X60)
+#if defined(CONFIG_GPU_MSM_KGSL) && !defined(CONFIG_ARCH_MSM8X60) && !defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
 static struct resource msm_kgsl_resources[] = {
 	{
 		.name	= "kgsl_reg_memory",
@@ -270,6 +270,111 @@ static int kgsl_power(bool on)
 }
 #endif
 
+#else //CONFIG_GPU_MSM_KGSL_ADRENO205_HC
+static struct resource kgsl_3d0_resources[] = {
+	{
+		.name  = KGSL_3D0_REG_MEMORY,
+		.start = 0xA3500000, /* 3D GRP address */
+		.end = 0xA351ffff,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = KGSL_3D0_IRQ,
+		.start = INT_GRP_3D,
+		.end = INT_GRP_3D,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct kgsl_device_platform_data kgsl_3d0_pdata = {
+	.pwr_data = {
+		.pwrlevel = {
+			{
+				.gpu_freq = 245760000,
+				.bus_freq = 192000000,
+			},
+			{
+				.gpu_freq = 192000000,
+				.bus_freq = 0,
+			},
+		},
+		.init_level = 0,
+		.num_levels = 2,
+		.set_grp_async = set_grp3d_async,
+		.idle_timeout = HZ/20,
+		.nap_allowed = true,
+	},
+	.clk = {
+		.name = {
+			.clk = "grp_clk",
+			.pclk = "grp_pclk",
+		},
+	},
+	.imem_clk_name = {
+		.clk = "imem_clk",
+		.pclk = NULL,
+	},
+};
+
+static struct platform_device msm_kgsl_3d0 = {
+	.name = "kgsl-3d0",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(kgsl_3d0_resources),
+	.resource = kgsl_3d0_resources,
+	.dev = {
+		.platform_data = &kgsl_3d0_pdata,
+	},
+};
+
+#ifdef CONFIG_MSM_KGSL_2D
+static struct resource kgsl_2d0_resources[] = {
+	{
+		.name = KGSL_2D0_REG_MEMORY,
+		.start = 0xA3900000, /* Z180 base address */
+		.end = 0xA3900FFF,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.name = KGSL_2D0_IRQ,
+		.start = INT_GRP_2D,
+		.end = INT_GRP_2D,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct kgsl_device_platform_data kgsl_2d0_pdata = {
+	.pwr_data = {
+		.pwrlevel = {
+			{
+				.gpu_freq = 0,
+				.bus_freq = 192000000,
+			},
+		},
+		.init_level = 0,
+		.num_levels = 1,
+		/* HW workaround, run Z180 SYNC @ 192 MHZ */
+		.set_grp_async = NULL,
+		.idle_timeout = HZ/10,
+		.nap_allowed = true,
+	},
+	.clk = {
+		.name = {
+			.clk = "grp_2d_clk",
+			.pclk = "grp_2d_pclk",
+		},
+	},
+};
+
+static struct platform_device msm_kgsl_2d0 = {
+	.name = "kgsl-2d0",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(kgsl_2d0_resources),
+	.resource = kgsl_2d0_resources,
+	.dev = {
+		.platform_data = &kgsl_2d0_pdata,
+	},
+};
+#endif
 #endif
 
 void __init msm_add_mem_devices(struct msm_pmem_setting *setting)
@@ -316,7 +421,7 @@ void __init msm_add_mem_devices(struct msm_pmem_setting *setting)
 		platform_device_register(&ram_console_device);
 	}
 
-#if defined(CONFIG_GPU_MSM_KGSL)&& !defined(CONFIG_ARCH_MSM8X60)
+#if defined(CONFIG_GPU_MSM_KGSL)&& !defined(CONFIG_ARCH_MSM8X60) && !defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
 	if (setting->kgsl_size) {
 		msm_kgsl_resources[1].start = setting->kgsl_start;
 		msm_kgsl_resources[1].end = setting->kgsl_start
@@ -331,6 +436,11 @@ void __init msm_add_mem_devices(struct msm_pmem_setting *setting)
 #endif
 		platform_device_register(&msm_kgsl_device);
 	}
+#else
+	platform_device_register(&msm_kgsl_3d0);
+#ifdef CONFIG_MSM_KGSL_2D
+	platform_device_register(&msm_kgsl_2d0);
+#endif
 #endif
 
 #ifdef CONFIG_MSM_CAMERA_7X30
@@ -357,48 +467,6 @@ static struct platform_device *msm_serial_devices[] __initdata = {
 	#endif
 #endif
 };
-
-#ifdef CONFIG_ARCH_MSM8X60
-static struct msm_mem_settings mem_settings[] = {
-	/* First is default settings. */
-	{
-		.mem_size_mb = 768,
-		.mem_info = {
-			.nr_banks = 2,
-			.bank = {
-				[0] = {
-					.start = 0x40400000,
-					.node = PHYS_TO_NID(0x40400000),
-					.size = 0x42E00000 - 0x40400000,
-				},
-				[1] = {
-					.start = 0x48000000,
-					.node = PHYS_TO_NID(0x48000000),
-					.size = 0x70000000 - 0x48000000,
-				}
-			}
-		}
-	},
-	{
-		.mem_size_mb = 1024,
-		.mem_info = {
-			.nr_banks = 2,
-			.bank = {
-				[0] = {
-					.start = 0x40400000,
-					.node = PHYS_TO_NID(0x40400000),
-					.size = 0x42E00000 - 0x40400000,
-				},
-				[1] = {
-					.start = 0x48000000,
-					.node = PHYS_TO_NID(0x48000000),
-					.size = 0x80000000 - 0x48000000,
-				}
-			}
-		}
-	}
-};
-#endif
 
 int __init msm_add_serial_devices(unsigned num)
 {
@@ -742,7 +810,6 @@ __tagtable(ATAG_PS_TYPE, tag_ps_parsing);
 
 #define ATAG_ENGINEERID 0x4d534D75
 unsigned engineer_id;
-EXPORT_SYMBOL(engineer_id);
 int __init parse_tag_engineerid(const struct tag *tags)
 {
 	int engineerid = 0, find = 0;
@@ -857,38 +924,7 @@ int __init parse_tag_extdiag(const struct tag *tags)
 }
 
 #if defined(CONFIG_ARCH_MSM8X60)
-static struct msm_mem_settings *board_find_mem_settings(unsigned mem_size_mb)
-{
-	int index;
-	for (index = 0; index < sizeof(mem_settings) / sizeof(mem_settings[0]); index++) {
-		if (mem_settings[index].mem_size_mb == mem_size_mb) {
-			pr_info("%s: %d MB settings is found.\n", __func__, mem_size_mb);
-			return &mem_settings[index];
-		}
-	}
-	pr_info("%s: use default mem bank settigs.\n", __func__);
-	return &mem_settings[0];
-}
-
-int msm_fixup(struct tag *tags, struct meminfo *mi)
-{
-	unsigned mem_size_mb = parse_tag_memsize((const struct tag *)tags);
-	struct msm_mem_settings *settings = board_find_mem_settings(mem_size_mb);
-	int index = 0;
-
-	pr_info("%s: mem size = %d\n", __func__, mem_size_mb);
-
-	mi->nr_banks = settings->mem_info.nr_banks;
-	for (index = 0; index < settings->mem_info.nr_banks; index++) {
-		mi->bank[index].start = settings->mem_info.bank[index].start;
-		mi->bank[index].node = settings->mem_info.bank[index].node;
-		mi->bank[index].size = settings->mem_info.bank[index].size;
-	}
-	return 0;
-}
-#endif
-
-static unsigned int radio_flag = 0;
+static unsigned int radio_flag;
 int __init radio_flag_init(char *s)
 {
 	radio_flag = simple_strtoul(s, 0, 16);
@@ -900,6 +936,7 @@ unsigned int get_radio_flag(void)
 {
 	return radio_flag;
 }
+#endif
 
 static unsigned int kernel_flag = 0;
 int __init kernel_flag_init(char *s)

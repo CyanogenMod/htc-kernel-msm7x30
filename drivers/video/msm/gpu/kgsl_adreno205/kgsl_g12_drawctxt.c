@@ -46,7 +46,6 @@ kgsl_g12_drawctxt_create(struct kgsl_device_private *dev_priv,
 	g12_device->ringbuffer.numcontext++;
 	ctx_id = find_first_zero_bit(g12_device->ringbuffer.ctxt_bitmap,
 				     KGSL_CONTEXT_MAX);
-
 	set_bit(ctx_id, g12_device->ringbuffer.ctxt_bitmap);
 	*drawctxt_id = ctx_id;
 

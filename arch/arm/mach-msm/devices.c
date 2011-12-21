@@ -432,6 +432,55 @@ struct platform_device msm_device_hsusb = {
 };
 #endif
 
+static u64 dma_mask = 0xffffffffULL;
+static struct resource resources_otg[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + MSM_HSUSB_SIZE,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_USB_OTG,
+		.end	= INT_USB_OTG,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_otg = {
+	.name		= "msm_otg",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_otg),
+	.resource	= resources_otg,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
+static struct resource resources_hsusb_host[] = {
+	{
+		.start	= MSM_HSUSB_PHYS,
+		.end	= MSM_HSUSB_PHYS + MSM_HSUSB_SIZE,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= INT_USB_HS,
+		.end	= INT_USB_HS,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device msm_device_hsusb_host = {
+	.name		= "msm_hsusb_host",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(resources_hsusb_host),
+	.resource	= resources_hsusb_host,
+	.dev		= {
+		.dma_mask		= &dma_mask,
+		.coherent_dma_mask	= 0xffffffffULL,
+	},
+};
+
 void __init msm_add_usb_devices(void (*phy_reset) (void), void (*phy_shutdown) (void))
 {
 	/* setup */

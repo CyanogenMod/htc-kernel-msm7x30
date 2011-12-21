@@ -29,6 +29,9 @@
 #ifndef _MSM_KGSL_H
 #define _MSM_KGSL_H
 
+#define KGSL_VERSION_MAJOR        3
+#define KGSL_VERSION_MINOR        2
+
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM	1
 #define KGSL_CONTEXT_NO_GMEM_ALLOC	2
@@ -50,9 +53,11 @@
 #define KGSL_FLAGS_RESERVED2   0x00000080
 #define KGSL_FLAGS_SOFT_RESET  0x00000100
 
+#define KGSL_MAX_PWRLEVELS 5
+
 /* device id */
 enum kgsl_deviceid {
-#if defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO220) || defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
 	KGSL_DEVICE_YAMATO	= 0x00000000,
 	KGSL_DEVICE_2D0		= 0x00000001,
 	KGSL_DEVICE_2D1		= 0x00000002,
@@ -103,6 +108,10 @@ struct kgsl_devmemstore {
 	unsigned int sbz3;
 	volatile unsigned int ref_wait_ts;
 	unsigned int sbz4;
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
+	unsigned int current_context;
+	unsigned int sbz5;
+#endif
 };
 
 #define KGSL_DEVICE_MEMSTORE_OFFSET(field) \
@@ -125,6 +134,9 @@ enum kgsl_property_type {
 	KGSL_PROP_SHMEM_APERTURES = 0x00000005,
 	KGSL_PROP_MMU_ENABLE 	  = 0x00000006,
 	KGSL_PROP_INTERRUPT_WAITS = 0x00000007,
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
+	KGSL_PROP_VERSION         = 0x00000008,
+#endif
 };
 
 struct kgsl_shadowprop {
@@ -133,7 +145,7 @@ struct kgsl_shadowprop {
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
-#if defined(CONFIG_ARCH_MSM7X30) || defined(CONFIG_ARCH_MSM8X60)
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205) || defined(CONFIG_ARCH_MSM8X60)
 #include <mach/msm_bus.h>
 struct kgsl_platform_data {
 	unsigned int high_axi_2d;
@@ -161,6 +173,56 @@ struct kgsl_platform_data {
 	unsigned int pt_va_size;
 	unsigned int pt_max_count;
 };
+#elif defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
+struct kgsl_pwrlevel {
+	unsigned int gpu_freq;
+	unsigned int bus_freq;
+};
+
+struct kgsl_version {
+	unsigned int drv_major;
+	unsigned int drv_minor;
+	unsigned int dev_major;
+	unsigned int dev_minor;
+};
+
+#include <mach/msm_bus.h>
+
+#define KGSL_3D0_REG_MEMORY	"kgsl_3d0_reg_memory"
+#define KGSL_3D0_IRQ		"kgsl_3d0_irq"
+#define KGSL_2D0_REG_MEMORY	"kgsl_2d0_reg_memory"
+#define KGSL_2D0_IRQ		"kgsl_2d0_irq"
+#define KGSL_2D1_REG_MEMORY	"kgsl_2d1_reg_memory"
+#define KGSL_2D1_IRQ		"kgsl_2d1_irq"
+
+struct kgsl_grp_clk_name {
+	const char *clk;
+	const char *pclk;
+};
+
+struct kgsl_device_pwr_data {
+	struct kgsl_pwrlevel pwrlevel[KGSL_MAX_PWRLEVELS];
+	int init_level;
+	int num_levels;
+	int (*set_grp_async)(void);
+	unsigned int idle_timeout;
+	unsigned int nap_allowed;
+	bool pwrrail_first;
+	unsigned int idle_pass;
+};
+
+struct kgsl_clk_data {
+	struct kgsl_grp_clk_name name;
+	struct msm_bus_scale_pdata *bus_scale_table;
+};
+
+struct kgsl_device_platform_data {
+	struct kgsl_device_pwr_data pwr_data;
+	struct kgsl_clk_data clk;
+	/* imem_clk_name is for 3d only, not used in 2d devices */
+	struct kgsl_grp_clk_name imem_clk_name;
+};
+
 #endif
 
 /* structure holds list of ibs */
@@ -228,7 +290,7 @@ struct kgsl_device_waittimestamp {
  * other ioctls to determine when the commands have been executed by
  * the GPU.
  */
-#if  defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO220) || defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
 struct kgsl_ringbuffer_issueibcmds {
 	unsigned int drawctxt_id;
 	unsigned int ibdesc_addr;
@@ -270,10 +332,22 @@ struct kgsl_cmdstream_freememontimestamp {
 	unsigned int type;
 	unsigned int timestamp;
 };
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
+#define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP \
+	_IOW(KGSL_IOC_TYPE, 0x12, struct kgsl_cmdstream_freememontimestamp)
 
+/* Previous versions of this header had incorrectly defined
+   IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP as a read-only ioctl instead
+   of a write only ioctl.  To ensure binary compatability, the following
+   #define will be used to intercept the incorrect ioctl
+*/
+
+#define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP_OLD \
+	_IOR(KGSL_IOC_TYPE, 0x12, struct kgsl_cmdstream_freememontimestamp)
+#else
 #define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP \
 	_IOR(KGSL_IOC_TYPE, 0x12, struct kgsl_cmdstream_freememontimestamp)
-
+#endif
 /* create a draw context, which is used to preserve GPU state.
  * The flags field may contain a mask KGSL_CONTEXT_*  values
  */
@@ -361,7 +435,7 @@ struct kgsl_bind_gmem_shadow {
 struct kgsl_sharedmem_from_vmalloc {
 	unsigned int gpuaddr;	/*output param */
 	unsigned int hostptr;
-#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205) || defined(CONFIG_GPU_MSM_KGSL_ADRENO220)
+#if defined(CONFIG_GPU_MSM_KGSL_ADRENO205) || defined(CONFIG_GPU_MSM_KGSL_ADRENO220) || defined(CONFIG_GPU_MSM_KGSL_ADRENO205_HC)
 	unsigned int flags;
 #else
 	/* If set from user space then will attempt to
