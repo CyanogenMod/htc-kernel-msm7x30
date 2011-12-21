@@ -210,9 +210,9 @@ static int AKECS_GetData(void)
 	char buffer[RBUFF_SIZE_8975 + 1];
 	int ret;
 
-	memset(buffer, 0, RBUFF_SIZE_8975);
+	memset(buffer, 0, RBUFF_SIZE_8975 + 1);
 	buffer[0] = AK8975_REG_ST1;
-	ret = AKI2C_RxData(buffer, RBUFF_SIZE_8975);
+	ret = AKI2C_RxData(buffer, RBUFF_SIZE_8975 + 1);
 	if (ret < 0)
 		return ret;
 
@@ -500,8 +500,8 @@ akmd_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 	void __user *argp = (void __user *)arg;
 
 	char msg[RBUFF_SIZE_8975 + 1] = "", rwbuf[RBUFF_SIZE_8975 + 1] = "";
-	int ret = -1, status;
-	short mode, value[12], delay;
+	int ret = -1, status = 0;
+	short mode = 0, value[12] = {0}, delay;
 	short layouts[4][3][3];
 	int i, j, k;
 
@@ -789,6 +789,8 @@ static ssize_t debug_store(struct device *dev,
 	debug_flag = -1;
 	sscanf(buf, "%d", &debug_flag);
 
+	D("%s: debug_flag = %d\n", __func__, debug_flag);
+
 	return count;
 }
 
@@ -811,6 +813,8 @@ static ssize_t disable_store(struct device *dev,
 {
 	disable_flag = -1;
 	sscanf(buf, "%d", &disable_flag);
+
+	D("%s: disable_flag = %d\n", __func__, disable_flag);
 
 	if (disable_flag == 1)
 		atomic_set(&a_flag, 0);
