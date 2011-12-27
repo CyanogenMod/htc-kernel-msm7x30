@@ -26,18 +26,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef __GSL_RINGBUFFER_H
-#define __GSL_RINGBUFFER_H
-#include <linux/msm_kgsl.h>
-#include <linux/mutex.h>
-#include "yamato_reg.h"
+#ifndef __ADRENO_RINGBUFFER_H
+#define __ADRENO_RINGBUFFER_H
 
 #define GSL_RB_USE_MEM_RPTR
 #define GSL_RB_USE_MEM_TIMESTAMP
 #define GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 
 /* ringbuffer sizes log2quadword */
-#define GSL_RB_SIZE_8	 	0
+#define GSL_RB_SIZE_8		0
 #define GSL_RB_SIZE_16		1
 #define GSL_RB_SIZE_32		2
 #define GSL_RB_SIZE_64		3
@@ -173,10 +170,6 @@ void kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 					unsigned int *cmdaddr,
 					int sizedwords);
 
-int kgsl_ringbuffer_gettimestampshadow(struct kgsl_device *device,
-					unsigned int *sopaddr,
-					unsigned int *eopaddr);
-
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 
 int kgsl_ringbuffer_extract(struct kgsl_ringbuffer *rb,
@@ -208,4 +201,4 @@ kgsl_allocate_contig(struct kgsl_memdesc *memdesc, size_t size)
 	return kgsl_sharedmem_alloc_coherent(memdesc, size);
 }
 
-#endif  /* __GSL_RINGBUFFER_H */
+#endif  /* __ADRENO_RINGBUFFER_H */

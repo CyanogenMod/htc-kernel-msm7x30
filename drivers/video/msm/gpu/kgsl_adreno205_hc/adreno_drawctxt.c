@@ -9,77 +9,65 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
  */
-#include <linux/string.h>
-#include <linux/types.h>
 #include <linux/slab.h>
-#include <linux/msm_kgsl.h>
 
-#include "yamato_reg.h"
-#include "leia_reg.h"
 #include "kgsl.h"
-#include "kgsl_yamato.h"
-#include "kgsl_log.h"
-#include "kgsl_pm4types.h"
-#include "kgsl_drawctxt.h"
-#include "kgsl_cmdstream.h"
-#include "kgsl_cffdump.h"
+
+#include "adreno.h"
+#include "adreno_pm4types.h"
+#include "adreno_drawctxt.h"
 
 /*
-*
-*  Memory Map for Register, Constant & Instruction Shadow, and Command Buffers
-*  (34.5KB)
-*
-*  +---------------------+------------+-------------+---+---------------------+
-*  | ALU Constant Shadow | Reg Shadow | C&V Buffers |Tex| Shader Instr Shadow |
-*  +---------------------+------------+-------------+---+---------------------+
-*    ________________________________/               \____________________
-*   /                                                                     |
-*  +--------------+-----------+------+-----------+------------------------+
-*  | Restore Regs | Save Regs | Quad | Gmem Save | Gmem Restore | unused  |
-*  +--------------+-----------+------+-----------+------------------------+
-*
-* 		 8K - ALU Constant Shadow (8K aligned)
-* 		 4K - H/W Register Shadow (8K aligned)
-* 		 4K - Command and Vertex Buffers
-* 				- Indirect command buffer : Const/Reg restore
-* 					- includes Loop & Bool const shadows
-* 				- Indirect command buffer : Const/Reg save
-* 				- Quad vertices & texture coordinates
-* 				- Indirect command buffer : Gmem save
-* 				- Indirect command buffer : Gmem restore
-* 				- Unused (padding to 8KB boundary)
-* 		<1K - Texture Constant Shadow (768 bytes) (8K aligned)
-*       18K - Shader Instruction Shadow
-*               - 6K vertex (32 byte aligned)
-*               - 6K pixel  (32 byte aligned)
-*               - 6K shared (32 byte aligned)
-*
-*  Note: Reading constants into a shadow, one at a time using REG_TO_MEM, takes
-*  3 DWORDS per DWORD transfered, plus 1 DWORD for the shadow, for a total of
-*  16 bytes per constant.  If the texture constants were transfered this way,
-*  the Command & Vertex Buffers section would extend past the 16K boundary.
-*  By moving the texture constant shadow area to start at 16KB boundary, we
-*  only require approximately 40 bytes more memory, but are able to use the
-*  LOAD_CONSTANT_CONTEXT shadowing feature for the textures, speeding up
-*  context switching.
-*
-*  [Using LOAD_CONSTANT_CONTEXT shadowing feature for the Loop and/or Bool
-*  constants would require an additional 8KB each, for alignment.]
-*
-*/
+ *
+ *  Memory Map for Register, Constant & Instruction Shadow, and Command Buffers
+ *  (34.5KB)
+ *
+ *  +---------------------+------------+-------------+---+---------------------+
+ *  | ALU Constant Shadow | Reg Shadow | C&V Buffers |Tex| Shader Instr Shadow |
+ *  +---------------------+------------+-------------+---+---------------------+
+ *    ________________________________/               \____________________
+ *   /                                                                     |
+ *  +--------------+-----------+------+-----------+------------------------+
+ *  | Restore Regs | Save Regs | Quad | Gmem Save | Gmem Restore | unused  |
+ *  +--------------+-----------+------+-----------+------------------------+
+ *
+ *              8K - ALU Constant Shadow (8K aligned)
+ *              4K - H/W Register Shadow (8K aligned)
+ *              4K - Command and Vertex Buffers
+ *                         - Indirect command buffer : Const/Reg restore
+ *                               - includes Loop & Bool const shadows
+ *                         - Indirect command buffer : Const/Reg save
+ *                         - Quad vertices & texture coordinates
+ *                         - Indirect command buffer : Gmem save
+ *                         - Indirect command buffer : Gmem restore
+ *                         - Unused (padding to 8KB boundary)
+ *             <1K - Texture Constant Shadow (768 bytes) (8K aligned)
+ *       18K - Shader Instruction Shadow
+ *               - 6K vertex (32 byte aligned)
+ *               - 6K pixel  (32 byte aligned)
+ *               - 6K shared (32 byte aligned)
+ *
+ *  Note: Reading constants into a shadow, one at a time using REG_TO_MEM, takes
+ *  3 DWORDS per DWORD transfered, plus 1 DWORD for the shadow, for a total of
+ *  16 bytes per constant.  If the texture constants were transfered this way,
+ *  the Command & Vertex Buffers section would extend past the 16K boundary.
+ *  By moving the texture constant shadow area to start at 16KB boundary, we
+ *  only require approximately 40 bytes more memory, but are able to use the
+ *  LOAD_CONSTANT_CONTEXT shadowing feature for the textures, speeding up
+ *  context switching.
+ *
+ *  [Using LOAD_CONSTANT_CONTEXT shadowing feature for the Loop and/or Bool
+ *  constants would require an additional 8KB each, for alignment.]
+ *
+ */
 
 /* Constants */
 
 #define ALU_CONSTANTS	2048	/* DWORDS */
 #define NUM_REGISTERS	1024	/* DWORDS */
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
-#define CMD_BUFFER_LEN  9216	/* DWORDS */
+#define CMD_BUFFER_LEN	9216	/* DWORDS */
 #else
 #define CMD_BUFFER_LEN	3072	/* DWORDS */
 #endif
@@ -101,17 +89,17 @@
 #define ALU_SHADOW_SIZE		LCC_SHADOW_SIZE	/* 8KB */
 #define REG_SHADOW_SIZE		0x1000	/* 4KB */
 #ifdef CONFIG_MSM_KGSL_DISABLE_SHADOW_WRITES
-#define CMD_BUFFER_SIZE     0x9000	/* 36KB */
+#define CMD_BUFFER_SIZE		0x9000	/* 36KB */
 #else
 #define CMD_BUFFER_SIZE		0x3000	/* 12KB */
 #endif
 #define TEX_SHADOW_SIZE		(TEX_CONSTANTS*4)	/* 768 bytes */
-#define SHADER_SHADOW_SIZE      (SHADER_INSTRUCT*12)	/* 6KB */
+#define SHADER_SHADOW_SIZE	(SHADER_INSTRUCT*12)	/* 6KB */
 
 #define REG_OFFSET		LCC_SHADOW_SIZE
 #define CMD_OFFSET		(REG_OFFSET + REG_SHADOW_SIZE)
 #define TEX_OFFSET		(CMD_OFFSET + CMD_BUFFER_SIZE)
-#define	SHADER_OFFSET		((TEX_OFFSET + TEX_SHADOW_SIZE + 32) & ~31)
+#define SHADER_OFFSET		((TEX_OFFSET + TEX_SHADOW_SIZE + 32) & ~31)
 
 #define CONTEXT_SIZE		(SHADER_OFFSET + 3 * SHADER_SHADOW_SIZE)
 
@@ -699,10 +687,6 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 	*cmds++ = PM4_REG(REG_PA_SC_AA_MASK);
 	*cmds++ = 0x0000ffff;	/* REG_PA_SC_AA_MASK */
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-	*cmds++ = PM4_REG(REG_RB_COLORCONTROL);
-	*cmds++ = 0x00000c20;
-
 	/* load the patched vertex shader stream */
 	cmds = program_shader(cmds, 0, gmem2sys_vtx_pgm, GMEM2SYS_VTX_PGM_LEN);
 
@@ -784,19 +768,6 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 	*cmds++ = 0xbf800000;	/* -1.0f */
 	*cmds++ = 0x0;
 
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-	*cmds++ = PM4_REG(REG_RB_COLOR_MASK);
-	*cmds++ = 0x0000000f;	/* R = G = B = 1:enabled */
-
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-	*cmds++ = PM4_REG(REG_RB_COLOR_DEST_MASK);
-	*cmds++ = 0xffffffff;
-
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-	*cmds++ = PM4_REG(REG_SQ_WRAPPING_0);
-	*cmds++ = 0x00000000;
-	*cmds++ = 0x00000000;
-
 	/* load the stencil ref value
 	 * $AAM - do this later
 	 */
@@ -820,16 +791,6 @@ static unsigned int *build_gmem2sys_cmds(struct kgsl_device *device,
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
 	*cmds++ = PM4_REG(REG_RB_MODECONTROL);
 	*cmds++ = 0x6;		/* EDRAM copy */
-
-	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
-		*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-		*cmds++ = PM4_REG(REG_LEIA_RB_LRZ_VSC_CONTROL);
-		*cmds++ = 0;
-	}
-
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-	*cmds++ = PM4_REG(REG_PA_CL_CLIP_CNTL);
-	*cmds++ = 0x00010000;
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		*cmds++ = 0xc0043600; /* packet 3 3D_DRAW_INDX_2 */
@@ -943,8 +904,7 @@ static unsigned int *build_sys2gmem_cmds(struct kgsl_device *device,
 
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
 	*cmds++ = PM4_REG(REG_SQ_INTERPOLATOR_CNTL);
-	//*cmds++ = 0x0000ffff; //mmSQ_INTERPOLATOR_CNTL
-	*cmds++ = 0xffffffff;	//mmSQ_INTERPOLATOR_CNTL
+	*cmds++ = 0xffffffff;	/* mmSQ_INTERPOLATOR_CNTL */
 
 	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
 	*cmds++ = PM4_REG(REG_PA_SC_AA_CONFIG);
@@ -1040,16 +1000,6 @@ static unsigned int *build_sys2gmem_cmds(struct kgsl_device *device,
 	*cmds++ = PM4_REG(REG_RB_MODECONTROL);
 	/* draw pixels with color and depth/stencil component */
 	*cmds++ = 0x4;
-
-	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
-		*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-		*cmds++ = PM4_REG(REG_LEIA_RB_LRZ_VSC_CONTROL);
-		*cmds++ = 0;
-	}
-
-	*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-	*cmds++ = PM4_REG(REG_PA_CL_CLIP_CNTL);
-	*cmds++ = 0x00010000;
 
 	if (device->chip_id == KGSL_CHIPID_LEIA_REV470) {
 		*cmds++ = 0xc0043600; /* packet 3 3D_DRAW_INDX_2 */
@@ -1676,13 +1626,6 @@ kgsl_drawctxt_switch(struct kgsl_yamato_device *yamato_device,
 
 		KGSL_CTXT_INFO(device,
 			"drawctxt flags %08x\n", drawctxt->flags);
-		cmds[0] = pm4_nop_packet(1);
-		cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
-		cmds[2] = pm4_type3_packet(PM4_MEM_WRITE, 2);
-		cmds[3] = device->memstore.gpuaddr +
-				KGSL_DEVICE_MEMSTORE_OFFSET(current_context);
-		cmds[4] = (unsigned int)yamato_device->drawctxt_active;
-		kgsl_ringbuffer_issuecmds(device, 0, cmds, 5);
 		kgsl_mmu_setstate(device, drawctxt->pagetable);
 
 #ifndef CONFIG_MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
@@ -1691,6 +1634,13 @@ kgsl_drawctxt_switch(struct kgsl_yamato_device *yamato_device,
 			REG_SHADOW_SIZE + CMD_BUFFER_SIZE + TEX_SHADOW_SIZE,
 			false);
 #endif
+		cmds[0] = pm4_nop_packet(1);
+		cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
+		cmds[2] = pm4_type3_packet(PM4_MEM_WRITE, 2);
+		cmds[3] = device->memstore.gpuaddr +
+				KGSL_DEVICE_MEMSTORE_OFFSET(current_context);
+		cmds[4] = (unsigned int)yamato_device->drawctxt_active;
+		kgsl_ringbuffer_issuecmds(device, 0, cmds, 5);
 
 		/* restore gmem.
 		 *  (note: changes shader. shader must not already be restored.)

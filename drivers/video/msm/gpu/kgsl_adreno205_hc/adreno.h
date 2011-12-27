@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,45 +26,50 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#ifndef __ADRENO_H
+#define __ADRENO_H
 
-#ifndef __KGSL_CMDSTREAM_H
-#define __KGSL_CMDSTREAM_H
+#include "adreno_drawctxt.h"
+#include "adreno_ringbuffer.h"
 
-#include <linux/msm_kgsl.h>
-#include "kgsl_device.h"
-
-#ifdef KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER
-#define KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
-#endif /* KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
-
-#ifdef KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
-#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data) 	\
-		kgsl_sharedmem_readl(&device->memstore, (data),	\
-				KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp))
-#else
-#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)	\
-		kgsl_yamato_regread(device, REG_CP_TIMESTAMP, (data))
-#endif /* KGSL_CMDSTREAM_USE_MEM_TIMESTAMP */
-
-#define KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)	\
-		kgsl_sharedmem_readl(&device->memstore, (data),	\
-				KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp))
+#define DEVICE_3D_NAME "kgsl-3d"
+#define DEVICE_3D0_NAME "kgsl-3d0"
 
 /* Flags to control command packet settings */
-#define KGSL_CMD_FLAGS_PMODE			0x00000001
-#define KGSL_CMD_FLAGS_NO_TS_CMP		0x00000002
-#define KGSL_CMD_FLAGS_NOT_KERNEL_CMD		0x00000004
+#define KGSL_CMD_FLAGS_PMODE           0x00000001
+#define KGSL_CMD_FLAGS_NO_TS_CMP       0x00000002
+#define KGSL_CMD_FLAGS_NOT_KERNEL_CMD  0x00000004
 
 /* Command identifiers */
-#define KGSL_CONTEXT_TO_MEM_IDENTIFIER		0xDEADBEEF
-#define KGSL_CMD_IDENTIFIER			0xFEEDFACE
+#define KGSL_CONTEXT_TO_MEM_IDENTIFIER 0xDEADBEEF
+#define KGSL_CMD_IDENTIFIER            0xFEEDFACE
 
-struct kgsl_mem_entry;
+struct kgsl_yamato_device {
+	struct kgsl_device dev;    /* Must be first field in this struct */
+	struct kgsl_memregion gmemspace;
+	struct kgsl_yamato_context *drawctxt_active;
+	wait_queue_head_t ib1_wq;
+	unsigned int *pfp_fw;
+	size_t pfp_fw_size;
+	unsigned int *pm4_fw;
+	size_t pm4_fw_size;
+	struct kgsl_ringbuffer ringbuffer;
+};
 
-int kgsl_cmdstream_close(struct kgsl_device *device);
 
-uint32_t
-kgsl_cmdstream_readtimestamp(struct kgsl_device *device,
-			     enum kgsl_timestamp_type type);
+int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout);
+void kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int *value);
+void kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords,
+				unsigned int value);
+void kgsl_yamato_regread_isr(struct kgsl_device *device,
+			     unsigned int offsetwords,
+			     unsigned int *value);
+void kgsl_yamato_regwrite_isr(struct kgsl_device *device,
+			      unsigned int offsetwords,
+			      unsigned int value);
 
-#endif /* __KGSL_CMDSTREAM_H */
+uint8_t *kgsl_sharedmem_convertaddr(struct kgsl_device *device,
+	unsigned int pt_base, unsigned int gpuaddr, unsigned int *size);
+
+#endif /* __ADRENO_H */
