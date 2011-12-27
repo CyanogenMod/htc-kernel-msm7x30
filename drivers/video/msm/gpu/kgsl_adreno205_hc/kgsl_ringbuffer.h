@@ -202,4 +202,10 @@ static inline unsigned int adreno_ringbuffer_inc_wrapped(unsigned int val,
 	return (val + sizeof(unsigned int)) % size;
 }
 
+static inline int
+kgsl_allocate_contig(struct kgsl_memdesc *memdesc, size_t size)
+{
+	return kgsl_sharedmem_alloc_coherent(memdesc, size);
+}
+
 #endif  /* __GSL_RINGBUFFER_H */
