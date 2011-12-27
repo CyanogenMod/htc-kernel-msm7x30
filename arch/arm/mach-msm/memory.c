@@ -16,10 +16,12 @@
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/bootmem.h>
+#include <linux/memory_alloc.h>
 #include <asm/pgtable.h>
 #include <asm/io.h>
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
+#include <mach/msm_memtypes.h>
 
 int arch_io_remap_pfn_range(struct vm_area_struct *vma, unsigned long addr,
 			    unsigned long pfn, unsigned long size, pgprot_t prot)
@@ -109,3 +111,11 @@ void invalidate_caches(unsigned long vstart,
 
 	flush_axi_bus_buffer();
 }
+
+unsigned long allocate_contiguous_ebi_nomap(unsigned long size,
+	unsigned long align)
+{
+	return _allocate_contiguous_memory_nomap(size, MEMTYPE_EBI0,
+		align, __builtin_return_address(0));
+}
+EXPORT_SYMBOL(allocate_contiguous_ebi_nomap);
