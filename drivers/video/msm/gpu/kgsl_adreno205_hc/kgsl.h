@@ -38,8 +38,6 @@
 #include <linux/cdev.h>
 #include <linux/regulator/consumer.h>
 
-#include <asm/atomic.h>
-
 #include "kgsl_device.h"
 #include "kgsl_pwrctrl.h"
 #include "kgsl_sharedmem.h"
@@ -113,7 +111,6 @@ struct kgsl_driver {
 	/* Kobjects for storing pagetable and process statistics */
 	struct kobject *ptkobj;
 	struct kobject *prockobj;
-	atomic_t device_count;
 	struct kgsl_device *devp[KGSL_DEVICE_MAX];
 
 	uint32_t flags_debug;
