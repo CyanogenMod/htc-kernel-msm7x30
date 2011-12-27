@@ -1279,6 +1279,7 @@ static inline int _check_region(unsigned long start, unsigned long size,
 	return (end > len);
 }
 
+#ifdef CONFIG_ANDROID_PMEM
 static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 				struct kgsl_pagetable *pagetable,
 				unsigned int fd, unsigned int offset,
@@ -1315,6 +1316,15 @@ static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
 
 	return 0;
 }
+#else
+static int kgsl_setup_phys_file(struct kgsl_mem_entry *entry,
+				struct kgsl_pagetable *pagetable,
+				unsigned int fd, unsigned int offset,
+				size_t size)
+{
+	return -EINVAL;
+}
+#endif
 
 static int kgsl_setup_hostptr(struct kgsl_mem_entry *entry,
 			      struct kgsl_pagetable *pagetable,
@@ -1364,6 +1374,7 @@ static int kgsl_setup_hostptr(struct kgsl_mem_entry *entry,
 	return 0;
 }
 
+#ifdef CONFIG_ASHMEM
 static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
 			     struct kgsl_pagetable *pagetable,
 			     int fd, void *hostptr, size_t size)
@@ -1414,6 +1425,14 @@ err:
 	put_ashmem_file(filep);
 	return ret;
 }
+#else
+static int kgsl_setup_ashmem(struct kgsl_mem_entry *entry,
+			    struct kgsl_pagetable *pagetable,
+			    int fd, void *hostptr, size_t size)
+{
+	return -EINVAL;
+}
+#endif
 
 static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				     unsigned int cmd, void *data)
