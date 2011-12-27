@@ -826,8 +826,8 @@ static int kgsl_yamato_getproperty(struct kgsl_device *device,
 			devinfo.device_id = device->id+1;
 			devinfo.chip_id = device->chip_id;
 			devinfo.mmu_enabled = kgsl_mmu_isenabled(&device->mmu);
-			devinfo.gmem_hostbaseaddr = (unsigned int)
-					yamato_device->gmemspace.mmio_virt_base;
+//			devinfo.gpu_id = adreno_get_rev(adreno_dev);
+			devinfo.gpu_id = 205;
 			devinfo.gmem_gpubaseaddr = yamato_device->gmemspace.
 					gpu_base;
 			devinfo.gmem_sizebytes = yamato_device->gmemspace.
