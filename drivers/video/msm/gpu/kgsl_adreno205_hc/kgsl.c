@@ -1371,7 +1371,6 @@ static int kgsl_get_phys_file(int fd, unsigned long *start, unsigned long *len,
 			      unsigned long *vstart, struct file **filep)
 {
 	struct file *fbfile;
-	int put_needed;
 	int ret = 0;
 	dev_t rdev;
 	struct fb_info *info;
@@ -1380,7 +1379,7 @@ static int kgsl_get_phys_file(int fd, unsigned long *start, unsigned long *len,
 	if (!get_pmem_file(fd, start, vstart, len, filep))
 		return 0;
 
-	fbfile = fget_light(fd, &put_needed);
+	fget(fd);
 	if (fbfile == NULL) {
 		KGSL_CORE_ERR("fget_light failed\n");
 		return -1;
@@ -1399,7 +1398,7 @@ static int kgsl_get_phys_file(int fd, unsigned long *start, unsigned long *len,
 		ret = -1;
 	}
 
-	fput_light(fbfile, put_needed);
+	fput(fbfile);
 
 	return ret;
 }
