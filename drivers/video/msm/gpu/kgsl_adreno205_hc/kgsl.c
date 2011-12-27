@@ -57,6 +57,52 @@ module_param_named(ptcount, kgsl_pagetable_count, int, 0);
 MODULE_PARM_DESC(kgsl_pagetable_count,
 "Minimum number of pagetables for KGSL to allocate at initialization time");
 
+static inline struct kgsl_mem_entry *
+kgsl_mem_entry_create(void)
+{
+	struct kgsl_mem_entry *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+
+	if (!entry)
+		KGSL_CORE_ERR("kzalloc(%d) failed\n", sizeof(*entry));
+	else
+		kref_init(&entry->refcount);
+
+	return entry;
+}
+
+void
+kgsl_mem_entry_destroy(struct kref *kref)
+{
+	struct kgsl_mem_entry *entry = container_of(kref,
+						    struct kgsl_mem_entry,
+						    refcount);
+	size_t size = entry->memdesc.size;
+
+	kgsl_sharedmem_free(&entry->memdesc);
+
+	if (entry->memtype == KGSL_VMALLOC_MEMORY)
+		entry->priv->stats.vmalloc -= size;
+	else {
+		if (entry->file_ptr)
+			fput(entry->file_ptr);
+
+		entry->priv->stats.exmem -= size;
+	}
+
+	kfree(entry);
+}
+
+static
+void kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
+				   struct kgsl_process_private *process)
+{
+	spin_lock(&process->mem_lock);
+	list_add(&entry->list, &process->mem_list);
+	spin_unlock(&process->mem_lock);
+
+	entry->priv = process;
+}
+
 /* Allocate a new context id */
 
 struct kgsl_context *
@@ -129,7 +175,7 @@ static void kgsl_memqueue_cleanup(struct kgsl_device *device,
 	list_for_each_entry_safe(entry, entry_tmp, &device->memqueue, list) {
 		if (entry->priv == private) {
 			list_del(&entry->list);
-			kgsl_destroy_mem_entry(entry);
+			kgsl_mem_entry_put(entry);
 		}
 	}
 }
@@ -167,7 +213,7 @@ static void kgsl_memqueue_drain(struct kgsl_device *device)
 			break;
 
 		list_del(&entry->list);
-		kgsl_destroy_mem_entry(entry);
+		kgsl_mem_entry_put(entry);
 	}
 }
 
@@ -543,7 +589,7 @@ kgsl_put_process_private(struct kgsl_device *device,
 
 	list_for_each_entry_safe(entry, entry_tmp, &private->mem_list, list) {
 		list_del(&entry->list);
-		kgsl_destroy_mem_entry(entry);
+		kgsl_mem_entry_put(entry);
 	}
 
 #ifdef CONFIG_MSM_KGSL_MMU
@@ -1117,24 +1163,6 @@ done:
 	return result;
 }
 
-void kgsl_destroy_mem_entry(struct kgsl_mem_entry *entry)
-{
-	size_t size = entry->memdesc.size;
-
-	kgsl_sharedmem_free(&entry->memdesc);
-
-	if (entry->memtype == KGSL_VMALLOC_MEMORY)
-		entry->priv->stats.vmalloc -= size;
-	else {
-		if (entry->file_ptr)
-			fput(entry->file_ptr);
-
-		entry->priv->stats.exmem -= size;
-	}
-
-	kfree(entry);
-}
-
 static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data)
 {
@@ -1150,7 +1178,7 @@ static long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 	spin_unlock(&private->mem_lock);
 
 	if (entry) {
-		kgsl_destroy_mem_entry(entry);
+		kgsl_mem_entry_put(entry);
 	} else {
 		KGSL_CORE_ERR("invalid gpuaddr %08x\n", param->gpuaddr);
 		result = -EINVAL;
@@ -1212,11 +1240,14 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 		goto error;
 	}
 	len = vma->vm_end - vma->vm_start;
+	if (len == 0) {
+		KGSL_CORE_ERR("Invalid vma region length %d\n", len);
+		result = -EINVAL;
+		goto error;
+	}
 
-	entry = kzalloc(sizeof(struct kgsl_mem_entry), GFP_KERNEL);
+	entry = kgsl_mem_entry_create();
 	if (entry == NULL) {
-		KGSL_CORE_ERR("kzalloc(%d) failed\n",
-			sizeof(struct kgsl_mem_entry));
 		result = -ENOMEM;
 		goto error;
 	}
@@ -1226,8 +1257,6 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 					     param->flags);
 	if (result != 0)
 		goto error_free_entry;
-
-	entry->priv = private;
 
 	if (!kgsl_cache_enable)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
@@ -1242,13 +1271,11 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 
 	entry->memtype = KGSL_VMALLOC_MEMORY;
 
+	kgsl_mem_entry_attach_process(entry, private);
+
 	/* Process specific statistics */
 	KGSL_STATS_ADD(len, private->stats.vmalloc,
-		private->stats.vmalloc_max);
-
-	spin_lock(&private->mem_lock);
-	list_add(&entry->list, &private->mem_list);
-	spin_unlock(&private->mem_lock);
+		       private->stats.vmalloc_max);
 
 	kgsl_check_idle(dev_priv->device);
 	return 0;
@@ -1452,12 +1479,10 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
-	if (entry == NULL) {
-		KGSL_DRV_ERR(dev_priv->device, "kzalloc(%d) failed\n",
-			sizeof(*entry));
+	entry = kgsl_mem_entry_create();
+
+	if (entry == NULL)
 		return -ENOMEM;
-	}
 
 	kgsl_memqueue_drain_unlocked(dev_priv->device);
 
@@ -1513,7 +1538,6 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	if (result)
 		goto error_put_file_ptr;
 
-	entry->priv = private;
 	param->gpuaddr = entry->memdesc.gpuaddr;
 
 	entry->memtype = KGSL_EXTERNAL_MEMORY;
@@ -1522,9 +1546,7 @@ static long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	KGSL_STATS_ADD(param->len, private->stats.exmem,
 		       private->stats.exmem_max);
 
-	spin_lock(&private->mem_lock);
-	list_add(&entry->list, &private->mem_list);
-	spin_unlock(&private->mem_lock);
+	kgsl_mem_entry_attach_process(entry, private);
 
 	kgsl_check_idle(dev_priv->device);
 	return result;
@@ -1581,6 +1603,35 @@ done:
 	return result;
 }
 
+static long
+kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
+			unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_gpumem_alloc *param = data;
+	struct kgsl_mem_entry *entry;
+	int result;
+
+	entry = kgsl_mem_entry_create();
+	if (entry == NULL)
+		return -ENOMEM;
+
+	/* Make sure all pending freed memory is collected */
+	kgsl_memqueue_drain_unlocked(dev_priv->device);
+
+	result = kgsl_allocate_user(&entry->memdesc, private->pagetable,
+		param->size, param->flags);
+
+	if (result == 0) {
+		kgsl_mem_entry_attach_process(entry, private);
+		param->gpuaddr = entry->memdesc.gpuaddr;
+	} else
+		kfree(entry);
+
+	kgsl_check_idle(dev_priv->device);
+	return result;
+}
+
 typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,
 	unsigned int, void *);
 
@@ -1618,6 +1669,8 @@ static const struct {
 			kgsl_ioctl_sharedmem_from_vmalloc, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SHAREDMEM_FLUSH_CACHE,
 			kgsl_ioctl_sharedmem_flush_cache, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_ALLOC,
+			kgsl_ioctl_gpumem_alloc, 0),
 };
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
@@ -1693,50 +1746,100 @@ done:
 	return ret;
 }
 
+static int
+kgsl_mmap_memstore(struct kgsl_device *device, struct vm_area_struct *vma)
+{
+	struct kgsl_memdesc *memdesc = &device->memstore;
+	int result;
+	unsigned int vma_size = vma->vm_end - vma->vm_start;
+
+	/* The memstore can only be mapped as read only */
+
+	if (vma->vm_flags & VM_WRITE)
+		return -EPERM;
+
+	if (memdesc->size  !=  vma_size) {
+		KGSL_MEM_ERR(device, "memstore bad size: %d should be %d\n",
+			     vma_size, memdesc->size);
+		return -EINVAL;
+	}
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+	result = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
+				 vma_size, vma->vm_page_prot);
+	if (result != 0)
+		KGSL_MEM_ERR(device, "remap_pfn_range failed: %d\n",
+			     result);
+
+	return result;
+}
+
+static int
+kgsl_gpumem_vm_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+{
+	struct kgsl_mem_entry *entry = vma->vm_private_data;
+
+	if (!entry->memdesc.ops->vmfault)
+		return VM_FAULT_SIGBUS;
+
+	return entry->memdesc.ops->vmfault(&entry->memdesc, vma, vmf);
+}
+
+static void
+kgsl_gpumem_vm_close(struct vm_area_struct *vma)
+{
+	struct kgsl_mem_entry *entry  = vma->vm_private_data;
+	kgsl_mem_entry_put(entry);
+}
+
+static struct vm_operations_struct kgsl_gpumem_vm_ops = {
+	.fault = kgsl_gpumem_vm_fault,
+	.close = kgsl_gpumem_vm_close,
+};
+
 static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	int result = 0;
-	struct kgsl_memdesc *memdesc = NULL;
-	unsigned long vma_size = vma->vm_end - vma->vm_start;
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
 	struct inode *inodep = file->f_path.dentry->d_inode;
+	struct kgsl_device_private *dev_priv = file->private_data;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_mem_entry *entry;
 	struct kgsl_device *device;
 
 	device = kgsl_driver.devp[iminor(inodep)];
 	BUG_ON(device == NULL);
 
-	mutex_lock(&device->mutex);
+	/* Handle leagacy behavior for memstore */
 
-	/*allow device memstore to be mapped read only */
-	if (vma_offset == device->memstore.physaddr) {
-		if (vma->vm_flags & VM_WRITE) {
-			result = -EPERM;
-			goto done;
+	if (vma_offset == device->memstore.physaddr)
+		return kgsl_mmap_memstore(device, vma);
+
+	/* Find a chunk of GPU memory */
+
+	spin_lock(&private->mem_lock);
+	list_for_each_entry(entry, &private->mem_list, list) {
+		if (vma_offset == entry->memdesc.gpuaddr) {
+			kgsl_mem_entry_get(entry);
+			break;
 		}
-		memdesc = &device->memstore;
-	} else {
-		result = -EINVAL;
-		goto done;
 	}
+	spin_unlock(&private->mem_lock);
 
-	if (memdesc->size != vma_size) {
-		KGSL_MEM_ERR(device, "file %p bad size %ld, should be %d\n",
-			file, vma_size, memdesc->size);
-		result = -EINVAL;
-		goto done;
-	}
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	if (entry == NULL)
+		return -EINVAL;
 
-	result = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-				vma_size, vma->vm_page_prot);
-	if (result != 0) {
-		KGSL_MEM_ERR(device, "remap_pfn_range returned %d\n",
-			result);
-		goto done;
-	}
-done:
-	mutex_unlock(&device->mutex);
-	return result;
+	if (!entry->memdesc.ops->vmflags || !entry->memdesc.ops->vmfault)
+		return -EINVAL;
+
+	vma->vm_flags |= entry->memdesc.ops->vmflags(&entry->memdesc);
+
+	vma->vm_private_data = entry;
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	vma->vm_ops = &kgsl_gpumem_vm_ops;
+	vma->vm_file = file;
+
+	return 0;
 }
 
 static const struct file_operations kgsl_fops = {
