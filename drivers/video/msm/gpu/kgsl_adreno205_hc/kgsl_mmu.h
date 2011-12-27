@@ -62,10 +62,6 @@
 				      0, pagetable->tlbflushfilter.size)
 
 
-#ifdef CONFIG_MSM_KGSL_MMU
-extern unsigned int kgsl_cache_enable;
-#endif
-
 struct kgsl_device;
 
 struct kgsl_ptstats {

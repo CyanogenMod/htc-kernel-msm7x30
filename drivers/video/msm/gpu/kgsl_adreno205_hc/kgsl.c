@@ -19,7 +19,6 @@
 #include <linux/fb.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/init.h>
 #include <linux/list.h>
@@ -44,11 +43,10 @@
 #include "kgsl_cmdstream.h"
 #include "kgsl_postmortem.h"
 
+#include "kgsl_debugfs.h"
 #include "kgsl_log.h"
 #include "kgsl_drm.h"
 #include "kgsl_cffdump.h"
-
-static struct dentry *kgsl_debugfs_dir;
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -1058,10 +1056,6 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_ibdesc *ibdesc;
 	struct kgsl_context *context;
 
-#ifdef CONFIG_MSM_KGSL_MMU
-	if (kgsl_cache_enable)
-		kgsl_clean_cache_all(dev_priv->process_priv);
-#endif
 #ifdef CONFIG_MSM_KGSL_DRM
 	kgsl_gpu_mem_flush(DRM_KGSL_GEM_CACHE_OP_TO_DEV);
 #endif
@@ -1343,9 +1337,6 @@ kgsl_ioctl_sharedmem_from_vmalloc(struct kgsl_device_private *dev_priv,
 					     param->flags);
 	if (result != 0)
 		goto error_free_entry;
-
-	if (!kgsl_cache_enable)
-		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	result = remap_vmalloc_range(vma, (void *) entry->memdesc.hostptr, 0);
 	if (result) {
@@ -2161,13 +2152,8 @@ kgsl_register_device(struct kgsl_device *device)
 
 	/* sysfs and debugfs initalization - failure here is non fatal */
 
-	/* Create a driver entry in the kgsl debugfs directory */
-	if (kgsl_debugfs_dir && !IS_ERR(kgsl_debugfs_dir))
-		device->d_debugfs = debugfs_create_dir(device->name,
-						       kgsl_debugfs_dir);
-
 	/* Initialize logging */
-	kgsl_device_log_init(device);
+	kgsl_device_debugfs_init(device);
 
 	/* Initialize common sysfs entries */
 	kgsl_pwrctrl_init_sysfs(device);
@@ -2414,8 +2400,7 @@ static int __init kgsl_core_init(void)
 		kobject_create_and_add("proc",
 				       &kgsl_driver.virtdev.kobj);
 
-	kgsl_debugfs_dir = debugfs_create_dir("kgsl", 0);
-	kgsl_debug_init(kgsl_debugfs_dir);
+	kgsl_core_debugfs_init();
 
 	kgsl_sharedmem_init_sysfs();
 	kgsl_cffdump_init();

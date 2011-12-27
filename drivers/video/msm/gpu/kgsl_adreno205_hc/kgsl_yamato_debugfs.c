@@ -9,11 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
  */
 
 #include <linux/delay.h>
@@ -27,89 +22,48 @@
 #include "kgsl_postmortem.h"
 #include "kgsl_yamato.h"
 
-/*default log levels is error for everything*/
-#define KGSL_LOG_LEVEL_DEFAULT 3
-#define KGSL_LOG_LEVEL_MAX     7
-
-struct dentry *kgsl_debugfs_dir;
-
 unsigned int kgsl_cff_dump_enable;
-
-#ifdef CONFIG_MSM_KGSL_MMU
-unsigned int kgsl_cache_enable;
-#endif
+int kgsl_pm_regs_enabled;
 
 static uint32_t kgsl_ib_base;
 static uint32_t kgsl_ib_size;
 
-static inline int kgsl_log_set(unsigned int *log_val, void *data, u64 val)
+static struct dentry *pm_d_debugfs;
+
+
+static int pm_dump_set(void *data, u64 val)
 {
-	*log_val = min((unsigned int)val, (unsigned int)KGSL_LOG_LEVEL_MAX);
+	struct kgsl_device *device = data;
+
+	if (val) {
+		mutex_lock(&device->mutex);
+		kgsl_postmortem_dump(device, 1);
+		mutex_unlock(&device->mutex);
+	}
+
 	return 0;
 }
 
-#define KGSL_DEBUGFS_LOG(__log)                         \
-static int __log ## _set(void *data, u64 val)           \
-{                                                       \
-	struct kgsl_device *device = data;              \
-	return kgsl_log_set(&device->__log, data, val); \
-}                                                       \
-static int __log ## _get(void *data, u64 *val)	        \
-{                                                       \
-	struct kgsl_device *device = data;              \
-	*val = device->__log;                           \
-	return 0;                                       \
-}                                                       \
-DEFINE_SIMPLE_ATTRIBUTE(__log ## _fops,                 \
-__log ## _get, __log ## _set, "%llu\n");                \
+DEFINE_SIMPLE_ATTRIBUTE(pm_dump_fops,
+			NULL,
+			pm_dump_set, "%llu\n");
 
-KGSL_DEBUGFS_LOG(drv_log);
-KGSL_DEBUGFS_LOG(cmd_log);
-KGSL_DEBUGFS_LOG(ctxt_log);
-KGSL_DEBUGFS_LOG(mem_log);
-KGSL_DEBUGFS_LOG(pwr_log);
-
-void kgsl_device_log_init(struct kgsl_device *device)
+static int pm_regs_enabled_set(void *data, u64 val)
 {
-	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
-		return;
-
-	device->cmd_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->ctxt_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->drv_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->mem_log = KGSL_LOG_LEVEL_DEFAULT;
-	device->pwr_log = KGSL_LOG_LEVEL_DEFAULT;
-
-	debugfs_create_file("log_level_cmd", 0644, device->d_debugfs, device,
-			    &cmd_log_fops);
-	debugfs_create_file("log_level_ctxt", 0644, device->d_debugfs, device,
-			    &ctxt_log_fops);
-	debugfs_create_file("log_level_drv", 0644, device->d_debugfs, device,
-			    &drv_log_fops);
-	debugfs_create_file("log_level_mem", 0644, device->d_debugfs, device,
-				&mem_log_fops);
-	debugfs_create_file("log_level_pwr", 0644, device->d_debugfs, device,
-				&pwr_log_fops);
-}
-
-#ifdef CONFIG_DEBUG_FS
-
-#ifdef CONFIG_MSM_KGSL_MMU
-static int kgsl_cache_enable_set(void *data, u64 val)
-{
-	kgsl_cache_enable = (val != 0);
+	kgsl_pm_regs_enabled = val ? 1 : 0;
 	return 0;
 }
 
-static int kgsl_cache_enable_get(void *data, u64 *val)
+static int pm_regs_enabled_get(void *data, u64 *val)
 {
-	*val = kgsl_cache_enable;
+	*val = kgsl_pm_regs_enabled;
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(kgsl_cache_enable_fops, kgsl_cache_enable_get,
-			kgsl_cache_enable_set, "%llu\n");
-#endif /*CONFIG_MSM_KGSL_MMU*/
+DEFINE_SIMPLE_ATTRIBUTE(pm_regs_enabled_fops,
+			pm_regs_enabled_get,
+			pm_regs_enabled_set, "%llu\n");
+
 
 static int kgsl_cff_dump_enable_set(void *data, u64 val)
 {
@@ -466,13 +420,10 @@ static const struct file_operations kgsl_mh_debug_fops = {
 	.read = kgsl_mh_debug_read,
 };
 
-#endif /* CONFIG_DEBUG_FS */
-
-#ifdef CONFIG_DEBUG_FS
-int kgsl_yamato_debugfs_init(struct kgsl_device *device)
+void kgsl_yamato_debugfs_init(struct kgsl_device *device)
 {
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
-		return 0;
+		return;
 
 	debugfs_create_file("ib_dump",  0600, device->d_debugfs, device,
 			    &kgsl_ib_dump_fops);
@@ -487,31 +438,15 @@ int kgsl_yamato_debugfs_init(struct kgsl_device *device)
 	debugfs_create_file("cff_dump", 0644, device->d_debugfs, device,
 			    &kgsl_cff_dump_enable_fops);
 
-	return 0;
-}
-#else
-int kgsl_yamato_debugfs_init(struct kgsl_device *device)
-{
-	return 0;
-}
-#endif
+	/* Create post mortem control files */
 
-#ifdef CONFIG_DEBUG_FS
-int kgsl_debug_init(struct dentry *dir)
-{
-	if (!dir || IS_ERR(dir))
-		return 0;
+	pm_d_debugfs = debugfs_create_dir("postmortem", device->d_debugfs);
 
-#ifdef CONFIG_MSM_KGSL_MMU
-	debugfs_create_file("cache_enable", 0644, dir, 0,
-				&kgsl_cache_enable_fops);
-#endif
+	if (IS_ERR(pm_d_debugfs))
+		return;
 
-	return 0;
+	debugfs_create_file("dump",  0600, pm_d_debugfs, device,
+			    &pm_dump_fops);
+	debugfs_create_file("regs_enabled", 0644, pm_d_debugfs, device,
+			    &pm_regs_enabled_fops);
 }
-#else
-int kgsl_debug_init(struct dentry *dir)
-{
-	return 0;
-}
-#endif /* CONFIG_DEBUG_FS */
