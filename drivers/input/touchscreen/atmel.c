@@ -919,13 +919,15 @@ static void msg_process_noisesuppression(struct atmel_ts_data *ts, uint8_t *data
 static void compatible_input_report(struct input_dev *idev,
 				struct atmel_finger_data *fdata, uint8_t press, uint8_t last)
 {
-	if (!press)
+	if (!press) {
 		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, 0);
-	else {
+		input_report_key(idev, BTN_TOUCH, 0);
+	} else {
 		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, fdata->z);
 		input_report_abs(idev, ABS_MT_WIDTH_MAJOR, fdata->w);
 		input_report_abs(idev, ABS_MT_POSITION_X, fdata->x);
 		input_report_abs(idev, ABS_MT_POSITION_Y, fdata->y);
+		input_report_key(idev, BTN_TOUCH, fdata->z);
 		input_mt_sync(idev);
 	}
 }
