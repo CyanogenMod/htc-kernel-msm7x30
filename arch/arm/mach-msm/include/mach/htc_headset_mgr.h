@@ -63,7 +63,7 @@
 #define BIT_FM_SPEAKER		(1 << 4)
 #define BIT_TTY_VCO		(1 << 5)
 #define BIT_TTY_HCO		(1 << 6)
-#define BIT_35MM_HEADSET	(1 << 7)
+#define BIT_35MM_HEADSET	0
 #define BIT_TV_OUT		(1 << 8)
 #define BIT_USB_CRADLE		(1 << 9)
 #define BIT_TV_OUT_AUDIO	(1 << 10)
