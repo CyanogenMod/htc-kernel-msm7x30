@@ -243,7 +243,6 @@ static void kgsl_memqueue_freememontimestamp(struct kgsl_device *device,
 static void kgsl_memqueue_drain(struct kgsl_device *device)
 {
 	struct kgsl_mem_entry *entry, *entry_tmp;
-	struct kgsl_event *event, *event_tmp;
 	uint32_t ts_processed;
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
@@ -1767,7 +1766,7 @@ static const struct {
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_CFF_USER_EVENT,
 			kgsl_ioctl_cff_user_event, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMESTAMP_EVENT,
-			kgsl_ioctl_timestamp_event, 0),
+			kgsl_ioctl_timestamp_event, 1),
 };
 
 static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
