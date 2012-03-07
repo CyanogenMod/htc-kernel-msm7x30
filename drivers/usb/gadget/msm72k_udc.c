@@ -1212,6 +1212,23 @@ static ssize_t show_usb_cable_connect(struct device *dev,
 
 static DEVICE_ATTR(usb_cable_connect, 0444, show_usb_cable_connect, NULL);
 
+#ifdef CONFIG_USB_HTC_SWITCH_STUB
+static ssize_t show_usb_function_switch(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t store_usb_function_switch(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	return 0;
+}
+
+static DEVICE_ATTR(usb_function_switch, 0664,
+	show_usb_function_switch, store_usb_function_switch);
+#endif
+
 static ssize_t show_USB_ID_status(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
@@ -1422,6 +1439,11 @@ static void usb_prepare(struct usb_info *ui)
 		&dev_attr_usb_car_kit_enable);/*for kar kit AP check if car kit enable*/
 	if (ret != 0)
 		USB_WARNING("dev_attr_usb_car_kit_enable failed\n");
+
+#ifdef CONFIG_USB_HTC_SWITCH_STUB
+	ret = device_create_file(&ui->pdev->dev,
+		&dev_attr_usb_function_switch);
+#endif
 
 	ui->sdev.name = driver_name;
 	ui->sdev.print_name = print_switch_name;
