@@ -1106,13 +1106,15 @@ int __init vivow_init_panel(unsigned int sys_rev)
 
 	B(KERN_INFO "%s(%d): enter. panel_type 0x%08x\n", __func__, __LINE__, panel_type);
 
+#ifndef CONFIG_MACH_VIVO
 	//use dmap for hitachi panel
 	if(panel_type == PANEL_VIVOW_HITACHI)
 	{
 		mdp_pdata.overrides = 0;
 		pr_err("%s: mdp_pdata.overrides = 0\n", __func__);
 	}
-
+#endif
+	
 	msm_device_mdp.dev.platform_data = &mdp_pdata;
 	rc = platform_device_register(&msm_device_mdp);
 	if (rc)
