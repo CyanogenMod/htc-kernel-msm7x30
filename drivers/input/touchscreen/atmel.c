@@ -920,10 +920,9 @@ static void compatible_input_report(struct input_dev *idev,
 				struct atmel_finger_data *fdata, uint8_t press, uint8_t last)
 {
 	if (!press) {
-		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, 0);
 		input_report_key(idev, BTN_TOUCH, 0);
 	} else {
-		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, fdata->z);
+		input_report_abs(idev, ABS_MT_PRESSURE, fdata->z);
 		input_report_abs(idev, ABS_MT_WIDTH_MAJOR, fdata->w);
 		input_report_abs(idev, ABS_MT_POSITION_X, fdata->x);
 		input_report_abs(idev, ABS_MT_POSITION_Y, fdata->y);
@@ -1693,7 +1692,7 @@ static int atmel_ts_probe(struct i2c_client *client,
 				ts->abs_x_min, ts->abs_x_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y,
 				ts->abs_y_min, ts->abs_y_max, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR,
+	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE,
 				ts->abs_pressure_min, ts->abs_pressure_max,
 				0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR,
