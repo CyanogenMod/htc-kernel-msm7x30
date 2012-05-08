@@ -1,0 +1,6 @@
+config BT_HID_BRCM
+	bool "BRCM HID support"
+	depends on BT
+	help
+	  Say Y here to compile BRCM HID support into the kernel
+

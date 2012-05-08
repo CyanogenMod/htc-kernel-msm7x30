@@ -1,0 +1,33 @@
+/dts-v1/;
+
+/include/ "skeleton.dtsi"
+
+/ {
+	model = "Qualcomm MSM Copper";
+	compatible = "qcom,msmcopper-sim", "qcom,msmcopper";
+	interrupt-parent = <&intc>;
+
+	intc: interrupt-controller@F9000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		reg = <0xF9000000 0x1000>,
+		      <0xF9002000 0x1000>;
+	};
+
+	serial@F9684000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xF9684000 0x1000>;
+		interrupts = <109>;
+	};
+
+	usb@F9690000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0xF9690000 0x400>;
+		interrupts = <134>;
+
+		qcom,hsusb-otg-phy-type = <2>;
+		qcom,hsusb-otg-mode = <1>;
+		qcom,hsusb-otg-otg-control = <1>;
+	};
+};

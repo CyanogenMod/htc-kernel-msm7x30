@@ -1,0 +1,16 @@
+config WIMAX_SQN
+	tristate "WiMAX SQN1210 cards support"
+	depends on WIMAX && MMC
+	---help---
+	  This module adds support for wimax adapters based on
+	  SQN1120 chipset.
+
+	  This driver uses the kernel's wimax subsystem.
+
+	  If you choose to build a module, it'll be called sequans_sdio. Say M if
+	  unsure.
+
+config WIMAX_SDIO_HIGH_SPEED
+	tristate "WiMAX SDC CLK 48M support"
+	help
+	 yes means SDC CLK to 48M

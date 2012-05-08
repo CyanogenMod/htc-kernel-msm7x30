@@ -1,0 +1,29 @@
+#
+# Miscellaneous I2C chip drivers configuration
+#
+# *** DEPRECATED! Do not add new entries! See Makefile ***
+#
+
+menu "Miscellaneous I2C Chip support II"
+
+config FB_MSM_HDMI_MHL
+	depends on FB_MSM_HDMI_MSM_PANEL
+	bool "MHL"
+	default n
+	---help---
+	  Support for HDMI output through MHL
+
+config FB_MSM_HDMI_MHL_SII9234
+	depends on FB_MSM_HDMI_MHL
+	bool "MHL SII9234"
+	default n
+	---help---
+	  Support for HDMI output through MHL SiI9234
+	  MHL SII9234 Driver implemented by HTC.
+
+config INTERNAL_CHARGING_SUPPORT
+        depends on FB_MSM_HDMI_MHL_SII9234
+        boolean "INTERNAL CHARGING SUPPORT"
+        default n
+
+endmenu

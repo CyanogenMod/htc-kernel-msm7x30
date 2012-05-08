@@ -1,0 +1,7 @@
+config QUALCOMM_WLAN
+	tristate "Qualcomm wireless cards support"
+
+	---help---
+	  This module adds support for wireless adapters based on
+	  Qualcomm chipset.
+

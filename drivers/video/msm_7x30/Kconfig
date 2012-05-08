@@ -1,0 +1,103 @@
+config FB_MSM
+	tristate
+	depends on FB && ARCH_MSM
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	default y
+
+config FB_MSM_LEGACY_MDP
+	bool
+	depends on FB_MSM && (MSM_MDP30 || MSM_MDP31 || MSM_MDP302)
+	default y
+
+config FB_MSM_MDP_PPP
+	bool
+	depends on FB_MSM_LEGACY_MDP
+	default y
+
+config FB_MSM_LCDC
+	bool "Support for integrated LCD controller in qsd8x50 ,MSM7x27 and MSM7x30"
+	depends on FB_MSM && (MSM_MDP31 || MSM_MDP302 || MSM_MDP40)
+	default n
+
+config FB_MSM_DTV
+	bool "Support for TV-Out in qsd8x50"
+	depends on FB_MSM && MSM_MDP40
+	default n
+
+config FB_MSM_TVOUT
+	bool "Support for TV-Out in qsd8x50"
+	depends on FB_MSM && (MSM_MDP31 || MSM_MDP40)
+	default n
+
+config FB_MSM_OVERLAY
+	bool "Support for overlay in MSM7X30"
+	depends on FB_MSM && MSM_MDP40
+	default y
+
+config FB_MSM_DTV
+	depends on FB_MSM_OVERLAY
+	bool
+	default n
+
+config FB_MSM_MDP_ABL
+        bool "Support QCT auto backlight scaling"
+        depends on FB_MSM && (MSM_MDP40)
+        default n
+
+config MSM_ROTATOR
+        tristate "MSM Offline Image Rotator Driver"
+        depends on ARCH_MSM7X30 && ANDROID_PMEM
+        default y
+        help
+          This driver provides support for the image rotator HW block in the
+          MSM 7x30 SoC.
+
+config MSM_ROTATOR_USE_IMEM
+        bool "Enable rotator driver to use iMem"
+        depends on MSM_ROTATOR
+        default y
+        help
+          This option enables the msm_rotator driver to use the move efficient
+          iMem.  Some MSM platforms may not have iMem available for the rotator
+          block.  Or some systems may want the iMem to be dedicated to a
+          different function.
+
+config MSM_HDMI_COMMON
+	bool "Turn on HDMI common interface"
+	depends on FB_MSM_OVERLAY && MSM_MDP40
+	bool
+	default n
+
+config MSM_HDMI
+	bool "Support for HDMI in QCT platform"
+	depends on MSM_MDP31 || MSM_MDP40
+	default n
+
+config MSM_HDMI_MHL
+	bool "Turn on MHL chip driver"
+	depends on FB_MSM_OVERLAY && MSM_MDP40
+	bool
+	default n
+
+config MSM_HDMI_MHL_SII9232
+	bool "support sii9232 driver"
+	depends on MSM_HDMI_MHL && MSM_MDP40
+	bool
+	default n
+
+config MDP_UNDERRUN_WORKAROUND_DISABLED
+	bool "Disable MDP workaround"
+	depends on FB_MSM
+	default n
+
+config MDP4_HW_VSYNC
+	bool "QCT hardware TE"
+	depends on MSM_MDP40
+	default n
+
+config MDP_RAISE_CLOCK
+	bool "Raise MDP clock when qhd"
+	depends on MSM_MDP40
+	default n

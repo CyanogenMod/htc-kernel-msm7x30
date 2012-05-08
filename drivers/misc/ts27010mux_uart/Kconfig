@@ -1,0 +1,11 @@
+#
+# TS 27.010 configuration
+#
+
+menu "Motorola TS 27.010 Mux driver over UART"
+
+config MOT_FEAT_TS27010MUX_UART
+        tristate "Motorola TS 27.010 Mux driver over UART"
+        default n
+
+endmenu
