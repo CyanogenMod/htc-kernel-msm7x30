@@ -1,0 +1,8 @@
+Change-Id: I5217b58fc3683344439421ca6d82b43ddb1605e8
+Code-Review+2: Ricardo Cerqueira <cyanogenmod@cerqueira.org>
+Verified+1: Ricardo Cerqueira <cyanogenmod@cerqueira.org>
+Submitted-by: Ricardo Cerqueira <cyanogenmod@cerqueira.org>
+Submitted-at: Mon, 14 May 2012 02:52:44 +0400
+Reviewed-on: http://review.cyanogenmod.com/15958
+Project: CyanogenMod/htc-kernel-msm7x30
+Branch: refs/heads/android-msm-2.6.35
