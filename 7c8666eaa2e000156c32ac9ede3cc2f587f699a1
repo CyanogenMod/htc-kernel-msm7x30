@@ -1,0 +1,9 @@
+Change-Id: I7c8666eaa2e000156c32ac9ede3cc2f587f699a1
+Code-Review+2: Giulio Cervera <giulio.cervera@gmail.com>
+Verified+1: Giulio Cervera <giulio.cervera@gmail.com>
+Code-Review+1: Evan McClain <aeroevan@gmail.com>
+Submitted-by: Giulio Cervera <giulio.cervera@gmail.com>
+Submitted-at: Tue, 15 May 2012 14:58:56 +0400
+Reviewed-on: http://review.cyanogenmod.com/15964
+Project: CyanogenMod/htc-kernel-msm7x30
+Branch: refs/heads/android-msm-2.6.35-ics
