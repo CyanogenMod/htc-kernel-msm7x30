@@ -920,16 +920,14 @@ static void compatible_input_report(struct input_dev *idev,
 				struct atmel_finger_data *fdata, uint8_t press, uint8_t last)
 {
 	if (!press) {
-	        input_report_key(idev, BTN_TOUCH, 0);
 		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, 0);
-	}
-	else {
-		input_report_key(idev, BTN_TOUCH, 1);
+		input_report_key(idev, BTN_TOUCH, 0);
+	} else {
 		input_report_abs(idev, ABS_MT_TOUCH_MAJOR, fdata->z);
 		input_report_abs(idev, ABS_MT_WIDTH_MAJOR, fdata->w);
 		input_report_abs(idev, ABS_MT_POSITION_X, fdata->x);
 		input_report_abs(idev, ABS_MT_POSITION_Y, fdata->y);
-		input_report_abs(idev, ABS_MT_PRESSURE, fdata->z);
+		input_report_key(idev, BTN_TOUCH, fdata->z);
 		input_mt_sync(idev);
 	}
 }
@@ -939,16 +937,12 @@ static void htc_input_report(struct input_dev *idev,
 				struct atmel_finger_data *fdata, uint8_t press, uint8_t last)
 {
 	if (!press) {
-		input_report_key(idev, BTN_TOUCH, 0);
 		input_report_abs(idev, ABS_MT_AMPLITUDE, 0);
-		input_report_abs(idev, ABS_MT_PRESSURE, 0);
 		input_report_abs(idev, ABS_MT_POSITION, BIT(31));
 	} else {
-		input_report_key(idev, BTN_TOUCH, 1);
 		input_report_abs(idev, ABS_MT_AMPLITUDE, fdata->z << 16 | fdata->w);
 		input_report_abs(idev, ABS_MT_POSITION,
 			(last ? BIT(31) : 0) | fdata->x << 16 | fdata->y);
-		input_report_abs(idev, ABS_MT_PRESSURE, fdata->z);
 	}
 }
 #endif
@@ -1685,7 +1679,7 @@ static int atmel_ts_probe(struct i2c_client *client,
 	}
 	ts->input_dev->name = "atmel-touchscreen";
 	set_bit(EV_SYN, ts->input_dev->evbit);
-	set_bit(EV_KEY, ts->input_dev->keybit);
+	set_bit(EV_KEY, ts->input_dev->evbit);
 	set_bit(BTN_TOUCH, ts->input_dev->keybit);
 	set_bit(BTN_2, ts->input_dev->keybit);
 	set_bit(EV_ABS, ts->input_dev->evbit);
@@ -1699,15 +1693,16 @@ static int atmel_ts_probe(struct i2c_client *client,
 				ts->abs_x_min, ts->abs_x_max, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y,
 				ts->abs_y_min, ts->abs_y_max, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 30, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0); 
+	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR,
+				ts->abs_pressure_min, ts->abs_pressure_max,
+				0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR,
+				ts->abs_width_min, ts->abs_width_max, 0, 0);
 #ifndef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 	input_set_abs_params(ts->input_dev, ABS_MT_AMPLITUDE,
 		0, ((ts->abs_pressure_max << 16) | ts->abs_width_max), 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION,
 		0, (BIT(31) | (ts->abs_x_max << 16) | ts->abs_y_max), 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
 #endif
 
 
